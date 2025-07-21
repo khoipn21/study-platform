@@ -14,14 +14,14 @@ type CourseService struct {
 	courseRepo     *repository.CourseRepository
 	lectureRepo    *repository.LectureRepository
 	enrollmentRepo *repository.EnrollmentRepository
-	logger         *logger.Logger
+	logger         logger.Logger
 }
 
 func NewCourseService(
 	courseRepo *repository.CourseRepository,
 	lectureRepo *repository.LectureRepository,
 	enrollmentRepo *repository.EnrollmentRepository,
-	logger *logger.Logger,
+	logger logger.Logger,
 ) *CourseService {
 	return &CourseService{
 		courseRepo:     courseRepo,

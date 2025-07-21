@@ -16,10 +16,10 @@ import (
 type CourseHandler struct {
 	pb.UnimplementedCourseServiceServer
 	courseService *service.CourseService
-	logger        *logger.Logger
+	logger        logger.Logger
 }
 
-func NewCourseHandler(courseService *service.CourseService, logger *logger.Logger) *CourseHandler {
+func NewCourseHandler(courseService *service.CourseService, logger logger.Logger) *CourseHandler {
 	return &CourseHandler{
 		courseService: courseService,
 		logger:        logger,

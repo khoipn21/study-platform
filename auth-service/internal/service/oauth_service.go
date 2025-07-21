@@ -24,7 +24,7 @@ type OAuthService struct {
 	userRepo        *repository.UserRepository
 	oauthRepo       *repository.OAuthRepository
 	authService     *AuthService
-	logger          *logger.Logger
+	logger          logger.Logger
 	oauthConfigs    map[model.OAuthProvider]*oauth2.Config
 	defaultRedirect string
 }
@@ -33,7 +33,7 @@ func NewOAuthService(
 	userRepo *repository.UserRepository,
 	oauthRepo *repository.OAuthRepository,
 	authService *AuthService,
-	logger *logger.Logger,
+	logger logger.Logger,
 	configs map[model.OAuthProvider]model.OAuthConfig,
 	defaultRedirect string,
 ) *OAuthService {

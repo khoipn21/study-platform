@@ -16,7 +16,7 @@ import (
 type AuthService struct {
 	userRepo  *repository.UserRepository
 	jwtSecret string
-	logger    *logger.Logger
+	logger    logger.Logger
 }
 
 type Claims struct {
@@ -25,7 +25,7 @@ type Claims struct {
 	jwt.RegisteredClaims
 }
 
-func NewAuthService(userRepo *repository.UserRepository, jwtSecret string, logger *logger.Logger) *AuthService {
+func NewAuthService(userRepo *repository.UserRepository, jwtSecret string, logger logger.Logger) *AuthService {
 	return &AuthService{
 		userRepo:  userRepo,
 		jwtSecret: jwtSecret,

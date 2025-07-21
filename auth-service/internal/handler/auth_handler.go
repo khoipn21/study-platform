@@ -19,10 +19,10 @@ type AuthHandler struct {
 	pb.UnimplementedAuthServiceServer
 	authService  *service.AuthService
 	oauthService *service.OAuthService
-	logger       *logger.Logger
+	logger       logger.Logger
 }
 
-func NewAuthHandler(authService *service.AuthService, oauthService *service.OAuthService, logger *logger.Logger) *AuthHandler {
+func NewAuthHandler(authService *service.AuthService, oauthService *service.OAuthService, logger logger.Logger) *AuthHandler {
 	return &AuthHandler{
 		authService:  authService,
 		oauthService: oauthService,
