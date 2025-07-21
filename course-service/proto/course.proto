@@ -1,0 +1,261 @@
+syntax = "proto3";
+
+package course;
+
+option go_package = "github.com/study-platform/course-service/proto";
+
+import "google/protobuf/timestamp.proto";
+
+service CourseService {
+    // Course management
+    rpc CreateCourse(CreateCourseRequest) returns (CreateCourseResponse);
+    rpc GetCourse(GetCourseRequest) returns (GetCourseResponse);
+    rpc UpdateCourse(UpdateCourseRequest) returns (UpdateCourseResponse);
+    rpc DeleteCourse(DeleteCourseRequest) returns (DeleteCourseResponse);
+    rpc ListCourses(ListCoursesRequest) returns (ListCoursesResponse);
+    rpc SearchCourses(SearchCoursesRequest) returns (SearchCoursesResponse);
+    
+    // Lecture management
+    rpc CreateLecture(CreateLectureRequest) returns (CreateLectureResponse);
+    rpc GetLecture(GetLectureRequest) returns (GetLectureResponse);
+    rpc UpdateLecture(UpdateLectureRequest) returns (UpdateLectureResponse);
+    rpc DeleteLecture(DeleteLectureRequest) returns (DeleteLectureResponse);
+    rpc ListLectures(ListLecturesRequest) returns (ListLecturesResponse);
+    
+    // Course enrollment
+    rpc EnrollInCourse(EnrollInCourseRequest) returns (EnrollInCourseResponse);
+    rpc GetEnrollment(GetEnrollmentRequest) returns (GetEnrollmentResponse);
+    rpc ListEnrollments(ListEnrollmentsRequest) returns (ListEnrollmentsResponse);
+}
+
+// Course messages
+message Course {
+    string id = 1;
+    string title = 2;
+    string description = 3;
+    string instructor_id = 4;
+    string instructor_name = 5;
+    string category = 6;
+    string level = 7; // beginner, intermediate, advanced
+    double price = 8;
+    string currency = 9;
+    string thumbnail_url = 10;
+    string status = 11; // draft, published, archived
+    int32 duration_minutes = 12;
+    int32 enrollment_count = 13;
+    double rating = 14;
+    int32 rating_count = 15;
+    repeated string tags = 16;
+    google.protobuf.Timestamp created_at = 17;
+    google.protobuf.Timestamp updated_at = 18;
+}
+
+message Lecture {
+    string id = 1;
+    string course_id = 2;
+    string title = 3;
+    string description = 4;
+    int32 order_number = 5;
+    int32 duration_minutes = 6;
+    string video_url = 7;
+    string video_id = 8;
+    string status = 9; // draft, published
+    bool is_free = 10;
+    google.protobuf.Timestamp created_at = 11;
+    google.protobuf.Timestamp updated_at = 12;
+}
+
+message Enrollment {
+    string id = 1;
+    string user_id = 2;
+    string course_id = 3;
+    string status = 4; // enrolled, completed, cancelled
+    double progress_percentage = 5;
+    google.protobuf.Timestamp enrolled_at = 6;
+    google.protobuf.Timestamp completed_at = 7;
+    google.protobuf.Timestamp last_accessed = 8;
+}
+
+// Course requests/responses
+message CreateCourseRequest {
+    string title = 1;
+    string description = 2;
+    string instructor_id = 3;
+    string category = 4;
+    string level = 5;
+    double price = 6;
+    string currency = 7;
+    string thumbnail_url = 8;
+    repeated string tags = 9;
+}
+
+message CreateCourseResponse {
+    Course course = 1;
+    string message = 2;
+}
+
+message GetCourseRequest {
+    string id = 1;
+}
+
+message GetCourseResponse {
+    Course course = 1;
+}
+
+message UpdateCourseRequest {
+    string id = 1;
+    string title = 2;
+    string description = 3;
+    string category = 4;
+    string level = 5;
+    double price = 6;
+    string currency = 7;
+    string thumbnail_url = 8;
+    string status = 9;
+    repeated string tags = 10;
+}
+
+message UpdateCourseResponse {
+    Course course = 1;
+    string message = 2;
+}
+
+message DeleteCourseRequest {
+    string id = 1;
+}
+
+message DeleteCourseResponse {
+    string message = 1;
+}
+
+message ListCoursesRequest {
+    int32 page = 1;
+    int32 page_size = 2;
+    string category = 3;
+    string level = 4;
+    string status = 5;
+    string instructor_id = 6;
+}
+
+message ListCoursesResponse {
+    repeated Course courses = 1;
+    int32 total_count = 2;
+    int32 page = 3;
+    int32 page_size = 4;
+}
+
+message SearchCoursesRequest {
+    string query = 1;
+    int32 page = 2;
+    int32 page_size = 3;
+    string category = 4;
+    string level = 5;
+    double min_price = 6;
+    double max_price = 7;
+    double min_rating = 8;
+}
+
+message SearchCoursesResponse {
+    repeated Course courses = 1;
+    int32 total_count = 2;
+    int32 page = 3;
+    int32 page_size = 4;
+}
+
+// Lecture requests/responses
+message CreateLectureRequest {
+    string course_id = 1;
+    string title = 2;
+    string description = 3;
+    int32 order_number = 4;
+    int32 duration_minutes = 5;
+    string video_url = 6;
+    string video_id = 7;
+    bool is_free = 8;
+}
+
+message CreateLectureResponse {
+    Lecture lecture = 1;
+    string message = 2;
+}
+
+message GetLectureRequest {
+    string id = 1;
+}
+
+message GetLectureResponse {
+    Lecture lecture = 1;
+}
+
+message UpdateLectureRequest {
+    string id = 1;
+    string title = 2;
+    string description = 3;
+    int32 order_number = 4;
+    int32 duration_minutes = 5;
+    string video_url = 6;
+    string video_id = 7;
+    string status = 8;
+    bool is_free = 9;
+}
+
+message UpdateLectureResponse {
+    Lecture lecture = 1;
+    string message = 2;
+}
+
+message DeleteLectureRequest {
+    string id = 1;
+}
+
+message DeleteLectureResponse {
+    string message = 1;
+}
+
+message ListLecturesRequest {
+    string course_id = 1;
+    string status = 2;
+    int32 page = 3;
+    int32 page_size = 4;
+}
+
+message ListLecturesResponse {
+    repeated Lecture lectures = 1;
+    int32 total_count = 2;
+    int32 page = 3;
+    int32 page_size = 4;
+}
+
+// Enrollment requests/responses
+message EnrollInCourseRequest {
+    string user_id = 1;
+    string course_id = 2;
+}
+
+message EnrollInCourseResponse {
+    Enrollment enrollment = 1;
+    string message = 2;
+}
+
+message GetEnrollmentRequest {
+    string user_id = 1;
+    string course_id = 2;
+}
+
+message GetEnrollmentResponse {
+    Enrollment enrollment = 1;
+}
+
+message ListEnrollmentsRequest {
+    string user_id = 1;
+    string status = 2;
+    int32 page = 3;
+    int32 page_size = 4;
+}
+
+message ListEnrollmentsResponse {
+    repeated Enrollment enrollments = 1;
+    int32 total_count = 2;
+    int32 page = 3;
+    int32 page_size = 4;
+}

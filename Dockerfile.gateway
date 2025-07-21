@@ -1,0 +1,36 @@
+FROM golang:1.23-alpine AS builder
+
+WORKDIR /app
+
+# Install git and ca-certificates
+RUN apk add --no-cache git ca-certificates
+
+# Copy go mod files
+COPY api-gateway/go.mod api-gateway/go.sum ./
+COPY pkg/ ../pkg/
+COPY auth-service/ ../auth-service/
+COPY course-service/ ../course-service/
+COPY progress-service/ ../progress-service/
+
+# Download dependencies
+RUN go mod download
+
+# Copy source code
+COPY api-gateway/ .
+
+# Build the application
+RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o main ./cmd/
+
+# Final stage
+FROM alpine:latest
+
+RUN apk --no-cache add ca-certificates
+
+WORKDIR /root/
+
+# Copy the binary from builder
+COPY --from=builder /app/main .
+
+EXPOSE 8080
+
+CMD ["./main"]
