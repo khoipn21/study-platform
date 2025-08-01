@@ -1,4 +1,4 @@
-version: '3.8'
+version: "3.8"
 
 services:
   postgres:
@@ -108,42 +108,167 @@ services:
       timeout: 10s
       retries: 3
 
-  video-service:
-    build:
-      context: .
-      dockerfile: Dockerfile.video
-    ports:
-      - "8084:8080"
-    depends_on:
-      postgres:
-        condition: service_healthy
-      minio:
-        condition: service_healthy
-    environment:
-      DATABASE_URL: postgres://admin:password@postgres:5432/studyplatform?sslmode=disable
-      MINIO_ENDPOINT: minio:9000
-      MINIO_ACCESS_KEY: admin
-      MINIO_SECRET_KEY: password123
-      HTTP_PORT: 8080
-    volumes:
-      - ./video-service:/app
+  # video-service:
+  #   build:
+  #     context: .
+  #     dockerfile: Dockerfile.video
+  #   ports:
+  #     - "8085:8080"
+  #   depends_on:
+  #     postgres:
+  #       condition: service_healthy
+  #     minio:
+  #       condition: service_healthy
+  #   environment:
+  #     DATABASE_URL: postgres://admin:password@postgres:5432/studyplatform?sslmode=disable
+  #     MINIO_ENDPOINT: minio:9000
+  #     MINIO_ACCESS_KEY: admin
+  #     MINIO_SECRET_KEY: password123
+  #     HTTP_PORT: 8080
+  #   volumes:
+  #     - ./video-service:/app
 
   bucket-service:
     build:
-      context: .
-      dockerfile: Dockerfile.bucket
+      context: ./bucket-service
+      dockerfile: Dockerfile
     ports:
-      - "8085:8080"
+      - "8084:8084"
     depends_on:
-      minio:
+      postgres:
         condition: service_healthy
     environment:
-      MINIO_ENDPOINT: minio:9000
-      MINIO_ACCESS_KEY: admin
-      MINIO_SECRET_KEY: password123
-      HTTP_PORT: 8080
+      # Database Configuration
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_USER: admin
+      DB_PASSWORD: password
+      DB_NAME: studyplatform
+      DB_SSLMODE: disable
+
+      # AWS S3 Configuration
+      S3_ENDPOINT: https://s3.amazonaws.com
+      S3_REGION: ap-southeast-2
+      S3_ACCESS_KEY_ID: ${S3_ACCESS_KEY_ID}
+      S3_SECRET_ACCESS_KEY: ${S3_SECRET_ACCESS_KEY}
+
+      # Bucket Names
+      S3_BUCKET_FILES: study-platform-files-khoipn-dev
+      S3_BUCKET_DOCUMENTS: study-platform-documents-khoipn-dev
+      S3_BUCKET_IMAGES: study-platform-images-khoipn-dev
+      S3_BUCKET_AVATARS: study-platform-avatars-khoipn-dev
+      S3_BUCKET_COURSE_MATERIALS: study-platform-course-materials-khoipn-dev
+
+      # Service Configuration
+      BUCKET_SERVICE_PORT: 8084
+      BUCKET_SERVICE_HOST: 0.0.0.0
+      ENVIRONMENT: development
+      JWT_SECRET: your-secret-key-here
+
+      # CORS
+      CORS_ORIGINS: http://localhost:3000,http://localhost:8080
     volumes:
       - ./bucket-service:/app
+      - bucket_logs:/app/logs
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "wget",
+          "--no-verbose",
+          "--tries=1",
+          "--spider",
+          "http://localhost:8084/health",
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  chatbot-service:
+    build:
+      context: ./chatbot-service
+      dockerfile: Dockerfile
+    ports:
+      - "8085:8084"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      # Database Configuration
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_USER: admin
+      DB_PASSWORD: password
+      DB_NAME: studyplatform
+      DB_SSLMODE: disable
+
+      # Service Configuration
+      CHATBOT_PORT: 8084
+      CHATBOT_HOST: 0.0.0.0
+
+      # OpenAI Configuration
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      OPENAI_MODEL: gpt-3.5-turbo
+      OPENAI_MAX_TOKENS: 1000
+      OPENAI_TEMPERATURE: 0.7
+
+      # Redis Configuration (optional)
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: ""
+      REDIS_DB: 0
+    volumes:
+      - ./chatbot-service:/app
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "wget",
+          "--no-verbose",
+          "--tries=1",
+          "--spider",
+          "http://localhost:8084/health",
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  forum-service:
+    build:
+      context: ./forum-service
+      dockerfile: Dockerfile
+    ports:
+      - "8086:8085"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      # Database Configuration
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_USER: admin
+      DB_PASSWORD: password
+      DB_NAME: studyplatform
+      DB_SSLMODE: disable
+
+      # Service Configuration
+      FORUM_PORT: 8085
+      FORUM_HOST: 0.0.0.0
+    volumes:
+      - ./forum-service:/app
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "wget",
+          "--no-verbose",
+          "--tries=1",
+          "--spider",
+          "http://localhost:8085/health",
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
 
   api-gateway:
     build:
@@ -155,12 +280,16 @@ services:
       - auth-service
       - course-service
       - progress-service
+      - bucket-service
+      - chatbot-service
+      - forum-service
     environment:
       AUTH_SERVICE_URL: auth-service:8080
       COURSE_SERVICE_URL: course-service:8080
       PROGRESS_SERVICE_URL: progress-service:8080
-      VIDEO_SERVICE_URL: video-service:8080
-      BUCKET_SERVICE_URL: bucket-service:8080
+      BUCKET_SERVICE_URL: http://bucket-service:8084
+      CHATBOT_SERVICE_URL: http://chatbot-service:8084
+      FORUM_SERVICE_URL: http://forum-service:8085
       JWT_SECRET: your-secret-key-here
       HTTP_PORT: 8080
     volumes:
@@ -170,6 +299,7 @@ volumes:
   postgres_data:
   redis_data:
   minio_data:
+  bucket_logs:
 
 networks:
   default:

@@ -12,6 +12,9 @@ type Router struct {
 	authHandler       *handler.AuthHandler
 	courseHandler     *handler.CourseHandler
 	progressHandler   *handler.ProgressHandler
+	bucketHandler     *handler.BucketHandler
+	chatbotHandler    *handler.ChatbotHandler
+	forumHandler      *handler.ForumHandler
 	docsHandler       *handler.DocsHandler
 	authMiddleware    *middleware.AuthMiddleware
 	loggingMiddleware *middleware.LoggingMiddleware
@@ -23,6 +26,9 @@ func NewRouter(
 	authHandler *handler.AuthHandler,
 	courseHandler *handler.CourseHandler,
 	progressHandler *handler.ProgressHandler,
+	bucketHandler *handler.BucketHandler,
+	chatbotHandler *handler.ChatbotHandler,
+	forumHandler *handler.ForumHandler,
 	docsHandler *handler.DocsHandler,
 	authMiddleware *middleware.AuthMiddleware,
 	loggingMiddleware *middleware.LoggingMiddleware,
@@ -33,6 +39,9 @@ func NewRouter(
 		authHandler:       authHandler,
 		courseHandler:     courseHandler,
 		progressHandler:   progressHandler,
+		bucketHandler:     bucketHandler,
+		chatbotHandler:    chatbotHandler,
+		forumHandler:      forumHandler,
 		docsHandler:       docsHandler,
 		authMiddleware:    authMiddleware,
 		loggingMiddleware: loggingMiddleware,
@@ -60,6 +69,17 @@ func (rt *Router) SetupRoutes() *mux.Router {
 	// Documentation endpoints
 	api.HandleFunc("/docs/openapi.json", rt.docsHandler.GetAPISpec).Methods("GET")
 	api.HandleFunc("/docs", rt.docsHandler.GetSwaggerUI).Methods("GET")
+	
+	// Debug endpoint for testing
+	api.HandleFunc("/debug/files", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(`{"message": "Debug endpoint works", "path": "` + r.URL.Path + `"}`))
+	}).Methods("GET")
+	
+	// Direct file routes for testing
+	api.HandleFunc("/files", rt.bucketHandler.ListFiles).Methods("GET")
+	api.HandleFunc("/files/upload", rt.bucketHandler.UploadFile).Methods("POST")
 
 	// Auth routes (no authentication required)
 	authRoutes := api.PathPrefix("/auth").Subrouter()
@@ -117,6 +137,23 @@ func (rt *Router) SetupRoutes() *mux.Router {
 	analyticsRoutes.Use(rt.authMiddleware.RequireAuth)
 	analyticsRoutes.HandleFunc("/user", rt.progressHandler.GetUserAnalytics).Methods("GET")
 
+	// File management routes (protected - require authentication)
+	protectedFileRoutes := api.PathPrefix("/files").Subrouter()
+	protectedFileRoutes.Use(rt.authMiddleware.RequireAuth)
+	
+	// File operations
+	protectedFileRoutes.HandleFunc("/upload", rt.bucketHandler.UploadFile).Methods("POST")
+	protectedFileRoutes.HandleFunc("", rt.bucketHandler.ListFiles).Methods("GET")
+	protectedFileRoutes.HandleFunc("/{fileId}", rt.bucketHandler.DownloadFile).Methods("GET")
+	protectedFileRoutes.HandleFunc("/{fileId}", rt.bucketHandler.DeleteFile).Methods("DELETE")
+	protectedFileRoutes.HandleFunc("/{fileId}/metadata", rt.bucketHandler.GetFileMetadata).Methods("GET")
+	
+	// Multipart upload operations
+	protectedFileRoutes.HandleFunc("/upload/start", rt.bucketHandler.StartMultipartUpload).Methods("POST")
+	protectedFileRoutes.HandleFunc("/upload/{sessionId}/complete", rt.bucketHandler.CompleteMultipartUpload).Methods("POST")
+	protectedFileRoutes.HandleFunc("/upload/{sessionId}", rt.bucketHandler.AbortMultipartUpload).Methods("DELETE")
+	protectedFileRoutes.HandleFunc("/upload/{sessionId}/progress", rt.bucketHandler.GetUploadProgress).Methods("GET")
+
 	// Admin routes (require admin role)
 	adminRoutes := api.PathPrefix("/admin").Subrouter()
 	adminRoutes.Use(rt.authMiddleware.RequireAuth)
@@ -128,6 +165,59 @@ func (rt *Router) SetupRoutes() *mux.Router {
 	instructorRoutes.Use(rt.authMiddleware.RequireAuth)
 	instructorRoutes.Use(rt.authMiddleware.RequireInstructor)
 	// Add instructor-specific routes here as needed
+
+	// Chatbot routes
+	chatRoutes := api.PathPrefix("/chat").Subrouter()
+	chatRoutes.Use(rt.authMiddleware.RequireAuth)
+	
+	// Chat session management
+	chatRoutes.HandleFunc("/sessions", rt.chatbotHandler.CreateSession).Methods("POST")
+	chatRoutes.HandleFunc("/sessions", rt.chatbotHandler.GetUserSessions).Methods("GET")
+	chatRoutes.HandleFunc("/sessions/{sessionId}", rt.chatbotHandler.GetSession).Methods("GET")
+	chatRoutes.HandleFunc("/sessions/{sessionId}", rt.chatbotHandler.UpdateSession).Methods("PUT")
+	chatRoutes.HandleFunc("/sessions/{sessionId}", rt.chatbotHandler.DeleteSession).Methods("DELETE")
+	
+	// Chat messaging
+	chatRoutes.HandleFunc("/message", rt.chatbotHandler.SendMessage).Methods("POST")
+	chatRoutes.HandleFunc("/sessions/{sessionId}/messages", rt.chatbotHandler.GetMessages).Methods("GET")
+	
+	// WebSocket endpoint for real-time chat
+	chatRoutes.HandleFunc("/ws", rt.chatbotHandler.HandleWebSocket).Methods("GET")
+
+	// Forum routes
+	forumRoutes := api.PathPrefix("/forum").Subrouter()
+	
+	// Public forum routes (can work without auth but benefit from it)
+	forumRoutes.HandleFunc("/topics", rt.forumHandler.ListTopics).Methods("GET")
+	forumRoutes.HandleFunc("/topics/{topicId}", rt.forumHandler.GetTopic).Methods("GET")
+	forumRoutes.HandleFunc("/topics/{topicId}/posts", rt.forumHandler.ListPosts).Methods("GET")
+	forumRoutes.HandleFunc("/posts/{postId}", rt.forumHandler.GetPost).Methods("GET")
+	forumRoutes.HandleFunc("/search", rt.forumHandler.SearchTopics).Methods("GET")
+	
+	// Course-specific forum routes
+	forumRoutes.HandleFunc("/courses/{courseId}/topics", rt.forumHandler.ListCourseTopics).Methods("GET")
+
+	// Protected forum routes (require authentication)
+	protectedForumRoutes := api.PathPrefix("/forum").Subrouter()
+	protectedForumRoutes.Use(rt.authMiddleware.RequireAuth)
+	
+	// Topic management
+	protectedForumRoutes.HandleFunc("/topics", rt.forumHandler.CreateTopic).Methods("POST")
+	protectedForumRoutes.HandleFunc("/topics/{topicId}", rt.forumHandler.UpdateTopic).Methods("PUT")
+	protectedForumRoutes.HandleFunc("/topics/{topicId}", rt.forumHandler.DeleteTopic).Methods("DELETE")
+	protectedForumRoutes.HandleFunc("/topics/{topicId}/sticky", rt.forumHandler.ToggleTopicSticky).Methods("PUT")
+	protectedForumRoutes.HandleFunc("/topics/{topicId}/lock", rt.forumHandler.ToggleTopicLock).Methods("PUT")
+	
+	// Post management
+	protectedForumRoutes.HandleFunc("/posts", rt.forumHandler.CreatePost).Methods("POST")
+	protectedForumRoutes.HandleFunc("/posts/{postId}", rt.forumHandler.UpdatePost).Methods("PUT")
+	protectedForumRoutes.HandleFunc("/posts/{postId}", rt.forumHandler.DeletePost).Methods("DELETE")
+	protectedForumRoutes.HandleFunc("/posts/{postId}/answer", rt.forumHandler.MarkPostAsAnswer).Methods("PUT")
+	protectedForumRoutes.HandleFunc("/posts/{postId}/pin", rt.forumHandler.TogglePostPin).Methods("PUT")
+	
+	// Voting
+	protectedForumRoutes.HandleFunc("/votes", rt.forumHandler.VotePost).Methods("POST")
+	protectedForumRoutes.HandleFunc("/posts/{postId}/vote", rt.forumHandler.RemoveVote).Methods("DELETE")
 
 	return r
 }

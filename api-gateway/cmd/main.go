@@ -22,10 +22,13 @@ func main() {
 	log := logger.New()
 	log.Info("Starting API Gateway...")
 
-	// gRPC connection configurations
+	// Service connection configurations
 	authServiceURL := getEnv("AUTH_SERVICE_URL", "localhost:8081")
 	courseServiceURL := getEnv("COURSE_SERVICE_URL", "localhost:8082")
 	progressServiceURL := getEnv("PROGRESS_SERVICE_URL", "localhost:8083")
+	bucketServiceURL := getEnv("BUCKET_SERVICE_URL", "http://localhost:8084")
+	chatbotServiceURL := getEnv("CHATBOT_SERVICE_URL", "http://localhost:8085")
+	forumServiceURL := getEnv("FORUM_SERVICE_URL", "http://localhost:8086")
 
 	// Initialize circuit breaker and retry managers
 	circuitBreakerConfig := middleware.CircuitBreakerConfig{
@@ -39,6 +42,7 @@ func main() {
 	retryManager.SetConfig("auth-service", middleware.DefaultRetryConfig())
 	retryManager.SetConfig("course-service", middleware.DefaultRetryConfig())
 	retryManager.SetConfig("progress-service", middleware.DefaultRetryConfig())
+	retryManager.SetConfig("bucket-service", middleware.DefaultRetryConfig())
 
 	// Connect to auth service with circuit breaker and retry
 	authCB := circuitBreakerManager.GetCircuitBreaker("auth-service")
@@ -82,6 +86,9 @@ func main() {
 	authHandler := handler.NewAuthHandler(authConn, log)
 	courseHandler := handler.NewCourseHandler(courseConn, log)
 	progressHandler := handler.NewProgressHandler(progressConn, log)
+	bucketHandler := handler.NewBucketHandler(bucketServiceURL, log)
+	chatbotHandler := handler.NewChatbotHandler(chatbotServiceURL)
+	forumHandler := handler.NewForumHandler(forumServiceURL)
 	docsHandler := handler.NewDocsHandler()
 
 	// Initialize middleware
@@ -95,6 +102,9 @@ func main() {
 		authHandler,
 		courseHandler,
 		progressHandler,
+		bucketHandler,
+		chatbotHandler,
+		forumHandler,
 		docsHandler,
 		authMiddleware,
 		loggingMiddleware,

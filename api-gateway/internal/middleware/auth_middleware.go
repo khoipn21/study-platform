@@ -2,6 +2,7 @@ package middleware
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"strings"
 	"time"
@@ -56,7 +57,7 @@ func (am *AuthMiddleware) RequireAuth(next http.Handler) http.Handler {
 
 		resp, err := am.authClient.ValidateToken(ctx, req)
 		if err != nil {
-			am.logger.Errorf("Token validation failed: %v", err)
+			am.logger.Error(fmt.Errorf("token validation failed: %w", err))
 			am.sendError(w, http.StatusUnauthorized, "Invalid token")
 			return
 		}

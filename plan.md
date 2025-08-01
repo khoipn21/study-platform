@@ -10,7 +10,7 @@ The Online Learning Platform is a microservices-based application providing cour
 - **API Gateway**: Single entry point for clients
 - **Frontend**: Web application (separate from this plan)
 - **Databases**: PostgreSQL for persistent storage
-- **Object Storage**: Bucket service for video files
+- **Object Storage**: Bucket service for documents and files (videos handled separately via Cloudflare Stream)
 - **Containerization**: Docker for deployment
 - **CI/CD**: GitHub Actions
 
@@ -40,22 +40,24 @@ The Online Learning Platform is a microservices-based application providing cour
 
 ### 2.4 Video Service
 
-- Video processing and metadata management
-- Video streaming control
-- Access management
-- Protocol: HTTP
-- Database: PostgreSQL (video metadata)
-- Integration: Bucket Service for storage
+- Video processing and metadata management via Cloudflare Stream
+- Adaptive streaming with network intelligence
+- Real-time quality optimization using Redis message queue
+- Video analytics and viewing session tracking
+- Protocol: HTTP + WebSocket
+- Database: PostgreSQL (video metadata and analytics)
+- Integration: Cloudflare Stream for video hosting, Redis for real-time intelligence
 
 ### 2.5 Bucket Service
 
-- Video file storage and retrieval
-- Multi-format video processing
-- Thumbnail generation
+- Document and file storage (PDFs, images, course materials)
+- User avatar and course thumbnail management
+- Image processing and thumbnail generation
 - Secure access control via signed URLs
 - Protocol: HTTP
-- Storage: Object storage system (MinIO, AWS S3, or similar)
-- Integration: CDN for content delivery
+- Storage: Object storage system (AWS S3 or MinIO)
+- Integration: CDN for static content delivery
+- **Note**: Video files are handled by Video Service + Cloudflare Stream
 
 ### 2.6 Chatbot Service
 
@@ -142,12 +144,16 @@ CREATE TABLE lectures (
 CREATE TABLE videos (
     id UUID PRIMARY KEY,
     lecture_id UUID REFERENCES lectures(id),
+    cloudflare_uid VARCHAR(255) UNIQUE NOT NULL,
     title VARCHAR(100) NOT NULL,
     description TEXT,
-    bucket_path TEXT NOT NULL,
-    formats JSONB,
-    duration INT,
+    status VARCHAR(20) DEFAULT 'processing',
+    duration_seconds INTEGER,
     thumbnail_url TEXT,
+    stream_url TEXT,
+    upload_user_id UUID NOT NULL,
+    visibility VARCHAR(20) DEFAULT 'private',
+    metadata JSONB,
     created_at TIMESTAMP NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMP NOT NULL DEFAULT NOW()
 );
@@ -316,25 +322,32 @@ service ProgressService {
 }
 ```
 
-### 4.4 Video Service HTTP
+### 4.4 Video Service HTTP + WebSocket
 
 ```
-GET /api/videos/{video_id}/metadata
-GET /api/videos/{video_id}/stream
+GET /api/videos/{video_id}
 POST /api/videos/upload
 PUT /api/videos/{video_id}
 DELETE /api/videos/{video_id}
+POST /api/videos/{video_id}/sessions
+PUT /api/videos/sessions/{session_id}/progress
+POST /api/videos/sessions/{session_id}/network
+GET /api/videos/{video_id}/analytics
+POST /api/videos/webhooks/cloudflare
+WebSocket: /api/videos/ws/{session_id}
 ```
 
 ### 4.5 Bucket Service HTTP
 
 ```
-GET /api/storage/videos/{video_id}
-GET /api/storage/videos/{video_id}/formats/{format}
-GET /api/storage/videos/{video_id}/thumbnail
-POST /api/storage/videos/upload
-PUT /api/storage/videos/{video_id}
-DELETE /api/storage/videos/{video_id}
+POST /api/files/upload
+POST /api/files/upload/start
+POST /api/files/upload/complete
+GET /api/files/{file_id}
+GET /api/files/{file_id}/metadata
+DELETE /api/files/{file_id}
+GET /api/files
+GET /api/files/public/{file_id}
 ```
 
 ### 4.6 Chatbot Service HTTP/WebSocket
@@ -392,11 +405,12 @@ DELETE /api/payments/subscriptions/{subscription_id}
 
 ### 5.3 Phase 3: Video and Storage Services (Week 5-6)
 
-- Implement Bucket Service with object storage
-- Set up video processing capabilities
-- Implement Video Service with metadata management
-- Integrate with CDN for content delivery
-- Implement secure access control
+- Implement Bucket Service for documents, images, and course materials
+- Set up S3 integration for file storage and CDN for static content
+- Implement Video Service with Cloudflare Stream integration
+- Set up Redis for real-time network intelligence and quality optimization
+- Implement WebSocket for adaptive streaming control
+- Add video analytics and viewing session tracking
 
 ### 5.4 Phase 4: Chatbot and Forum Services (Week 7-8)
 
@@ -521,11 +535,11 @@ DELETE /api/payments/subscriptions/{subscription_id}
 
 - Connection pooling for database access
 - Caching strategies for frequently accessed data
-- Efficient video streaming with adaptive bitrate
-- Chunked video transfers for better performance
+- Efficient video streaming via Cloudflare Stream with adaptive bitrate
+- Real-time quality optimization based on network conditions
 - Proper indexing of database tables
-- CDN for static assets, videos, and course thumbnails
-- Parallel video processing for different formats
+- CDN for static assets and course materials (videos handled by Cloudflare CDN)
+- Smart preloading and buffer management for video streaming
 
 ### 7.2 Security Measures
 
@@ -536,8 +550,8 @@ DELETE /api/payments/subscriptions/{subscription_id}
 - Input validation and sanitization
 - PCI compliance for payment processing
 - Data encryption for sensitive information
-- Signed URLs for secure video access
-- Bucket access control policies
+- Signed URLs for secure video access via Cloudflare Stream
+- File access control policies for documents and images
 
 ### 7.3 Scalability Approach
 
@@ -547,7 +561,8 @@ DELETE /api/payments/subscriptions/{subscription_id}
 - Health checks and auto-recovery
 - Sharding for high-traffic services
 - Stateless design for easier scaling
-- Autoscaling bucket storage based on demand
+- Autoscaling file storage based on demand
+- Global video delivery via Cloudflare's edge network
 
 ### 7.4 Error Handling
 
@@ -571,7 +586,7 @@ DELETE /api/payments/subscriptions/{subscription_id}
 - Test service-to-service communication
 - Test database interactions
 - Validate API contracts
-- Test video upload and streaming flows
+- Test video upload to Cloudflare and streaming flows
 
 ### 8.3 Load Testing
 
@@ -579,7 +594,7 @@ DELETE /api/payments/subscriptions/{subscription_id}
 - Measure response times under load
 - Identify bottlenecks
 - Test payment processing under concurrent transactions
-- Test video streaming with multiple concurrent users
+- Test adaptive video streaming with network intelligence
 
 ### 8.4 End-to-End Testing
 
@@ -587,7 +602,7 @@ DELETE /api/payments/subscriptions/{subscription_id}
 - Validate business requirements
 - Ensure proper error handling
 - Test forum and payment features
-- Test video upload, processing, and playback
+- Test video upload to Cloudflare, processing webhooks, and adaptive playback
 
 ## 9. Deployment Strategy
 
@@ -597,7 +612,8 @@ DELETE /api/payments/subscriptions/{subscription_id}
 - Development database with sample data
 - Hot reloading for faster development
 - Mock payment gateway for testing
-- Local MinIO instance for bucket storage testing
+- Local MinIO instance for file storage testing
+- Cloudflare Stream test account for video development
 
 ### 9.2 Production Deployment
 
@@ -606,7 +622,8 @@ DELETE /api/payments/subscriptions/{subscription_id}
 - Database migration strategy
 - Backup and recovery procedures
 - Secure payment processing environment
-- S3-compatible object storage in production
+- S3-compatible object storage for files in production
+- Cloudflare Stream production account for video delivery
 
 ## 10. Future Enhancements
 
@@ -617,8 +634,8 @@ DELETE /api/payments/subscriptions/{subscription_id}
 - Implement event-driven architecture
 - Add monitoring and alerting
 - Enhance payment analytics
-- Video content analysis and search
-- Automated video captioning
+- Video content analysis via Cloudflare Stream APIs
+- Automated video captioning and transcription
 
 ### 10.2 Feature Enhancements
 
@@ -629,5 +646,5 @@ DELETE /api/payments/subscriptions/{subscription_id}
 - Advanced analytics
 - Multiple payment options
 - Affiliate marketing system
-- Live streaming capabilities
-- Interactive video features
+- Live streaming via Cloudflare Stream Live
+- Interactive video features with real-time engagement

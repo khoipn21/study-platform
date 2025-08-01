@@ -314,6 +314,176 @@ func (h *DocsHandler) GetAPISpec(w http.ResponseWriter, r *http.Request) {
           }
         }
       }
+    },
+    "/files/upload": {
+      "post": {
+        "summary": "Upload file",
+        "description": "Upload a single file (documents, images, archives)",
+        "security": [{"bearerAuth": []}],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "required": ["file"],
+                "properties": {
+                  "file": {"type": "string", "format": "binary"},
+                  "bucket": {"type": "string", "enum": ["documents", "images", "avatars", "course-materials"], "example": "documents"},
+                  "is_public": {"type": "boolean", "default": false},
+                  "metadata": {"type": "string", "description": "JSON metadata"}
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "File uploaded successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "file_id": {"type": "string", "example": "123e4567-e89b-12d3-a456-426614174000"},
+                    "filename": {"type": "string", "example": "document.pdf"},
+                    "size": {"type": "integer", "example": 1024000},
+                    "content_type": {"type": "string", "example": "application/pdf"},
+                    "url": {"type": "string", "example": "https://s3.amazonaws.com/bucket/file.pdf"},
+                    "thumbnail_url": {"type": "string", "example": "https://s3.amazonaws.com/bucket/thumb.jpg"}
+                  }
+                }
+              }
+            }
+          },
+          "400": {"description": "Invalid file or file too large"},
+          "401": {"description": "Unauthorized"}
+        }
+      }
+    },
+    "/files/{fileId}": {
+      "get": {
+        "summary": "Download file",
+        "description": "Download a file (redirects to S3 presigned URL)",
+        "security": [{"bearerAuth": []}],
+        "parameters": [
+          {
+            "name": "fileId",
+            "in": "path",
+            "required": true,
+            "schema": {"type": "string"}
+          }
+        ],
+        "responses": {
+          "302": {"description": "Redirect to file download URL"},
+          "401": {"description": "Unauthorized"},
+          "403": {"description": "Access denied"},
+          "404": {"description": "File not found"}
+        }
+      },
+      "delete": {
+        "summary": "Delete file",
+        "description": "Delete a file",
+        "security": [{"bearerAuth": []}],
+        "parameters": [
+          {
+            "name": "fileId", 
+            "in": "path",
+            "required": true,
+            "schema": {"type": "string"}
+          }
+        ],
+        "responses": {
+          "200": {"description": "File deleted successfully"},
+          "401": {"description": "Unauthorized"},
+          "403": {"description": "Access denied"},
+          "404": {"description": "File not found"}
+        }
+      }
+    },
+    "/files": {
+      "get": {
+        "summary": "List files",
+        "description": "Get user files with pagination and filtering",
+        "security": [{"bearerAuth": []}],
+        "parameters": [
+          {"name": "page", "in": "query", "schema": {"type": "integer", "default": 1}},
+          {"name": "limit", "in": "query", "schema": {"type": "integer", "default": 20}},
+          {"name": "bucket", "in": "query", "schema": {"type": "string"}},
+          {"name": "content_type", "in": "query", "schema": {"type": "string"}},
+          {"name": "search", "in": "query", "schema": {"type": "string"}}
+        ],
+        "responses": {
+          "200": {
+            "description": "List of files",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "files": {"type": "array", "items": {"type": "object"}},
+                    "total": {"type": "integer"},
+                    "page": {"type": "integer"},
+                    "limit": {"type": "integer"},
+                    "total_pages": {"type": "integer"}
+                  }
+                }
+              }
+            }
+          },
+          "401": {"description": "Unauthorized"}
+        }
+      }
+    },
+    "/files/upload/start": {
+      "post": {
+        "summary": "Start multipart upload",
+        "description": "Start multipart upload for large files",
+        "security": [{"bearerAuth": []}],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["filename", "content_type", "size"],
+                "properties": {
+                  "filename": {"type": "string", "example": "large-document.pdf"},
+                  "content_type": {"type": "string", "example": "application/pdf"},
+                  "size": {"type": "integer", "example": 104857600},
+                  "bucket": {"type": "string", "example": "documents"}
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Multipart upload started",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "session_id": {"type": "string"},
+                    "upload_id": {"type": "string"},
+                    "presigned_urls": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "part_number": {"type": "integer"},
+                          "url": {"type": "string"}
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {

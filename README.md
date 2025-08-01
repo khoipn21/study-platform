@@ -72,7 +72,7 @@ curl http://localhost:8080/api/v1/health/circuit-breakers
 
 Open your browser and navigate to:
 - **Swagger UI**: http://localhost:8080/api/v1/docs
-- **OpenAPI Spec**: http://localhost:8080/api/v1/docs/openapi.json
+- **OpenAPI Spec**: http://localhost:8080/api/v1/docs/openapi.jsonV
 
 ## 📋 Services Overview
 
