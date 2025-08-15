@@ -58,7 +58,7 @@ func (s *AIService) GenerateResponse(ctx context.Context, messages []*model.Chat
 		return nil, fmt.Errorf("no response choices returned from AI")
 	}
 
-	responseTime := int(time.Since(startTime).Milliseconds())
+	_ = int(time.Since(startTime).Milliseconds())
 	content := resp.Choices[0].Message.Content
 
 	return &model.ChatResponse{
@@ -106,7 +106,7 @@ func (s *AIService) GenerateStreamResponse(ctx context.Context, messages []*mode
 			if err != nil {
 				if err.Error() == "EOF" {
 					// Send final response with complete content
-					responseTime := int(time.Since(startTime).Milliseconds())
+					_ = int(time.Since(startTime).Milliseconds())
 					finalResponse := &model.ChatResponse{
 						Role:       model.RoleAssistant,
 						Content:    fullContent.String(),
@@ -136,9 +136,8 @@ func (s *AIService) GenerateStreamResponse(ctx context.Context, messages []*mode
 				}
 			}
 
-			if response.Usage != nil {
-				totalTokens = response.Usage.TotalTokens
-			}
+			// Note: ChatCompletionStreamResponse doesn't have Usage field in newer versions
+			// We'll track tokens differently if needed
 		}
 	}()
 

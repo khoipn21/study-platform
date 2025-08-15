@@ -13,6 +13,7 @@ import (
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 	"github.com/joho/godotenv"
 	_ "github.com/lib/pq"
 )
@@ -34,17 +35,20 @@ func main() {
 	defer db.Close()
 
 	// Initialize repositories
-	chatRepo := repository.NewChatRepository(db)
+	chatRepo := repository.NewSimpleChatRepository(db)
+	simpleAnalyticsRepo := repository.NewSimpleAnalyticsRepository(db)
 
 	// Initialize services
 	aiService := service.NewAIService(&cfg.OpenAI)
+	analyticsService := service.NewSimpleAnalyticsService(simpleAnalyticsRepo, chatRepo)
 
 	// Initialize handlers
-	chatHandler := handler.NewChatHandler(chatRepo, aiService)
-	wsHandler := handler.NewWebSocketHandler(chatRepo, aiService)
+	chatHandler := handler.NewSimpleChatHandler(chatRepo, aiService)
+	wsHandler := handler.NewSimpleWebSocketHandler(chatRepo, aiService)
+	analyticsHandler := handler.NewAnalyticsHandler(analyticsService)
 
 	// Setup router
-	router := setupRouter(chatHandler, wsHandler)
+	router := setupRouter(chatHandler, wsHandler, analyticsHandler)
 
 	// Start server
 	addr := fmt.Sprintf("%s:%s", cfg.Server.Host, cfg.Server.Port)
@@ -71,7 +75,7 @@ func connectDB(cfg config.DatabaseConfig) (*sql.DB, error) {
 	return db, nil
 }
 
-func setupRouter(chatHandler *handler.ChatHandler, wsHandler *handler.WebSocketHandler) *gin.Engine {
+func setupRouter(chatHandler *handler.SimpleChatHandler, wsHandler *handler.SimpleWebSocketHandler, analyticsHandler *handler.AnalyticsHandler) *gin.Engine {
 	router := gin.Default()
 
 	// CORS middleware
@@ -98,9 +102,16 @@ func setupRouter(chatHandler *handler.ChatHandler, wsHandler *handler.WebSocketH
 			return
 		}
 
+		// Parse UUID
+		userID, err := uuid.Parse(userIDStr)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid user ID format"})
+			c.Abort()
+			return
+		}
+
 		// In production, validate JWT token and extract user info
-		// For now, we'll just set a dummy user ID
-		c.Set("user_id", userIDStr)
+		c.Set("user_id", userID)
 		c.Next()
 	}
 
@@ -121,6 +132,22 @@ func setupRouter(chatHandler *handler.ChatHandler, wsHandler *handler.WebSocketH
 
 		// WebSocket endpoint
 		api.GET("/ws", wsHandler.HandleWebSocket)
+
+		// Analytics endpoints
+		analytics := api.Group("/analytics")
+		{
+			analytics.GET("/overall", analyticsHandler.GetOverallAnalytics)
+			analytics.GET("/me", analyticsHandler.GetMyAnalytics)
+			analytics.GET("/user/:userID", analyticsHandler.GetUserAnalytics)
+			analytics.GET("/course/:courseID", analyticsHandler.GetCourseAnalytics)
+			analytics.GET("/time-based", analyticsHandler.GetTimeBasedAnalytics)
+			analytics.GET("/real-time", analyticsHandler.GetRealTimeMetrics)
+			analytics.GET("/sessions", analyticsHandler.GetSessionMetrics)
+			analytics.GET("/usage", analyticsHandler.GetUsageStats)
+			analytics.GET("/quality", analyticsHandler.GetResponseQuality)
+			analytics.GET("/dashboard", analyticsHandler.GetAnalyticsDashboard)
+			analytics.POST("/report", analyticsHandler.GenerateReport)
+		}
 	}
 
 	return router

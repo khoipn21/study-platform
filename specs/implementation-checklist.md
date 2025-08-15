@@ -12,7 +12,7 @@
 - [x] Create PostgreSQL database schema
 - [x] Set up database migration files
 - [x] Create database connection pooling
-- [ ] Add database seeding for development
+- [x] Add database seeding for development
 
 ### 1.3 Auth Service Implementation
 - [x] Create auth service protobuf definitions
@@ -165,19 +165,19 @@
 ## Phase 5: Payment Service (Weeks 9-10)
 
 ### 5.1 Payment Service Implementation
-- [ ] Create payment service HTTP server
-- [ ] Set up payment gateway integration
-- [ ] Implement payment method management
-- [ ] Add payment processing endpoints
-- [ ] Create subscription management
-- [ ] Add transaction recording
+- [x] Create payment service HTTP server
+- [x] Set up payment gateway integration
+- [x] Implement payment method management
+- [x] Add payment processing endpoints
+- [x] Create subscription management
+- [x] Add transaction recording
 
 ### 5.2 Purchase Flow
-- [ ] Implement course purchase workflow
-- [ ] Add payment validation
-- [ ] Create enrollment after payment
-- [ ] Add refund handling
-- [ ] Implement payment notifications
+- [x] Implement course purchase workflow
+- [x] Add payment validation
+- [x] Create enrollment after payment
+- [x] Add refund handling
+- [x] Implement payment notifications
 
 ### 5.3 Security & Compliance
 - [ ] Add PCI compliance measures

@@ -238,7 +238,7 @@ services:
       context: ./forum-service
       dockerfile: Dockerfile
     ports:
-      - "8086:8085"
+      - "8088:8085"
     depends_on:
       postgres:
         condition: service_healthy
@@ -264,7 +264,56 @@ services:
           "--no-verbose",
           "--tries=1",
           "--spider",
-          "http://localhost:8085/health",
+          "http://localhost:8080/health",
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  payment-service:
+    build:
+      context: .
+      dockerfile: Dockerfile.payment
+    ports:
+      - "8087:8086"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      # Database Configuration
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_USER: admin
+      DB_PASSWORD: password
+      DB_NAME: studyplatform
+      DB_SSLMODE: disable
+
+      # Service Configuration
+      PAYMENT_PORT: 8086
+      PAYMENT_HOST: 0.0.0.0
+
+      # Payment Gateway Configuration
+      STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY:-sk_test_dummy}
+      STRIPE_PUBLISHABLE_KEY: ${STRIPE_PUBLISHABLE_KEY:-pk_test_dummy}
+      STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET:-whsec_dummy}
+      PAYPAL_CLIENT_ID: ${PAYPAL_CLIENT_ID:-}
+      PAYPAL_CLIENT_SECRET: ${PAYPAL_CLIENT_SECRET:-}
+      PAYPAL_SANDBOX: "true"
+      PAYMENT_CURRENCY: USD
+
+      # Progress Service Integration
+      PROGRESS_SERVICE_URL: progress-service:8080
+    volumes:
+      - ./payment-service:/app
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "wget",
+          "--no-verbose",
+          "--tries=1",
+          "--spider",
+          "http://localhost:8086/health",
         ]
       interval: 30s
       timeout: 10s
@@ -283,6 +332,7 @@ services:
       - bucket-service
       - chatbot-service
       - forum-service
+      - payment-service
     environment:
       AUTH_SERVICE_URL: auth-service:8080
       COURSE_SERVICE_URL: course-service:8080
@@ -290,6 +340,7 @@ services:
       BUCKET_SERVICE_URL: http://bucket-service:8084
       CHATBOT_SERVICE_URL: http://chatbot-service:8084
       FORUM_SERVICE_URL: http://forum-service:8085
+      PAYMENT_SERVICE_URL: http://payment-service:8086
       JWT_SECRET: your-secret-key-here
       HTTP_PORT: 8080
     volumes:

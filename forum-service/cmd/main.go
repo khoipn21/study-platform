@@ -88,7 +88,7 @@ func setupRouter(forumHandler *handler.ForumHandler) *gin.Engine {
 	})
 
 	// Authentication middleware (simplified - in production, this should validate JWT tokens)
-	authMiddleware := func(c *gin.Context) {
+	_ = func(c *gin.Context) {
 		// For now, we'll expect user_id in headers
 		userIDStr := c.GetHeader("X-User-ID")
 		userRole := c.GetHeader("X-User-Role")

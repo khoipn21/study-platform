@@ -29,6 +29,7 @@ func main() {
 	bucketServiceURL := getEnv("BUCKET_SERVICE_URL", "http://localhost:8084")
 	chatbotServiceURL := getEnv("CHATBOT_SERVICE_URL", "http://localhost:8085")
 	forumServiceURL := getEnv("FORUM_SERVICE_URL", "http://localhost:8086")
+	paymentServiceURL := getEnv("PAYMENT_SERVICE_URL", "http://localhost:8087")
 
 	// Initialize circuit breaker and retry managers
 	circuitBreakerConfig := middleware.CircuitBreakerConfig{
@@ -89,6 +90,7 @@ func main() {
 	bucketHandler := handler.NewBucketHandler(bucketServiceURL, log)
 	chatbotHandler := handler.NewChatbotHandler(chatbotServiceURL)
 	forumHandler := handler.NewForumHandler(forumServiceURL)
+	paymentHandler := handler.NewPaymentHandler(paymentServiceURL, log)
 	docsHandler := handler.NewDocsHandler()
 
 	// Initialize middleware
@@ -105,6 +107,7 @@ func main() {
 		bucketHandler,
 		chatbotHandler,
 		forumHandler,
+		paymentHandler,
 		docsHandler,
 		authMiddleware,
 		loggingMiddleware,

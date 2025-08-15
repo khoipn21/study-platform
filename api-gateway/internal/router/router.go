@@ -15,6 +15,7 @@ type Router struct {
 	bucketHandler     *handler.BucketHandler
 	chatbotHandler    *handler.ChatbotHandler
 	forumHandler      *handler.ForumHandler
+	paymentHandler    *handler.PaymentHandler
 	docsHandler       *handler.DocsHandler
 	authMiddleware    *middleware.AuthMiddleware
 	loggingMiddleware *middleware.LoggingMiddleware
@@ -29,6 +30,7 @@ func NewRouter(
 	bucketHandler *handler.BucketHandler,
 	chatbotHandler *handler.ChatbotHandler,
 	forumHandler *handler.ForumHandler,
+	paymentHandler *handler.PaymentHandler,
 	docsHandler *handler.DocsHandler,
 	authMiddleware *middleware.AuthMiddleware,
 	loggingMiddleware *middleware.LoggingMiddleware,
@@ -42,6 +44,7 @@ func NewRouter(
 		bucketHandler:     bucketHandler,
 		chatbotHandler:    chatbotHandler,
 		forumHandler:      forumHandler,
+		paymentHandler:    paymentHandler,
 		docsHandler:       docsHandler,
 		authMiddleware:    authMiddleware,
 		loggingMiddleware: loggingMiddleware,
@@ -218,6 +221,32 @@ func (rt *Router) SetupRoutes() *mux.Router {
 	// Voting
 	protectedForumRoutes.HandleFunc("/votes", rt.forumHandler.VotePost).Methods("POST")
 	protectedForumRoutes.HandleFunc("/posts/{postId}/vote", rt.forumHandler.RemoveVote).Methods("DELETE")
+
+	// Payment routes (all require authentication)
+	paymentRoutes := api.PathPrefix("/payments").Subrouter()
+	paymentRoutes.Use(rt.authMiddleware.RequireAuth)
+	
+	// Payment methods
+	paymentRoutes.HandleFunc("/methods", rt.paymentHandler.CreatePaymentMethod).Methods("POST")
+	paymentRoutes.HandleFunc("/methods", rt.paymentHandler.GetPaymentMethods).Methods("GET")
+	paymentRoutes.HandleFunc("/methods/{methodId}", rt.paymentHandler.UpdatePaymentMethod).Methods("PUT")
+	paymentRoutes.HandleFunc("/methods/{methodId}", rt.paymentHandler.DeletePaymentMethod).Methods("DELETE")
+	paymentRoutes.HandleFunc("/methods/{methodId}/default", rt.paymentHandler.SetDefaultPaymentMethod).Methods("PUT")
+	
+	// Course purchase
+	paymentRoutes.HandleFunc("/purchase/course/{courseId}", rt.paymentHandler.PurchaseCourse).Methods("POST")
+	paymentRoutes.HandleFunc("/validate", rt.paymentHandler.ValidatePayment).Methods("POST")
+	
+	// Transactions
+	paymentRoutes.HandleFunc("/transactions", rt.paymentHandler.GetTransactions).Methods("GET")
+	paymentRoutes.HandleFunc("/transactions/{transactionId}", rt.paymentHandler.GetTransaction).Methods("GET")
+	paymentRoutes.HandleFunc("/transactions/{transactionId}/refund", rt.paymentHandler.RefundTransaction).Methods("POST")
+	
+	// Subscriptions
+	paymentRoutes.HandleFunc("/subscriptions", rt.paymentHandler.CreateSubscription).Methods("POST")
+	paymentRoutes.HandleFunc("/subscriptions", rt.paymentHandler.GetSubscriptions).Methods("GET")
+	paymentRoutes.HandleFunc("/subscriptions/{subscriptionId}", rt.paymentHandler.UpdateSubscription).Methods("PUT")
+	paymentRoutes.HandleFunc("/subscriptions/{subscriptionId}", rt.paymentHandler.CancelSubscription).Methods("DELETE")
 
 	return r
 }

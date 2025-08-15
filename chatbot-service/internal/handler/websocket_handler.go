@@ -224,39 +224,37 @@ func (h *WebSocketHandler) handleChatMessage(ctx context.Context, client *Client
 				// Stop typing indicator
 				h.sendTypingIndicator(client, *chatReq.SessionID, false)
 				return
+			}
 
-			case err := <-errorChan:
-				h.sendError(client, "AI service error: "+err.Error())
-				h.sendTypingIndicator(client, *chatReq.SessionID, false)
-				return
+			if response != nil {
+				fullContent += response.Content
+				if response.TokensUsed > 0 {
+					totalTokens = response.TokensUsed
+				}
 
-			default:
-				if response != nil {
-					fullContent += response.Content
-					if response.TokensUsed > 0 {
-						totalTokens = response.TokensUsed
-					}
+				// Send streaming response to client
+				wsResponse := model.WebSocketMessage{
+					Type:      string(model.WSMessageTypeResponse),
+					SessionID: *chatReq.SessionID,
+					Data: model.ChatResponse{
+						SessionID:  *chatReq.SessionID,
+						MessageID:  assistantMessageID,
+						Role:       response.Role,
+						Content:    response.Content,
+						TokensUsed: response.TokensUsed,
+						CreatedAt:  response.CreatedAt,
+					},
+				}
 
-					// Send streaming response to client
-					wsResponse := model.WebSocketMessage{
-						Type:      string(model.WSMessageTypeResponse),
-						SessionID: *chatReq.SessionID,
-						Data: model.ChatResponse{
-							SessionID:  *chatReq.SessionID,
-							MessageID:  assistantMessageID,
-							Role:       response.Role,
-							Content:    response.Content,
-							TokensUsed: response.TokensUsed,
-							CreatedAt:  response.CreatedAt,
-						},
-					}
-
-					if err := client.Conn.WriteJSON(wsResponse); err != nil {
-						log.Printf("Failed to send WebSocket message: %v", err)
-						return
-					}
+				if err := client.Conn.WriteJSON(wsResponse); err != nil {
+					return
 				}
 			}
+
+		case err := <-errorChan:
+			h.sendError(client, "AI service error: "+err.Error())
+			h.sendTypingIndicator(client, *chatReq.SessionID, false)
+			return
 		}
 	}
 }
