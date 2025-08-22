@@ -1,4 +1,4 @@
-.PHONY: proto clean build test
+.PHONY: proto clean build test docker-build docker-up docker-down docker-logs
 
 # Generate protobuf files
 proto:
@@ -37,7 +37,7 @@ run-auth: build
 
 # Docker build
 docker-build:
-	docker-compose build
+	docker-compose build --no-cache
 
 # Docker run
 docker-up:

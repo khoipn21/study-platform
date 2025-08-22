@@ -76,7 +76,7 @@ type LoggingConfig struct {
 func Load() (*Config, error) {
 	config := &Config{
 		Server: ServerConfig{
-			Port: getEnv("BUCKET_SERVICE_PORT", "8084"),
+			Port: getEnv("BUCKET_SERVICE_PORT", "8085"),
 			Host: getEnv("BUCKET_SERVICE_HOST", "0.0.0.0"),
 			Env:  getEnv("ENVIRONMENT", "development"),
 		},

@@ -26,7 +26,7 @@ func main() {
 	log.Info("Starting Auth Service...")
 
 	jwtSecret := getEnv("JWT_SECRET", "your-secret-key-here")
-	grpcPort := getEnv("GRPC_PORT", "8080")
+	grpcPort := getEnv("GRPC_PORT", "8081")
 
 	dbConfig := database.Config{
 		Host:     getEnv("DB_HOST", "postgres"),

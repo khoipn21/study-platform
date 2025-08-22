@@ -22,7 +22,7 @@ WORKDIR /root/
 COPY --from=builder /app/bin/payment-service .
 
 # Expose port
-EXPOSE 8086
+EXPOSE 8088
 
 # Run the binary
 CMD ["./payment-service"]

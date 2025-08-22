@@ -33,11 +33,11 @@ COPY --from=builder /app/migrations ./migrations
 RUN mkdir -p /app/logs
 
 # Expose port
-EXPOSE 8084
+EXPOSE 8085
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-  CMD wget --no-verbose --tries=1 --spider http://localhost:8084/health || exit 1
+  CMD wget --no-verbose --tries=1 --spider http://localhost:8085/health || exit 1
 
 # Run the binary
 CMD ["./bucket-service"]

@@ -51,19 +51,18 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.auth
-    ports:
-      - "8081:8080"
+    ports: []
     depends_on:
       postgres:
         condition: service_healthy
     environment:
       DATABASE_URL: postgres://admin:password@postgres:5432/studyplatform?sslmode=disable
       JWT_SECRET: your-secret-key-here
-      GRPC_PORT: 8080
+      GRPC_PORT: 8081
     volumes:
       - ./auth-service:/app
     healthcheck:
-      test: ["CMD", "grpc_health_probe", "-addr=:8080"]
+      test: ["CMD", "grpc_health_probe", "-addr=:8081"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -72,18 +71,17 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.course
-    ports:
-      - "8082:8080"
+    ports: []
     depends_on:
       postgres:
         condition: service_healthy
     environment:
       DATABASE_URL: postgres://admin:password@postgres:5432/studyplatform?sslmode=disable
-      GRPC_PORT: 8080
+      GRPC_PORT: 8082
     volumes:
       - ./course-service:/app
     healthcheck:
-      test: ["CMD", "grpc_health_probe", "-addr=:8080"]
+      test: ["CMD", "grpc_health_probe", "-addr=:8082"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -92,48 +90,76 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.progress
-    ports:
-      - "8083:8080"
+    ports: []
     depends_on:
       postgres:
         condition: service_healthy
     environment:
       DATABASE_URL: postgres://admin:password@postgres:5432/studyplatform?sslmode=disable
-      GRPC_PORT: 8080
+      GRPC_PORT: 8083
     volumes:
       - ./progress-service:/app
     healthcheck:
-      test: ["CMD", "grpc_health_probe", "-addr=:8080"]
+      test: ["CMD", "grpc_health_probe", "-addr=:8083"]
       interval: 30s
       timeout: 10s
       retries: 3
 
-  # video-service:
-  #   build:
-  #     context: .
-  #     dockerfile: Dockerfile.video
-  #   ports:
-  #     - "8085:8080"
-  #   depends_on:
-  #     postgres:
-  #       condition: service_healthy
-  #     minio:
-  #       condition: service_healthy
-  #   environment:
-  #     DATABASE_URL: postgres://admin:password@postgres:5432/studyplatform?sslmode=disable
-  #     MINIO_ENDPOINT: minio:9000
-  #     MINIO_ACCESS_KEY: admin
-  #     MINIO_SECRET_KEY: password123
-  #     HTTP_PORT: 8080
-  #   volumes:
-  #     - ./video-service:/app
+  video-service:
+    build:
+      context: ./video-service
+      dockerfile: Dockerfile
+    ports: []
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      # Database Configuration
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_USER: admin
+      DB_PASSWORD: password
+      DB_NAME: studyplatform
+
+      # Service Configuration
+      VIDEO_SERVICE_PORT: 8084
+      VIDEO_SERVICE_HOST: 0.0.0.0
+
+      # Cloudflare Stream Configuration
+      CLOUDFLARE_ACCOUNT_ID: ${CLOUDFLARE_ACCOUNT_ID}
+      CLOUDFLARE_STREAM_TOKEN: ${CLOUDFLARE_STREAM_TOKEN}
+
+      # Redis Configuration
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: ""
+      REDIS_DB: 0
+
+      # Security
+      JWT_SECRET: your-secret-key-here
+    volumes:
+      - ./video-service:/app
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "wget",
+          "--no-verbose",
+          "--tries=1",
+          "--spider",
+          "http://localhost:8084/health",
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
 
   bucket-service:
     build:
       context: ./bucket-service
       dockerfile: Dockerfile
-    ports:
-      - "8084:8084"
+    ports: []
     depends_on:
       postgres:
         condition: service_healthy
@@ -160,7 +186,7 @@ services:
       S3_BUCKET_COURSE_MATERIALS: study-platform-course-materials-khoipn-dev
 
       # Service Configuration
-      BUCKET_SERVICE_PORT: 8084
+      BUCKET_SERVICE_PORT: 8085
       BUCKET_SERVICE_HOST: 0.0.0.0
       ENVIRONMENT: development
       JWT_SECRET: your-secret-key-here
@@ -178,7 +204,7 @@ services:
           "--no-verbose",
           "--tries=1",
           "--spider",
-          "http://localhost:8084/health",
+          "http://localhost:8085/health",
         ]
       interval: 30s
       timeout: 10s
@@ -188,8 +214,7 @@ services:
     build:
       context: ./chatbot-service
       dockerfile: Dockerfile
-    ports:
-      - "8085:8084"
+    ports: []
     depends_on:
       postgres:
         condition: service_healthy
@@ -203,7 +228,7 @@ services:
       DB_SSLMODE: disable
 
       # Service Configuration
-      CHATBOT_PORT: 8084
+      CHATBOT_PORT: 8086
       CHATBOT_HOST: 0.0.0.0
 
       # OpenAI Configuration
@@ -227,7 +252,7 @@ services:
           "--no-verbose",
           "--tries=1",
           "--spider",
-          "http://localhost:8084/health",
+          "http://localhost:8086/health",
         ]
       interval: 30s
       timeout: 10s
@@ -237,8 +262,7 @@ services:
     build:
       context: ./forum-service
       dockerfile: Dockerfile
-    ports:
-      - "8088:8085"
+    ports: []
     depends_on:
       postgres:
         condition: service_healthy
@@ -252,7 +276,7 @@ services:
       DB_SSLMODE: disable
 
       # Service Configuration
-      FORUM_PORT: 8085
+      FORUM_PORT: 8087
       FORUM_HOST: 0.0.0.0
     volumes:
       - ./forum-service:/app
@@ -264,7 +288,7 @@ services:
           "--no-verbose",
           "--tries=1",
           "--spider",
-          "http://localhost:8080/health",
+          "http://localhost:8087/health",
         ]
       interval: 30s
       timeout: 10s
@@ -274,8 +298,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.payment
-    ports:
-      - "8087:8086"
+    ports: []
     depends_on:
       postgres:
         condition: service_healthy
@@ -289,7 +312,7 @@ services:
       DB_SSLMODE: disable
 
       # Service Configuration
-      PAYMENT_PORT: 8086
+      PAYMENT_PORT: 8088
       PAYMENT_HOST: 0.0.0.0
 
       # Payment Gateway Configuration
@@ -302,7 +325,7 @@ services:
       PAYMENT_CURRENCY: USD
 
       # Progress Service Integration
-      PROGRESS_SERVICE_URL: progress-service:8080
+      PROGRESS_SERVICE_URL: progress-service:8083
     volumes:
       - ./payment-service:/app
     healthcheck:
@@ -313,7 +336,7 @@ services:
           "--no-verbose",
           "--tries=1",
           "--spider",
-          "http://localhost:8086/health",
+          "http://localhost:8088/health",
         ]
       interval: 30s
       timeout: 10s
@@ -329,18 +352,20 @@ services:
       - auth-service
       - course-service
       - progress-service
+      - video-service
       - bucket-service
       - chatbot-service
       - forum-service
       - payment-service
     environment:
-      AUTH_SERVICE_URL: auth-service:8080
-      COURSE_SERVICE_URL: course-service:8080
-      PROGRESS_SERVICE_URL: progress-service:8080
-      BUCKET_SERVICE_URL: http://bucket-service:8084
-      CHATBOT_SERVICE_URL: http://chatbot-service:8084
-      FORUM_SERVICE_URL: http://forum-service:8085
-      PAYMENT_SERVICE_URL: http://payment-service:8086
+      AUTH_SERVICE_URL: auth-service:8081
+      COURSE_SERVICE_URL: course-service:8082
+      PROGRESS_SERVICE_URL: progress-service:8083
+      VIDEO_SERVICE_URL: http://video-service:8084
+      BUCKET_SERVICE_URL: http://bucket-service:8085
+      CHATBOT_SERVICE_URL: http://chatbot-service:8086
+      FORUM_SERVICE_URL: http://forum-service:8087
+      PAYMENT_SERVICE_URL: http://payment-service:8088
       JWT_SECRET: your-secret-key-here
       HTTP_PORT: 8080
     volumes:

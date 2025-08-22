@@ -42,7 +42,7 @@ type ServicesConfig struct {
 func LoadConfig() *Config {
 	return &Config{
 		Server: ServerConfig{
-			Port: getEnv("PAYMENT_PORT", "8086"),
+			Port: getEnv("PAYMENT_PORT", "8088"),
 			Host: getEnv("PAYMENT_HOST", "0.0.0.0"),
 		},
 		Database: DatabaseConfig{

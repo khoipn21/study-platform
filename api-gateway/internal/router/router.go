@@ -12,6 +12,7 @@ type Router struct {
 	authHandler       *handler.AuthHandler
 	courseHandler     *handler.CourseHandler
 	progressHandler   *handler.ProgressHandler
+	videoHandler      *handler.VideoHandler
 	bucketHandler     *handler.BucketHandler
 	chatbotHandler    *handler.ChatbotHandler
 	forumHandler      *handler.ForumHandler
@@ -27,6 +28,7 @@ func NewRouter(
 	authHandler *handler.AuthHandler,
 	courseHandler *handler.CourseHandler,
 	progressHandler *handler.ProgressHandler,
+	videoHandler *handler.VideoHandler,
 	bucketHandler *handler.BucketHandler,
 	chatbotHandler *handler.ChatbotHandler,
 	forumHandler *handler.ForumHandler,
@@ -41,6 +43,7 @@ func NewRouter(
 		authHandler:       authHandler,
 		courseHandler:     courseHandler,
 		progressHandler:   progressHandler,
+		videoHandler:      videoHandler,
 		bucketHandler:     bucketHandler,
 		chatbotHandler:    chatbotHandler,
 		forumHandler:      forumHandler,
@@ -247,6 +250,42 @@ func (rt *Router) SetupRoutes() *mux.Router {
 	paymentRoutes.HandleFunc("/subscriptions", rt.paymentHandler.GetSubscriptions).Methods("GET")
 	paymentRoutes.HandleFunc("/subscriptions/{subscriptionId}", rt.paymentHandler.UpdateSubscription).Methods("PUT")
 	paymentRoutes.HandleFunc("/subscriptions/{subscriptionId}", rt.paymentHandler.CancelSubscription).Methods("DELETE")
+
+	// Video routes
+	videoRoutes := api.PathPrefix("/videos").Subrouter()
+	
+	// Public video routes (no auth required)
+	videoRoutes.HandleFunc("/search", rt.videoHandler.SearchVideos).Methods("GET")
+	videoRoutes.HandleFunc("/{video_id}", rt.videoHandler.GetVideo).Methods("GET")
+	videoRoutes.HandleFunc("/course/{course_id}", rt.videoHandler.ListCourseVideos).Methods("GET")
+	
+	// Webhook endpoints (no auth for external services)
+	videoRoutes.HandleFunc("/webhooks/cloudflare", rt.videoHandler.CloudflareWebhook).Methods("POST")
+	
+	// Protected video routes (auth required)
+	protectedVideoRoutes := api.PathPrefix("/videos").Subrouter()
+	protectedVideoRoutes.Use(rt.authMiddleware.RequireAuth)
+	
+	// Video management
+	protectedVideoRoutes.HandleFunc("/upload", rt.videoHandler.UploadVideo).Methods("POST")
+	protectedVideoRoutes.HandleFunc("/{video_id}/update", rt.videoHandler.UpdateVideo).Methods("PUT")
+	protectedVideoRoutes.HandleFunc("/{video_id}/delete", rt.videoHandler.DeleteVideo).Methods("DELETE")
+	protectedVideoRoutes.HandleFunc("/user/{user_id}", rt.videoHandler.ListUserVideos).Methods("GET")
+	
+	// Session management
+	protectedVideoRoutes.HandleFunc("/{video_id}/sessions", rt.videoHandler.CreateViewingSession).Methods("POST")
+	protectedVideoRoutes.HandleFunc("/sessions/{session_id}/progress", rt.videoHandler.UpdateSessionProgress).Methods("PUT")
+	protectedVideoRoutes.HandleFunc("/sessions/{session_id}/network", rt.videoHandler.UpdateNetworkStatus).Methods("POST")
+	
+	// Analytics
+	protectedVideoRoutes.HandleFunc("/{video_id}/analytics", rt.videoHandler.GetVideoAnalytics).Methods("GET")
+	
+	// WebSocket endpoints
+	protectedVideoRoutes.HandleFunc("/ws/{session_id}", rt.videoHandler.WebSocketProxy).Methods("GET")
+	protectedVideoRoutes.HandleFunc("/ws/stats", rt.videoHandler.WebSocketStats).Methods("GET")
+	protectedVideoRoutes.HandleFunc("/ws/broadcast", rt.videoHandler.BroadcastMessage).Methods("POST")
+	protectedVideoRoutes.HandleFunc("/ws/session/{session_id}/send", rt.videoHandler.SendToSession).Methods("POST")
+	protectedVideoRoutes.HandleFunc("/ws/session/{session_id}", rt.videoHandler.GetSessionInfo).Methods("GET")
 
 	return r
 }

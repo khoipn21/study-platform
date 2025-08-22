@@ -26,10 +26,10 @@ func main() {
 	authServiceURL := getEnv("AUTH_SERVICE_URL", "localhost:8081")
 	courseServiceURL := getEnv("COURSE_SERVICE_URL", "localhost:8082")
 	progressServiceURL := getEnv("PROGRESS_SERVICE_URL", "localhost:8083")
-	bucketServiceURL := getEnv("BUCKET_SERVICE_URL", "http://localhost:8084")
-	chatbotServiceURL := getEnv("CHATBOT_SERVICE_URL", "http://localhost:8085")
-	forumServiceURL := getEnv("FORUM_SERVICE_URL", "http://localhost:8086")
-	paymentServiceURL := getEnv("PAYMENT_SERVICE_URL", "http://localhost:8087")
+	bucketServiceURL := getEnv("BUCKET_SERVICE_URL", "http://localhost:8085")
+	chatbotServiceURL := getEnv("CHATBOT_SERVICE_URL", "http://localhost:8086")
+	forumServiceURL := getEnv("FORUM_SERVICE_URL", "http://localhost:8087")
+	paymentServiceURL := getEnv("PAYMENT_SERVICE_URL", "http://localhost:8088")
 
 	// Initialize circuit breaker and retry managers
 	circuitBreakerConfig := middleware.CircuitBreakerConfig{
@@ -87,6 +87,7 @@ func main() {
 	authHandler := handler.NewAuthHandler(authConn, log)
 	courseHandler := handler.NewCourseHandler(courseConn, log)
 	progressHandler := handler.NewProgressHandler(progressConn, log)
+	videoHandler := handler.NewVideoHandler()
 	bucketHandler := handler.NewBucketHandler(bucketServiceURL, log)
 	chatbotHandler := handler.NewChatbotHandler(chatbotServiceURL)
 	forumHandler := handler.NewForumHandler(forumServiceURL)
@@ -104,6 +105,7 @@ func main() {
 		authHandler,
 		courseHandler,
 		progressHandler,
+		videoHandler,
 		bucketHandler,
 		chatbotHandler,
 		forumHandler,

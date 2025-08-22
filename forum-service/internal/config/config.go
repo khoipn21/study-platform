@@ -27,7 +27,7 @@ type DatabaseConfig struct {
 func LoadConfig() *Config {
 	return &Config{
 		Server: ServerConfig{
-			Port: getEnv("FORUM_PORT", "8085"),
+			Port: getEnv("FORUM_PORT", "8087"),
 			Host: getEnv("FORUM_HOST", "0.0.0.0"),
 		},
 		Database: DatabaseConfig{

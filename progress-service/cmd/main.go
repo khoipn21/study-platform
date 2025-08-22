@@ -61,7 +61,7 @@ func main() {
 	reflection.Register(grpcServer)
 
 	// Start server
-	port := getEnv("GRPC_PORT", "8080")
+	port := getEnv("GRPC_PORT", "8083")
 	listener, err := net.Listen("tcp", ":"+port)
 	if err != nil {
 		log.Errorf("Failed to listen on port %s: %v", port, err)

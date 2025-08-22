@@ -43,7 +43,7 @@ type RedisConfig struct {
 func LoadConfig() *Config {
 	return &Config{
 		Server: ServerConfig{
-			Port: getEnv("CHATBOT_PORT", "8084"),
+			Port: getEnv("CHATBOT_PORT", "8086"),
 			Host: getEnv("CHATBOT_HOST", "0.0.0.0"),
 		},
 		Database: DatabaseConfig{
