@@ -188,7 +188,7 @@ func setupRouter(cfg *config.Config, fileHandler *handler.FileHandler, healthHan
 			files.POST("/upload/sessions/:sessionId/parts", fileHandler.GetPartURLs)
 			files.POST("/upload/complete/:sessionId", fileHandler.CompleteMultipartUpload)
 			files.DELETE("/upload/:sessionId", fileHandler.AbortMultipartUpload)
-			
+
 			files.GET("/:fileId", fileHandler.GetFile)
 			files.GET("/:fileId/metadata", fileHandler.GetFileMetadata)
 			files.DELETE("/:fileId", fileHandler.DeleteFile)

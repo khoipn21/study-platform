@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/signal"
 	"strconv"
+	"strings"
 	"syscall"
 	"time"
 
@@ -21,6 +22,12 @@ func main() {
 	// Initialize logger
 	log := logger.New()
 	log.Info("Starting API Gateway...")
+
+	// CRITICAL: Validate environment variables first
+	if err := middleware.ValidateEnvVars(); err != nil {
+		log.Fatalf("Environment validation failed: %v", err)
+	}
+	log.Info("Environment variables validated successfully")
 
 	// Service connection configurations
 	authServiceURL := getEnv("AUTH_SERVICE_URL", "localhost:8081")
@@ -97,7 +104,21 @@ func main() {
 	// Initialize middleware
 	authMiddleware := middleware.NewAuthMiddleware(authConn, log)
 	loggingMiddleware := middleware.NewLoggingMiddleware(log)
-	rateLimitMiddleware := middleware.NewRateLimitMiddleware(log, 100, 200) // 100 req/sec, 200 burst
+	
+	// Security Configuration
+	securityConfig := middleware.SecurityConfig{
+		JWTSecret:             os.Getenv("JWT_SECRET"),
+		ContentSecurityPolicy: getEnv("CONTENT_SECURITY_POLICY", "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'"),
+		EnableSecurityHeaders: getEnvAsBool("SECURITY_HEADERS_ENABLED", true),
+		AllowedOrigins:       strings.Split(getEnv("CORS_ORIGINS", "http://localhost:3000"), ","),
+	}
+	
+	securityMiddleware := middleware.NewSecurityMiddleware(securityConfig, log)
+	
+	// Rate limiting configuration
+	rateLimit := getEnvAsInt("RATE_LIMIT_REQUESTS", 100)
+	rateBurst := getEnvAsInt("RATE_LIMIT_BURST", 200)
+	rateLimitMiddleware := middleware.NewRateLimitMiddleware(log, rateLimit, rateBurst)
 	rateLimitMiddleware.StartCleanupRoutine()
 
 	// Initialize router
@@ -115,6 +136,7 @@ func main() {
 		loggingMiddleware,
 		rateLimitMiddleware,
 		circuitBreakerManager,
+		securityMiddleware,
 	)
 
 	// Setup routes
@@ -170,6 +192,13 @@ func getEnvAsInt(key string, defaultValue int) int {
 		if intValue, err := strconv.Atoi(value); err == nil {
 			return intValue
 		}
+	}
+	return defaultValue
+}
+
+func getEnvAsBool(key string, defaultValue bool) bool {
+	if value := os.Getenv(key); value != "" {
+		return strings.ToLower(value) == "true"
 	}
 	return defaultValue
 }

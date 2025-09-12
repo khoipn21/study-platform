@@ -4,16 +4,16 @@ services:
   postgres:
     image: postgres:16
     environment:
-      POSTGRES_DB: studyplatform
-      POSTGRES_USER: admin
-      POSTGRES_PASSWORD: password
+      POSTGRES_DB: ${POSTGRES_DB:-studyplatform}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
     ports:
       - "2345:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./migrations:/docker-entrypoint-initdb.d
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U admin -d studyplatform"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB:-studyplatform}"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -22,6 +22,8 @@ services:
     image: redis:7-alpine
     ports:
       - "6379:6379"
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-}
     volumes:
       - redis_data:/data
     healthcheck:
@@ -36,8 +38,8 @@ services:
       - "9000:9000"
       - "9001:9001"
     environment:
-      MINIO_ROOT_USER: admin
-      MINIO_ROOT_PASSWORD: password123
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
     command: server /data --console-address ":9001"
     volumes:
       - minio_data:/data
@@ -56,13 +58,19 @@ services:
       postgres:
         condition: service_healthy
     environment:
-      DATABASE_URL: postgres://admin:password@postgres:5432/studyplatform?sslmode=disable
-      JWT_SECRET: your-secret-key-here
-      GRPC_PORT: 8081
+      DATABASE_URL: ${DATABASE_URL}
+      JWT_SECRET: ${JWT_SECRET}
+      GRPC_PORT: ${GRPC_PORT_AUTH:-8081}
+      BCRYPT_ROUNDS: ${BCRYPT_ROUNDS:-12}
+      JWT_EXPIRY: ${JWT_EXPIRY:-24h}
+      JWT_REFRESH_EXPIRY: ${JWT_REFRESH_EXPIRY:-168h}
+      DB_MAX_CONNECTIONS: ${DB_MAX_CONNECTIONS:-25}
+      DB_MAX_IDLE_CONNECTIONS: ${DB_MAX_IDLE_CONNECTIONS:-5}
+      DB_CONNECTION_LIFETIME: ${DB_CONNECTION_LIFETIME:-300s}
     volumes:
       - ./auth-service:/app
     healthcheck:
-      test: ["CMD", "grpc_health_probe", "-addr=:8081"]
+      test: ["CMD", "grpc_health_probe", "-addr=:${GRPC_PORT_AUTH:-8081}"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -76,12 +84,16 @@ services:
       postgres:
         condition: service_healthy
     environment:
-      DATABASE_URL: postgres://admin:password@postgres:5432/studyplatform?sslmode=disable
-      GRPC_PORT: 8082
+      DATABASE_URL: ${DATABASE_URL}
+      JWT_SECRET: ${JWT_SECRET}
+      GRPC_PORT: ${GRPC_PORT_COURSE:-8082}
+      DB_MAX_CONNECTIONS: ${DB_MAX_CONNECTIONS:-25}
+      DB_MAX_IDLE_CONNECTIONS: ${DB_MAX_IDLE_CONNECTIONS:-5}
+      DB_CONNECTION_LIFETIME: ${DB_CONNECTION_LIFETIME:-300s}
     volumes:
       - ./course-service:/app
     healthcheck:
-      test: ["CMD", "grpc_health_probe", "-addr=:8082"]
+      test: ["CMD", "grpc_health_probe", "-addr=:${GRPC_PORT_COURSE:-8082}"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -95,12 +107,16 @@ services:
       postgres:
         condition: service_healthy
     environment:
-      DATABASE_URL: postgres://admin:password@postgres:5432/studyplatform?sslmode=disable
-      GRPC_PORT: 8083
+      DATABASE_URL: ${DATABASE_URL}
+      JWT_SECRET: ${JWT_SECRET}
+      GRPC_PORT: ${GRPC_PORT_PROGRESS:-8083}
+      DB_MAX_CONNECTIONS: ${DB_MAX_CONNECTIONS:-25}
+      DB_MAX_IDLE_CONNECTIONS: ${DB_MAX_IDLE_CONNECTIONS:-5}
+      DB_CONNECTION_LIFETIME: ${DB_CONNECTION_LIFETIME:-300s}
     volumes:
       - ./progress-service:/app
     healthcheck:
-      test: ["CMD", "grpc_health_probe", "-addr=:8083"]
+      test: ["CMD", "grpc_health_probe", "-addr=:${GRPC_PORT_PROGRESS:-8083}"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -117,28 +133,34 @@ services:
         condition: service_healthy
     environment:
       # Database Configuration
-      DB_HOST: postgres
-      DB_PORT: 5432
-      DB_USER: admin
-      DB_PASSWORD: password
-      DB_NAME: studyplatform
+      DB_HOST: ${DB_HOST:-postgres}
+      DB_PORT: ${DB_PORT:-5432}
+      DB_USER: ${DB_USER}
+      DB_PASSWORD: ${DB_PASSWORD}
+      DB_NAME: ${DB_NAME:-studyplatform}
+      DB_SSLMODE: ${DB_SSLMODE:-disable}
+      DB_MAX_CONNECTIONS: ${DB_MAX_CONNECTIONS:-25}
+      DB_MAX_IDLE_CONNECTIONS: ${DB_MAX_IDLE_CONNECTIONS:-5}
+      DB_CONNECTION_LIFETIME: ${DB_CONNECTION_LIFETIME:-300s}
 
       # Service Configuration
-      VIDEO_SERVICE_PORT: 8084
-      VIDEO_SERVICE_HOST: 0.0.0.0
+      VIDEO_SERVICE_PORT: ${VIDEO_SERVICE_PORT:-8084}
+      VIDEO_SERVICE_HOST: ${VIDEO_SERVICE_HOST:-0.0.0.0}
 
       # Cloudflare Stream Configuration
       CLOUDFLARE_ACCOUNT_ID: ${CLOUDFLARE_ACCOUNT_ID}
       CLOUDFLARE_STREAM_TOKEN: ${CLOUDFLARE_STREAM_TOKEN}
 
       # Redis Configuration
-      REDIS_HOST: redis
-      REDIS_PORT: 6379
-      REDIS_PASSWORD: ""
-      REDIS_DB: 0
+      REDIS_HOST: ${REDIS_HOST:-redis}
+      REDIS_PORT: ${REDIS_PORT:-6379}
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-}
+      REDIS_DB: ${REDIS_DB:-0}
+      REDIS_MAX_CONNECTIONS: ${REDIS_MAX_CONNECTIONS:-10}
 
       # Security
-      JWT_SECRET: your-secret-key-here
+      JWT_SECRET: ${JWT_SECRET}
+      CORS_ORIGINS: ${CORS_ORIGINS}
     volumes:
       - ./video-service:/app
     healthcheck:
@@ -149,7 +171,7 @@ services:
           "--no-verbose",
           "--tries=1",
           "--spider",
-          "http://localhost:8084/health",
+          "http://localhost:${VIDEO_SERVICE_PORT:-8084}/health",
         ]
       interval: 30s
       timeout: 10s
@@ -165,34 +187,40 @@ services:
         condition: service_healthy
     environment:
       # Database Configuration
-      DB_HOST: postgres
-      DB_PORT: 5432
-      DB_USER: admin
-      DB_PASSWORD: password
-      DB_NAME: studyplatform
-      DB_SSLMODE: disable
+      DB_HOST: ${DB_HOST:-postgres}
+      DB_PORT: ${DB_PORT:-5432}
+      DB_USER: ${DB_USER}
+      DB_PASSWORD: ${DB_PASSWORD}
+      DB_NAME: ${DB_NAME:-studyplatform}
+      DB_SSLMODE: ${DB_SSLMODE:-disable}
+      DB_MAX_CONNECTIONS: ${DB_MAX_CONNECTIONS:-25}
+      DB_MAX_IDLE_CONNECTIONS: ${DB_MAX_IDLE_CONNECTIONS:-5}
+      DB_CONNECTION_LIFETIME: ${DB_CONNECTION_LIFETIME:-300s}
 
       # AWS S3 Configuration
-      S3_ENDPOINT: https://s3.amazonaws.com
-      S3_REGION: ap-southeast-2
+      S3_ENDPOINT: ${S3_ENDPOINT:-https://s3.amazonaws.com}
+      S3_REGION: ${S3_REGION}
       S3_ACCESS_KEY_ID: ${S3_ACCESS_KEY_ID}
       S3_SECRET_ACCESS_KEY: ${S3_SECRET_ACCESS_KEY}
 
       # Bucket Names
-      S3_BUCKET_FILES: study-platform-files-khoipn-dev
-      S3_BUCKET_DOCUMENTS: study-platform-documents-khoipn-dev
-      S3_BUCKET_IMAGES: study-platform-images-khoipn-dev
-      S3_BUCKET_AVATARS: study-platform-avatars-khoipn-dev
-      S3_BUCKET_COURSE_MATERIALS: study-platform-course-materials-khoipn-dev
+      S3_BUCKET_FILES: ${S3_BUCKET_FILES}
+      S3_BUCKET_DOCUMENTS: ${S3_BUCKET_DOCUMENTS}
+      S3_BUCKET_IMAGES: ${S3_BUCKET_IMAGES}
+      S3_BUCKET_AVATARS: ${S3_BUCKET_AVATARS}
+      S3_BUCKET_COURSE_MATERIALS: ${S3_BUCKET_COURSE_MATERIALS}
 
       # Service Configuration
-      BUCKET_SERVICE_PORT: 8085
-      BUCKET_SERVICE_HOST: 0.0.0.0
-      ENVIRONMENT: development
-      JWT_SECRET: your-secret-key-here
+      BUCKET_SERVICE_PORT: ${BUCKET_SERVICE_PORT:-8085}
+      BUCKET_SERVICE_HOST: ${BUCKET_SERVICE_HOST:-0.0.0.0}
+      ENVIRONMENT: ${ENVIRONMENT:-development}
+      JWT_SECRET: ${JWT_SECRET}
 
-      # CORS
-      CORS_ORIGINS: http://localhost:3000,http://localhost:8080
+      # Security & CORS
+      CORS_ORIGINS: ${CORS_ORIGINS}
+      RATE_LIMIT_REQUESTS: ${RATE_LIMIT_REQUESTS:-100}
+      RATE_LIMIT_WINDOW: ${RATE_LIMIT_WINDOW:-60s}
+      RATE_LIMIT_BURST: ${RATE_LIMIT_BURST:-200}
     volumes:
       - ./bucket-service:/app
       - bucket_logs:/app/logs
@@ -204,7 +232,7 @@ services:
           "--no-verbose",
           "--tries=1",
           "--spider",
-          "http://localhost:8085/health",
+          "http://localhost:${BUCKET_SERVICE_PORT:-8085}/health",
         ]
       interval: 30s
       timeout: 10s
@@ -220,28 +248,39 @@ services:
         condition: service_healthy
     environment:
       # Database Configuration
-      DB_HOST: postgres
-      DB_PORT: 5432
-      DB_USER: admin
-      DB_PASSWORD: password
-      DB_NAME: studyplatform
-      DB_SSLMODE: disable
+      DB_HOST: ${DB_HOST:-postgres}
+      DB_PORT: ${DB_PORT:-5432}
+      DB_USER: ${DB_USER}
+      DB_PASSWORD: ${DB_PASSWORD}
+      DB_NAME: ${DB_NAME:-studyplatform}
+      DB_SSLMODE: ${DB_SSLMODE:-disable}
+      DB_MAX_CONNECTIONS: ${DB_MAX_CONNECTIONS:-25}
+      DB_MAX_IDLE_CONNECTIONS: ${DB_MAX_IDLE_CONNECTIONS:-5}
+      DB_CONNECTION_LIFETIME: ${DB_CONNECTION_LIFETIME:-300s}
 
       # Service Configuration
-      CHATBOT_PORT: 8086
-      CHATBOT_HOST: 0.0.0.0
+      CHATBOT_PORT: ${CHATBOT_PORT:-8086}
+      CHATBOT_HOST: ${CHATBOT_HOST:-0.0.0.0}
 
       # OpenAI Configuration
       OPENAI_API_KEY: ${OPENAI_API_KEY}
-      OPENAI_MODEL: gpt-3.5-turbo
-      OPENAI_MAX_TOKENS: 1000
-      OPENAI_TEMPERATURE: 0.7
+      OPENAI_MODEL: ${OPENAI_MODEL:-gpt-3.5-turbo}
+      OPENAI_MAX_TOKENS: ${OPENAI_MAX_TOKENS:-1000}
+      OPENAI_TEMPERATURE: ${OPENAI_TEMPERATURE:-0.7}
 
-      # Redis Configuration (optional)
-      REDIS_HOST: redis
-      REDIS_PORT: 6379
-      REDIS_PASSWORD: ""
-      REDIS_DB: 0
+      # Redis Configuration
+      REDIS_HOST: ${REDIS_HOST:-redis}
+      REDIS_PORT: ${REDIS_PORT:-6379}
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-}
+      REDIS_DB: ${REDIS_DB:-0}
+      REDIS_MAX_CONNECTIONS: ${REDIS_MAX_CONNECTIONS:-10}
+
+      # Security
+      JWT_SECRET: ${JWT_SECRET}
+      CORS_ORIGINS: ${CORS_ORIGINS}
+      RATE_LIMIT_REQUESTS: ${RATE_LIMIT_REQUESTS:-100}
+      RATE_LIMIT_WINDOW: ${RATE_LIMIT_WINDOW:-60s}
+      RATE_LIMIT_BURST: ${RATE_LIMIT_BURST:-200}
     volumes:
       - ./chatbot-service:/app
     healthcheck:
@@ -252,7 +291,7 @@ services:
           "--no-verbose",
           "--tries=1",
           "--spider",
-          "http://localhost:8086/health",
+          "http://localhost:${CHATBOT_PORT:-8086}/health",
         ]
       interval: 30s
       timeout: 10s
@@ -268,16 +307,26 @@ services:
         condition: service_healthy
     environment:
       # Database Configuration
-      DB_HOST: postgres
-      DB_PORT: 5432
-      DB_USER: admin
-      DB_PASSWORD: password
-      DB_NAME: studyplatform
-      DB_SSLMODE: disable
+      DB_HOST: ${DB_HOST:-postgres}
+      DB_PORT: ${DB_PORT:-5432}
+      DB_USER: ${DB_USER}
+      DB_PASSWORD: ${DB_PASSWORD}
+      DB_NAME: ${DB_NAME:-studyplatform}
+      DB_SSLMODE: ${DB_SSLMODE:-disable}
+      DB_MAX_CONNECTIONS: ${DB_MAX_CONNECTIONS:-25}
+      DB_MAX_IDLE_CONNECTIONS: ${DB_MAX_IDLE_CONNECTIONS:-5}
+      DB_CONNECTION_LIFETIME: ${DB_CONNECTION_LIFETIME:-300s}
 
       # Service Configuration
-      FORUM_PORT: 8087
-      FORUM_HOST: 0.0.0.0
+      FORUM_PORT: ${FORUM_PORT:-8087}
+      FORUM_HOST: ${FORUM_HOST:-0.0.0.0}
+
+      # Security
+      JWT_SECRET: ${JWT_SECRET}
+      CORS_ORIGINS: ${CORS_ORIGINS}
+      RATE_LIMIT_REQUESTS: ${RATE_LIMIT_REQUESTS:-100}
+      RATE_LIMIT_WINDOW: ${RATE_LIMIT_WINDOW:-60s}
+      RATE_LIMIT_BURST: ${RATE_LIMIT_BURST:-200}
     volumes:
       - ./forum-service:/app
     healthcheck:
@@ -288,7 +337,7 @@ services:
           "--no-verbose",
           "--tries=1",
           "--spider",
-          "http://localhost:8087/health",
+          "http://localhost:${FORUM_PORT:-8087}/health",
         ]
       interval: 30s
       timeout: 10s
@@ -304,28 +353,38 @@ services:
         condition: service_healthy
     environment:
       # Database Configuration
-      DB_HOST: postgres
-      DB_PORT: 5432
-      DB_USER: admin
-      DB_PASSWORD: password
-      DB_NAME: studyplatform
-      DB_SSLMODE: disable
+      DB_HOST: ${DB_HOST:-postgres}
+      DB_PORT: ${DB_PORT:-5432}
+      DB_USER: ${DB_USER}
+      DB_PASSWORD: ${DB_PASSWORD}
+      DB_NAME: ${DB_NAME:-studyplatform}
+      DB_SSLMODE: ${DB_SSLMODE:-disable}
+      DB_MAX_CONNECTIONS: ${DB_MAX_CONNECTIONS:-25}
+      DB_MAX_IDLE_CONNECTIONS: ${DB_MAX_IDLE_CONNECTIONS:-5}
+      DB_CONNECTION_LIFETIME: ${DB_CONNECTION_LIFETIME:-300s}
 
       # Service Configuration
-      PAYMENT_PORT: 8088
-      PAYMENT_HOST: 0.0.0.0
+      PAYMENT_PORT: ${PAYMENT_PORT:-8088}
+      PAYMENT_HOST: ${PAYMENT_HOST:-0.0.0.0}
 
       # Payment Gateway Configuration
-      STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY:-sk_test_dummy}
-      STRIPE_PUBLISHABLE_KEY: ${STRIPE_PUBLISHABLE_KEY:-pk_test_dummy}
-      STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET:-whsec_dummy}
-      PAYPAL_CLIENT_ID: ${PAYPAL_CLIENT_ID:-}
-      PAYPAL_CLIENT_SECRET: ${PAYPAL_CLIENT_SECRET:-}
-      PAYPAL_SANDBOX: "true"
-      PAYMENT_CURRENCY: USD
+      STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY}
+      STRIPE_PUBLISHABLE_KEY: ${STRIPE_PUBLISHABLE_KEY}
+      STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET}
+      PAYPAL_CLIENT_ID: ${PAYPAL_CLIENT_ID}
+      PAYPAL_CLIENT_SECRET: ${PAYPAL_CLIENT_SECRET}
+      PAYPAL_SANDBOX: ${PAYPAL_SANDBOX:-true}
+      PAYMENT_CURRENCY: ${PAYMENT_CURRENCY:-USD}
 
       # Progress Service Integration
-      PROGRESS_SERVICE_URL: progress-service:8083
+      PROGRESS_SERVICE_URL: ${PROGRESS_SERVICE_URL:-progress-service:8083}
+
+      # Security
+      JWT_SECRET: ${JWT_SECRET}
+      CORS_ORIGINS: ${CORS_ORIGINS}
+      RATE_LIMIT_REQUESTS: ${RATE_LIMIT_REQUESTS:-100}
+      RATE_LIMIT_WINDOW: ${RATE_LIMIT_WINDOW:-60s}
+      RATE_LIMIT_BURST: ${RATE_LIMIT_BURST:-200}
     volumes:
       - ./payment-service:/app
     healthcheck:
@@ -336,7 +395,7 @@ services:
           "--no-verbose",
           "--tries=1",
           "--spider",
-          "http://localhost:8088/health",
+          "http://localhost:${PAYMENT_PORT:-8088}/health",
         ]
       interval: 30s
       timeout: 10s
@@ -347,7 +406,7 @@ services:
       context: .
       dockerfile: Dockerfile.gateway
     ports:
-      - "8080:8080"
+      - "${API_GATEWAY_PORT:-8080}:${API_GATEWAY_PORT:-8080}"
     depends_on:
       - auth-service
       - course-service
@@ -358,16 +417,53 @@ services:
       - forum-service
       - payment-service
     environment:
-      AUTH_SERVICE_URL: auth-service:8081
-      COURSE_SERVICE_URL: course-service:8082
-      PROGRESS_SERVICE_URL: progress-service:8083
-      VIDEO_SERVICE_URL: http://video-service:8084
-      BUCKET_SERVICE_URL: http://bucket-service:8085
-      CHATBOT_SERVICE_URL: http://chatbot-service:8086
-      FORUM_SERVICE_URL: http://forum-service:8087
-      PAYMENT_SERVICE_URL: http://payment-service:8088
-      JWT_SECRET: your-secret-key-here
-      HTTP_PORT: 8080
+      # Database Configuration
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB:-studyplatform}
+      
+      # MinIO Configuration
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+      
+      # Service URLs
+      AUTH_SERVICE_URL: ${AUTH_SERVICE_URL:-auth-service:8081}
+      COURSE_SERVICE_URL: ${COURSE_SERVICE_URL:-course-service:8082}
+      PROGRESS_SERVICE_URL: ${PROGRESS_SERVICE_URL:-progress-service:8083}
+      VIDEO_SERVICE_URL: ${VIDEO_SERVICE_URL:-http://video-service:8084}
+      BUCKET_SERVICE_URL: ${BUCKET_SERVICE_URL:-http://bucket-service:8085}
+      CHATBOT_SERVICE_URL: ${CHATBOT_SERVICE_URL:-http://chatbot-service:8086}
+      FORUM_SERVICE_URL: ${FORUM_SERVICE_URL:-http://forum-service:8087}
+      PAYMENT_SERVICE_URL: ${PAYMENT_SERVICE_URL:-http://payment-service:8088}
+
+      # Security Configuration
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_EXPIRY: ${JWT_EXPIRY:-24h}
+      JWT_REFRESH_EXPIRY: ${JWT_REFRESH_EXPIRY:-168h}
+
+      # Server Configuration
+      HTTP_PORT: ${API_GATEWAY_PORT:-8080}
+      CORS_ORIGINS: ${CORS_ORIGINS}
+
+      # Rate Limiting & Security
+      RATE_LIMIT_REQUESTS: ${RATE_LIMIT_REQUESTS:-100}
+      RATE_LIMIT_WINDOW: ${RATE_LIMIT_WINDOW:-60s}
+      RATE_LIMIT_BURST: ${RATE_LIMIT_BURST:-200}
+      SECURITY_HEADERS_ENABLED: ${SECURITY_HEADERS_ENABLED:-true}
+      CONTENT_SECURITY_POLICY: ${CONTENT_SECURITY_POLICY:-default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'}
+
+      # Environment
+      ENVIRONMENT: ${ENVIRONMENT:-development}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      DEBUG_MODE: ${DEBUG_MODE:-false}
+
+      # Health Checks & Monitoring
+      HEALTH_CHECK_ENABLED: ${HEALTH_CHECK_ENABLED:-true}
+      HEALTH_CHECK_INTERVAL: ${HEALTH_CHECK_INTERVAL:-30s}
+      HEALTH_CHECK_TIMEOUT: ${HEALTH_CHECK_TIMEOUT:-10s}
+      HEALTH_CHECK_RETRIES: ${HEALTH_CHECK_RETRIES:-3}
+      METRICS_ENABLED: ${METRICS_ENABLED:-true}
+      METRICS_PORT: ${METRICS_PORT:-9090}
     volumes:
       - ./api-gateway:/app
 

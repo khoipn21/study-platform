@@ -22,6 +22,7 @@ type Router struct {
 	loggingMiddleware *middleware.LoggingMiddleware
 	rateLimitMiddleware *middleware.RateLimitMiddleware
 	circuitBreakerManager *middleware.CircuitBreakerManager
+	securityMiddleware *middleware.SecurityMiddleware
 }
 
 func NewRouter(
@@ -38,6 +39,7 @@ func NewRouter(
 	loggingMiddleware *middleware.LoggingMiddleware,
 	rateLimitMiddleware *middleware.RateLimitMiddleware,
 	circuitBreakerManager *middleware.CircuitBreakerManager,
+	securityMiddleware *middleware.SecurityMiddleware,
 ) *Router {
 	return &Router{
 		authHandler:       authHandler,
@@ -53,20 +55,29 @@ func NewRouter(
 		loggingMiddleware: loggingMiddleware,
 		rateLimitMiddleware: rateLimitMiddleware,
 		circuitBreakerManager: circuitBreakerManager,
+		securityMiddleware: securityMiddleware,
 	}
 }
 
 func (rt *Router) SetupRoutes() *mux.Router {
-	r := mux.NewRouter()
+    r := mux.NewRouter()
 
-	// Apply global middleware
+	// Apply CORS middleware only
 	r.Use(middleware.CORSMiddleware)
+	
+	// Apply other middleware
 	r.Use(middleware.SetJSONContentType)
 	r.Use(rt.rateLimitMiddleware.RateLimit)
 	r.Use(rt.loggingMiddleware.LogRequest)
 
-	// API version prefix
-	api := r.PathPrefix("/api/v1").Subrouter()
+    // Handle CORS preflight requests
+    r.PathPrefix("/").Methods(http.MethodOptions).HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+        // CORS middleware already set headers; just return 204
+        w.WriteHeader(http.StatusNoContent)
+    })
+
+    // API version prefix
+    api := r.PathPrefix("/api/v1").Subrouter()
 
 	// Health check endpoint
 	api.HandleFunc("/health", rt.healthCheck).Methods("GET")

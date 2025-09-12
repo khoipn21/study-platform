@@ -12,17 +12,21 @@ type Logger interface {
 	Fatal(err error)
 	Infof(format string, args ...interface{})
 	Errorf(format string, args ...interface{})
+	Warnf(format string, args ...interface{})
+	Fatalf(format string, args ...interface{})
 }
 
 type DefaultLogger struct {
 	infoLog  *log.Logger
 	errorLog *log.Logger
+	warnLog  *log.Logger
 }
 
 func New() Logger {
 	return &DefaultLogger{
 		infoLog:  log.New(os.Stdout, "INFO\t", log.Ldate|log.Ltime),
 		errorLog: log.New(os.Stderr, "ERROR\t", log.Ldate|log.Ltime|log.Lshortfile),
+		warnLog:  log.New(os.Stderr, "WARN\t", log.Ldate|log.Ltime),
 	}
 }
 
@@ -44,4 +48,12 @@ func (l *DefaultLogger) Infof(format string, args ...interface{}) {
 
 func (l *DefaultLogger) Errorf(format string, args ...interface{}) {
 	l.errorLog.Printf(format, args...)
+}
+
+func (l *DefaultLogger) Warnf(format string, args ...interface{}) {
+	l.warnLog.Printf(format, args...)
+}
+
+func (l *DefaultLogger) Fatalf(format string, args ...interface{}) {
+	l.errorLog.Fatalf(format, args...)
 }

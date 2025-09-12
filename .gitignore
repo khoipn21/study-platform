@@ -78,3 +78,10 @@ CLAUDE.md
 .claude/
 
 specs/context/
+
+/cache
+.env
+.serena
+AGENTS.md
+LEMON_SQUEEZY_INTEGRATION.md
+README-SECURITY-CRITICAL.md
