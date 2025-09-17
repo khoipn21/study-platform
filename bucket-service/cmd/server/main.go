@@ -172,9 +172,11 @@ func setupRouter(cfg *config.Config, fileHandler *handler.FileHandler, healthHan
 		MaxAge:           12 * time.Hour,
 	}))
 
-	// Health endpoints (no auth required)
+	// Health endpoints (no auth required) - support both GET and HEAD
 	router.GET("/health", healthHandler.HealthCheck)
+	router.HEAD("/health", healthHandler.HealthCheck)
 	router.GET("/ready", healthHandler.ReadinessCheck)
+	router.HEAD("/ready", healthHandler.ReadinessCheck)
 
 	// API routes
 	api := router.Group("/api")

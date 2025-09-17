@@ -57,11 +57,22 @@ func NewS3Service(cfg *config.Config) (*S3Service, error) {
 		u.PartSize = cfg.Upload.PartSize
 	})
 
-	return &S3Service{
+	service := &S3Service{
 		client:   s3Client,
 		uploader: uploader,
 		config:   cfg,
-	}, nil
+	}
+
+	// Validate S3 connectivity during initialization (non-blocking in development)
+	if err := service.ValidateConnection(context.TODO()); err != nil {
+		// In development, just log the warning but don't fail
+		// In production, you might want to fail fast
+		fmt.Printf("Warning: S3 connection validation failed: %v\n", err)
+		// Uncomment the next line for stricter validation in production
+		// return nil, fmt.Errorf("S3 connection validation failed: %w", err)
+	}
+
+	return service, nil
 }
 
 type UploadInput struct {
@@ -341,4 +352,24 @@ func (sr *SizeReader) Checksum() string {
 		sr.checksum = fmt.Sprintf("%x", hash.Sum(nil))
 	}
 	return sr.checksum
+}
+
+// ValidateConnection tests S3 connectivity by checking if we can access a specific bucket
+func (s *S3Service) ValidateConnection(ctx context.Context) error {
+	// Test basic connectivity by checking if we can head a bucket
+	// This requires less permissions than listing all buckets
+	bucketName := s.config.S3.BucketFiles
+	_, err := s.client.HeadBucket(ctx, &s3.HeadBucketInput{
+		Bucket: aws.String(bucketName),
+	})
+	if err != nil {
+		// Try to create the bucket if it doesn't exist (for development)
+		_, createErr := s.client.CreateBucket(ctx, &s3.CreateBucketInput{
+			Bucket: aws.String(bucketName),
+		})
+		if createErr != nil {
+			return fmt.Errorf("cannot connect to S3 or create bucket '%s': %w", bucketName, err)
+		}
+	}
+	return nil
 }
