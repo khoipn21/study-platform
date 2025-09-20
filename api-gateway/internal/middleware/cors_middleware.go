@@ -38,21 +38,32 @@ func CORSMiddleware(next http.Handler) http.Handler {
         w.Header().Add("Vary", "Access-Control-Request-Method")
         w.Header().Add("Vary", "Access-Control-Request-Headers")
 
-        // Allowed methods and headers
-        w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
+        // Allowed methods and headers - only set if not already set
+        if w.Header().Get("Access-Control-Allow-Methods") == "" {
+            w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
+        }
 
         // Dynamically allow requested headers (Chrome client-hints like sec-ch-ua*, etc.)
-        if reqHdrs := r.Header.Get("Access-Control-Request-Headers"); reqHdrs != "" {
-            w.Header().Set("Access-Control-Allow-Headers", reqHdrs)
-        } else {
-            w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Requested-With, Accept, Accept-Language")
+        if w.Header().Get("Access-Control-Allow-Headers") == "" {
+            if reqHdrs := r.Header.Get("Access-Control-Request-Headers"); reqHdrs != "" {
+                w.Header().Set("Access-Control-Allow-Headers", reqHdrs)
+            } else {
+                w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Requested-With, Accept, Accept-Language")
+            }
         }
-        w.Header().Set("Access-Control-Max-Age", "86400")
+        if w.Header().Get("Access-Control-Max-Age") == "" {
+            w.Header().Set("Access-Control-Max-Age", "86400")
+        }
 
         if origin, ok := getAllowedOrigin(r); ok {
             // Echo back the requesting origin and allow credentials for cookie/token scenarios
-            w.Header().Set("Access-Control-Allow-Origin", origin)
-            w.Header().Set("Access-Control-Allow-Credentials", "true")
+            // Only set if not already set to prevent duplication
+            if w.Header().Get("Access-Control-Allow-Origin") == "" {
+                w.Header().Set("Access-Control-Allow-Origin", origin)
+            }
+            if w.Header().Get("Access-Control-Allow-Credentials") == "" {
+                w.Header().Set("Access-Control-Allow-Credentials", "true")
+            }
         } else if r.Header.Get("Origin") != "" {
             // SECURITY: Reject requests from non-allowed origins
             // Do not set any CORS headers - browser will block the request

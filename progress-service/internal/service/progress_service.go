@@ -1,29 +1,49 @@
 package service
 
 import (
+	"context"
 	"fmt"
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/study-platform/progress-service/internal/middleware"
 	"github.com/study-platform/progress-service/internal/model"
 	"github.com/study-platform/progress-service/internal/repository"
 	"github.com/study-platform/pkg/logger"
 )
 
 type ProgressService struct {
-	progressRepo *repository.ProgressRepository
-	logger       logger.Logger
+	progressRepo        *repository.ProgressRepository
+	paymentVerification *middleware.PaymentVerificationMiddleware
+	logger              logger.Logger
 }
 
-func NewProgressService(progressRepo *repository.ProgressRepository, logger logger.Logger) *ProgressService {
+func NewProgressService(progressRepo *repository.ProgressRepository, paymentVerification *middleware.PaymentVerificationMiddleware, logger logger.Logger) *ProgressService {
 	return &ProgressService{
-		progressRepo: progressRepo,
-		logger:       logger,
+		progressRepo:        progressRepo,
+		paymentVerification: paymentVerification,
+		logger:              logger,
 	}
 }
 
 // Progress tracking methods
 func (s *ProgressService) UpdateProgress(userID, courseID, lectureID uuid.UUID, progressPercentage float64, watchTimeSeconds int32, isCompleted bool) (*model.UserProgress, error) {
+	ctx := context.Background()
+
+	// CRITICAL SECURITY: Verify video access before tracking progress
+	if s.paymentVerification != nil {
+		if err := s.paymentVerification.VerifyVideoAccess(ctx, userID, courseID, &lectureID); err != nil {
+			s.logger.Errorf("VIDEO_ACCESS_DENIED - Payment verification failed for user %s, course %s, lecture %s: %v",
+				userID.String(), courseID.String(), lectureID.String(), err)
+			s.paymentVerification.AuditPaymentAction("VIDEO_ACCESS_DENIED", userID.String(), courseID.String(),
+				fmt.Sprintf("Lecture: %s, Error: %s", lectureID.String(), err.Error()))
+			return nil, fmt.Errorf("video access denied: %w", err)
+		}
+		// Audit successful video access
+		s.paymentVerification.AuditPaymentAction("VIDEO_ACCESS_GRANTED", userID.String(), courseID.String(),
+			fmt.Sprintf("Lecture: %s, Progress: %.2f%%, WatchTime: %ds", lectureID.String(), progressPercentage, watchTimeSeconds))
+	}
+
 	// Check if progress already exists
 	existingProgress, err := s.progressRepo.GetProgress(userID, courseID, lectureID)
 	now := time.Now()
@@ -130,12 +150,26 @@ func (s *ProgressService) GetCourseProgress(courseID uuid.UUID, page, pageSize i
 
 // Enrollment methods
 func (s *ProgressService) CreateEnrollment(userID, courseID uuid.UUID) (*model.Enrollment, error) {
+	ctx := context.Background()
+
+	// CRITICAL SECURITY: Verify payment before enrollment
+	if s.paymentVerification != nil {
+		if err := s.paymentVerification.VerifyEnrollmentAccess(ctx, userID, courseID); err != nil {
+			s.logger.Errorf("ENROLLMENT_DENIED - Payment verification failed for user %s, course %s: %v", userID.String(), courseID.String(), err)
+			s.paymentVerification.AuditPaymentAction("ENROLLMENT_DENIED", userID.String(), courseID.String(), err.Error())
+			return nil, fmt.Errorf("enrollment denied: %w", err)
+		}
+		s.paymentVerification.AuditPaymentAction("ENROLLMENT_PAYMENT_VERIFIED", userID.String(), courseID.String(), "Payment verification successful")
+	} else {
+		s.logger.Warnf("SECURITY_WARNING - Payment verification middleware not configured for enrollment. User: %s, Course: %s", userID.String(), courseID.String())
+	}
+
 	// Check if enrollment already exists
 	existingEnrollment, err := s.progressRepo.GetEnrollment(userID, courseID)
 	if err != nil && err.Error() != "enrollment not found" {
 		return nil, fmt.Errorf("failed to check existing enrollment: %w", err)
 	}
-	
+
 	if existingEnrollment != nil {
 		return nil, fmt.Errorf("user is already enrolled in this course")
 	}
@@ -157,9 +191,20 @@ func (s *ProgressService) CreateEnrollment(userID, courseID uuid.UUID) (*model.E
 	
 	err = s.progressRepo.CreateEnrollment(enrollment)
 	if err != nil {
+		s.logger.Errorf("ENROLLMENT_CREATION_FAILED - Database error for user %s, course %s: %v", userID.String(), courseID.String(), err)
+		if s.paymentVerification != nil {
+			s.paymentVerification.AuditPaymentAction("ENROLLMENT_CREATION_FAILED", userID.String(), courseID.String(), err.Error())
+		}
 		return nil, fmt.Errorf("failed to create enrollment: %w", err)
 	}
-	
+
+	// Audit successful enrollment
+	s.logger.Infof("ENROLLMENT_SUCCESS - User %s successfully enrolled in course %s. Enrollment ID: %s", userID.String(), courseID.String(), enrollment.ID.String())
+	if s.paymentVerification != nil {
+		s.paymentVerification.AuditPaymentAction("ENROLLMENT_CREATED", userID.String(), courseID.String(),
+			fmt.Sprintf("Enrollment ID: %s, Status: %s", enrollment.ID.String(), enrollment.Status))
+	}
+
 	return enrollment, nil
 }
 

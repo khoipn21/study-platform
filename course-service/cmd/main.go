@@ -54,10 +54,12 @@ func main() {
 
 	// Initialize handlers
 	courseHandler := handler.NewCourseHandler(courseService, log)
+	accessValidationHandler := handler.NewAccessValidationHandler(courseService, log)
 
 	// Create gRPC server
 	grpcServer := grpc.NewServer()
 	pb.RegisterCourseServiceServer(grpcServer, courseHandler)
+	pb.RegisterAccessValidationServiceServer(grpcServer, accessValidationHandler)
 
 	// Enable reflection for development
 	reflection.Register(grpcServer)

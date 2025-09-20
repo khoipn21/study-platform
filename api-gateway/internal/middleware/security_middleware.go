@@ -236,11 +236,13 @@ func (sm *SecurityMiddleware) SecureCORS(next http.Handler) http.Handler {
 		// Handle preflight requests
 		if r.Method == "OPTIONS" {
 			if origin != "" && sm.isOriginAllowed(origin) {
+				w.Header().Set("Access-Control-Allow-Origin", origin)
 				w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
 				w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Requested-With, X-API-Key")
+				w.Header().Set("Access-Control-Allow-Credentials", "true")
 				w.Header().Set("Access-Control-Max-Age", "3600")
 			}
-			w.WriteHeader(http.StatusOK)
+			w.WriteHeader(http.StatusNoContent)
 			return
 		}
 

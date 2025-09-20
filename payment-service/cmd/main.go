@@ -1,18 +1,19 @@
 package main
 
 import (
-	"database/sql"
 	"fmt"
 	"log"
 	"net/http"
 
-	"payment-service/internal/config"
-	"payment-service/internal/handler"
-	"payment-service/internal/repository"
-	"payment-service/internal/service"
+	"github.com/study-platform/payment-service/internal/config"
+	"github.com/study-platform/payment-service/internal/handler"
+	"github.com/study-platform/payment-service/internal/lemonsqueezy"
+	"github.com/study-platform/payment-service/internal/repository"
+	"github.com/study-platform/payment-service/internal/service"
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
+	"github.com/jmoiron/sqlx"
 	"github.com/joho/godotenv"
 	_ "github.com/lib/pq"
 )
@@ -34,9 +35,10 @@ func main() {
 	defer db.Close()
 
 	// Initialize repositories
-	paymentMethodRepo := repository.NewPaymentMethodRepository(db)
-	transactionRepo := repository.NewTransactionRepository(db)
-	subscriptionRepo := repository.NewSubscriptionRepository(db)
+	paymentMethodRepo := repository.NewPaymentMethodRepository(db.DB)
+	transactionRepo := repository.NewTransactionRepository(db.DB)
+	subscriptionRepo := repository.NewSubscriptionRepository(db.DB)
+	webhookEventRepo := repository.NewWebhookEventRepository(db)
 
 	// Initialize Progress service client
 	progressClient, err := service.NewProgressClient(cfg.Services.ProgressServiceURL)
@@ -45,14 +47,30 @@ func main() {
 		// Don't fail the service, just log the warning
 	}
 
+	// Initialize Lemon Squeezy client
+	lemonSqueezyClient := lemonsqueezy.NewClient(lemonsqueezy.Config{
+		APIKey:        cfg.Payment.LemonSqueezyAPIKey,
+		StoreID:       cfg.Payment.LemonSqueezyStoreID,
+		Environment:   "production", // Use "test" for testing
+		WebhookSecret: cfg.Payment.LemonSqueezyWebhookSecret,
+	})
+
 	// Initialize services
-	paymentService := service.NewPaymentService(paymentMethodRepo, transactionRepo, subscriptionRepo, cfg.Payment, progressClient)
+	paymentService := service.NewPaymentService(paymentMethodRepo, transactionRepo, subscriptionRepo, webhookEventRepo, cfg.Payment, progressClient)
 
 	// Initialize handlers
 	paymentHandler := handler.NewPaymentHandler(paymentService)
+	lemonSqueezyHandler := handler.NewLemonSqueezyHandler(
+		lemonSqueezyClient,
+		transactionRepo,
+		webhookEventRepo,
+		paymentService,
+		progressClient,
+		cfg.Payment.LemonSqueezyVariantID,
+	)
 
 	// Setup router
-	router := setupRouter(paymentHandler)
+	router := setupRouter(paymentHandler, lemonSqueezyHandler)
 
 	// Start server
 	addr := fmt.Sprintf("%s:%s", cfg.Server.Host, cfg.Server.Port)
@@ -63,11 +81,11 @@ func main() {
 	}
 }
 
-func connectDB(cfg config.DatabaseConfig) (*sql.DB, error) {
+func connectDB(cfg config.DatabaseConfig) (*sqlx.DB, error) {
 	dsn := fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=%s",
 		cfg.Host, cfg.Port, cfg.User, cfg.Password, cfg.DBName, cfg.SSLMode)
 
-	db, err := sql.Open("postgres", dsn)
+	db, err := sqlx.Open("postgres", dsn)
 	if err != nil {
 		return nil, err
 	}
@@ -79,7 +97,7 @@ func connectDB(cfg config.DatabaseConfig) (*sql.DB, error) {
 	return db, nil
 }
 
-func setupRouter(paymentHandler *handler.PaymentHandler) *gin.Engine {
+func setupRouter(paymentHandler *handler.PaymentHandler, lemonSqueezyHandler *handler.LemonSqueezyHandler) *gin.Engine {
 	router := gin.Default()
 
 	// CORS middleware
@@ -144,10 +162,15 @@ func setupRouter(paymentHandler *handler.PaymentHandler) *gin.Engine {
 		api.GET("/enrollments", paymentHandler.GetUserEnrollments)
 		api.GET("/enrollments/check/:courseId", paymentHandler.CheckEnrollment)
 
-		// Webhooks (no auth required)
-		router.POST("/webhooks/stripe", paymentHandler.HandleStripeWebhook)
-		router.POST("/webhooks/paypal", paymentHandler.HandlePayPalWebhook)
+		// Lemon Squeezy endpoints
+		api.POST("/lemonsqueezy/checkout/course/:course_id", lemonSqueezyHandler.CreateCheckout)
+		api.POST("/lemonsqueezy/verify/:order_id", lemonSqueezyHandler.VerifyPayment)
+		api.GET("/lemonsqueezy/products", lemonSqueezyHandler.GetProducts)
+		api.GET("/lemonsqueezy/variants", lemonSqueezyHandler.GetVariants)
 	}
+
+	// Webhooks (no auth required)
+	router.POST("/api/v1/payments/lemonsqueezy/webhook", lemonSqueezyHandler.HandleWebhook)
 
 	return router
 }

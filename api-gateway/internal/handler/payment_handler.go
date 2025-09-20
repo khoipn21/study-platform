@@ -57,6 +57,10 @@ func (h *PaymentHandler) forwardRequest(w http.ResponseWriter, r *http.Request) 
 	if targetPath == "/api/v1/payments/validate" {
 		targetPath = "/api/v1/purchase/validate"
 	}
+	// Map Lemon Squeezy endpoints
+	if strings.HasPrefix(targetPath, "/api/v1/payments/lemonsqueezy") {
+		targetPath = strings.Replace(targetPath, "/api/v1/payments/lemonsqueezy", "/api/v1/lemonsqueezy", 1)
+	}
 	
 	targetURL := h.paymentServiceURL + targetPath
 	if r.URL.RawQuery != "" {
@@ -178,4 +182,78 @@ func (h *PaymentHandler) UpdateSubscription(w http.ResponseWriter, r *http.Reque
 
 func (h *PaymentHandler) CancelSubscription(w http.ResponseWriter, r *http.Request) {
 	h.forwardRequest(w, r)
+}
+
+// Lemon Squeezy endpoints
+func (h *PaymentHandler) CreateLemonSqueezyCheckout(w http.ResponseWriter, r *http.Request) {
+	h.forwardRequest(w, r)
+}
+
+func (h *PaymentHandler) VerifyLemonSqueezyPayment(w http.ResponseWriter, r *http.Request) {
+	h.forwardRequest(w, r)
+}
+
+func (h *PaymentHandler) GetLemonSqueezyProducts(w http.ResponseWriter, r *http.Request) {
+	h.forwardRequest(w, r)
+}
+
+func (h *PaymentHandler) GetLemonSqueezyVariants(w http.ResponseWriter, r *http.Request) {
+	h.forwardRequest(w, r)
+}
+
+// Webhook handler for Lemon Squeezy (no authentication required)
+func (h *PaymentHandler) HandleLemonSqueezyWebhook(w http.ResponseWriter, r *http.Request) {
+	// Build target URL for webhook
+	targetURL := h.paymentServiceURL + "/api/v1/lemonsqueezy/webhook"
+
+	// Read body
+	var body []byte
+	if r.Body != nil {
+		var err error
+		body, err = io.ReadAll(r.Body)
+		if err != nil {
+			h.log.Errorf("Failed to read webhook body: %v", err)
+			http.Error(w, "Failed to read request body", http.StatusInternalServerError)
+			return
+		}
+		r.Body.Close()
+	}
+
+	// Create forwarded request
+	req, err := http.NewRequestWithContext(r.Context(), r.Method, targetURL, bytes.NewReader(body))
+	if err != nil {
+		h.log.Errorf("Failed to create forwarded webhook request: %v", err)
+		http.Error(w, "Failed to create request", http.StatusInternalServerError)
+		return
+	}
+
+	// Copy headers (especially important for webhook signature verification)
+	for key, values := range r.Header {
+		for _, value := range values {
+			req.Header.Add(key, value)
+		}
+	}
+
+	// Forward request
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		h.log.Errorf("Failed to forward webhook to payment service: %v", err)
+		http.Error(w, "Payment service unavailable", http.StatusServiceUnavailable)
+		return
+	}
+	defer resp.Body.Close()
+
+	// Copy response headers
+	for key, values := range resp.Header {
+		for _, value := range values {
+			w.Header().Add(key, value)
+		}
+	}
+
+	// Copy status code
+	w.WriteHeader(resp.StatusCode)
+
+	// Copy response body
+	io.Copy(w, resp.Body)
 }

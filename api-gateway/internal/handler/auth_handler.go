@@ -275,18 +275,20 @@ func (h *AuthHandler) OAuthCallback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Format response
-	data := map[string]interface{}{
-		"user": map[string]interface{}{
-			"id":       resp.User.Id,
-			"username": resp.User.Username,
-			"email":    resp.User.Email,
-			"role":     resp.User.Role,
-		},
-		"token": resp.Token,
+	// Determine redirect URL based on user role
+	var redirectURL string
+	switch resp.User.Role {
+	case "instructor", "admin":
+		redirectURL = "http://localhost:3001/dashboard/instructor/analytics"
+	default:
+		redirectURL = "http://localhost:3001/me/dashboard"
 	}
 
-	h.sendSuccess(w, resp.Message, data)
+	// Add authentication data as URL parameters
+	redirectURL += "?token=" + resp.Token + "&user=" + resp.User.Id
+
+	// Redirect to frontend with authentication data
+	http.Redirect(w, r, redirectURL, http.StatusTemporaryRedirect)
 }
 
 // Helper methods

@@ -48,16 +48,20 @@ func main() {
 	hub := websocket.NewHub(redisClient, networkService)
 	go hub.Run()
 
+	// Initialize middleware
+	wsAuthMiddleware := middleware.NewWebSocketAuthMiddleware(cfg.JWTSecret)
+
 	// Initialize handlers
 	healthHandler := handler.NewHealthHandler()
 	videoHandler := handler.NewVideoHandler(videoService)
-	wsHandler := handler.NewWebSocketHandler(hub)
+	wsHandler := handler.NewWebSocketHandler(hub, wsAuthMiddleware)
 
 	// Initialize Gin router
 	router := gin.New()
 	router.Use(gin.Recovery())
 	router.Use(middleware.LoggingMiddleware())
-	router.Use(middleware.CORSMiddleware())
+	// Note: CORS is handled by API Gateway, not by individual services
+	// router.Use(middleware.CORSMiddleware())
 
 	// Health endpoint
 	router.GET("/health", healthHandler.Health)
@@ -76,6 +80,7 @@ func main() {
 			protected := videos.Group("")
 			protected.Use(middleware.AuthMiddleware(cfg.JWTSecret))
 			{
+				protected.POST("/upload-url", videoHandler.GetUploadURL)
 				protected.POST("/upload", videoHandler.UploadVideo)
 				protected.PUT("/:video_id", videoHandler.UpdateVideo)
 				protected.DELETE("/:video_id", videoHandler.DeleteVideo)
@@ -84,6 +89,7 @@ func main() {
 				protected.PUT("/sessions/:session_id/progress", videoHandler.UpdateSessionProgress)
 				protected.POST("/sessions/:session_id/network", videoHandler.UpdateNetworkStatus)
 				protected.GET("/:video_id/analytics", videoHandler.GetVideoAnalytics)
+				protected.PUT("/:video_id/status", videoHandler.UpdateVideoStatus)
 			}
 
 			// Webhook endpoints (no auth for external services)

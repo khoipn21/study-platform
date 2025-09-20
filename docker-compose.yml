@@ -93,7 +93,7 @@ services:
     volumes:
       - ./course-service:/app
     healthcheck:
-      test: ["CMD", "grpc_health_probe", "-addr=:${GRPC_PORT_COURSE:-8082}"]
+      test: ["CMD", "nc", "-z", "localhost", "${GRPC_PORT_COURSE:-8082}"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -116,7 +116,7 @@ services:
     volumes:
       - ./progress-service:/app
     healthcheck:
-      test: ["CMD", "grpc_health_probe", "-addr=:${GRPC_PORT_PROGRESS:-8083}"]
+      test: ["CMD", "nc", "-z", "localhost", "${GRPC_PORT_PROGRESS:-8083}"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -374,6 +374,15 @@ services:
       PAYPAL_CLIENT_ID: ${PAYPAL_CLIENT_ID}
       PAYPAL_CLIENT_SECRET: ${PAYPAL_CLIENT_SECRET}
       PAYPAL_SANDBOX: ${PAYPAL_SANDBOX:-true}
+
+      # Lemon Squeezy Configuration
+      LEMON_SQUEEZY_API_KEY: ${LEMON_SQUEEZY_API_KEY}
+      LEMON_SQUEEZY_STORE_ID: ${LEMON_SQUEEZY_STORE_ID}
+      LEMON_SQUEEZY_PRODUCT_ID: ${LEMON_SQUEEZY_PRODUCT_ID}
+      LEMON_SQUEEZY_VARIANT_ID: ${LEMON_SQUEEZY_VARIANT_ID}
+      LEMON_SQUEEZY_WEBHOOK_SECRET: ${LEMON_SQUEEZY_WEBHOOK_SECRET}
+      LEMON_SQUEEZY_WEBHOOK_URL: ${LEMON_SQUEEZY_WEBHOOK_URL}
+
       PAYMENT_CURRENCY: ${PAYMENT_CURRENCY:-USD}
 
       # Progress Service Integration
@@ -401,6 +410,46 @@ services:
       timeout: 10s
       retries: 3
 
+  instructor-dashboard-service:
+    build:
+      context: ./instructor-dashboard-service
+      dockerfile: Dockerfile
+    ports: []
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      # Database Configuration
+      DATABASE_URL: ${DATABASE_URL}
+
+      # Service Configuration
+      PORT: ${INSTRUCTOR_DASHBOARD_PORT:-8089}
+
+      # Security
+      JWT_SECRET: ${JWT_SECRET}
+      CORS_ORIGINS: ${CORS_ORIGINS}
+
+      # Environment
+      ENVIRONMENT: ${ENVIRONMENT:-development}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+    volumes:
+      - ./instructor-dashboard-service:/app
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "wget",
+          "--no-verbose",
+          "--tries=1",
+          "--timeout=5",
+          "-O",
+          "/dev/null",
+          "http://localhost:${INSTRUCTOR_DASHBOARD_PORT:-8089}/health",
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
   api-gateway:
     build:
       context: .
@@ -416,6 +465,7 @@ services:
       - chatbot-service
       - forum-service
       - payment-service
+      - instructor-dashboard-service
     environment:
       # Database Configuration
       POSTGRES_USER: ${POSTGRES_USER}
@@ -435,6 +485,7 @@ services:
       CHATBOT_SERVICE_URL: ${CHATBOT_SERVICE_URL:-http://chatbot-service:8086}
       FORUM_SERVICE_URL: ${FORUM_SERVICE_URL:-http://forum-service:8087}
       PAYMENT_SERVICE_URL: ${PAYMENT_SERVICE_URL:-http://payment-service:8088}
+      INSTRUCTOR_DASHBOARD_SERVICE_URL: ${INSTRUCTOR_DASHBOARD_SERVICE_URL:-http://instructor-dashboard-service:8089}
 
       # Security Configuration
       JWT_SECRET: ${JWT_SECRET}

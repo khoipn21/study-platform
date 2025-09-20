@@ -224,10 +224,34 @@ func (r *ProgressRepository) ListEnrollments(userID uuid.UUID, status string, pa
 	return enrollments, totalCount, nil
 }
 
+func (r *ProgressRepository) GetEnrollmentByID(enrollmentID uuid.UUID) (*model.Enrollment, error) {
+	query := `
+		SELECT id, user_id, course_id, status, progress_percentage, completed_lectures, total_lectures, total_watch_time_seconds, enrolled_at, completed_at, last_accessed, created_at, updated_at
+		FROM enrollments
+		WHERE id = $1
+	`
+	row := r.db.QueryRow(query, enrollmentID)
+
+	enrollment := &model.Enrollment{}
+	err := row.Scan(&enrollment.ID, &enrollment.UserID, &enrollment.CourseID, &enrollment.Status,
+		&enrollment.ProgressPercentage, &enrollment.CompletedLectures, &enrollment.TotalLectures,
+		&enrollment.TotalWatchTimeSeconds, &enrollment.EnrolledAt, &enrollment.CompletedAt,
+		&enrollment.LastAccessed, &enrollment.CreatedAt, &enrollment.UpdatedAt)
+
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, fmt.Errorf("enrollment not found")
+		}
+		return nil, err
+	}
+
+	return enrollment, nil
+}
+
 func (r *ProgressRepository) UpdateEnrollmentStatus(userID, courseID uuid.UUID, status string) error {
 	now := time.Now()
 	query := `
-		UPDATE enrollments 
+		UPDATE enrollments
 		SET status = $3, updated_at = $4
 		WHERE user_id = $1 AND course_id = $2
 	`
@@ -340,8 +364,8 @@ func (r *ProgressRepository) GetCourseCompletion(userID, courseID uuid.UUID) (*m
 // Analytics methods
 func (r *ProgressRepository) GetUserAnalytics(userID uuid.UUID) (*model.UserAnalytics, error) {
 	query := `
-		SELECT 
-			$1 as user_id,
+		SELECT
+			$1::uuid as user_id,
 			COUNT(DISTINCT e.course_id) as total_courses_enrolled,
 			COUNT(DISTINCT CASE WHEN e.status = 'completed' THEN e.course_id END) as total_courses_completed,
 			COUNT(CASE WHEN p.is_completed = true THEN 1 END) as total_lectures_completed,
@@ -372,8 +396,8 @@ func (r *ProgressRepository) GetUserAnalytics(userID uuid.UUID) (*model.UserAnal
 
 func (r *ProgressRepository) GetCourseAnalytics(courseID uuid.UUID) (*model.CourseAnalytics, error) {
 	query := `
-		SELECT 
-			$1 as course_id,
+		SELECT
+			$1::uuid as course_id,
 			COUNT(DISTINCT e.user_id) as total_enrollments,
 			COUNT(DISTINCT CASE WHEN e.status = 'completed' THEN e.user_id END) as total_completions,
 			CASE 
@@ -412,8 +436,8 @@ func (r *ProgressRepository) GetCourseAnalytics(courseID uuid.UUID) (*model.Cour
 
 func (r *ProgressRepository) GetInstructorAnalytics(instructorID uuid.UUID) (*model.InstructorAnalytics, error) {
 	query := `
-		SELECT 
-			$1 as instructor_id,
+		SELECT
+			$1::uuid as instructor_id,
 			COUNT(DISTINCT c.id) as total_courses,
 			COUNT(DISTINCT e.user_id) as total_students,
 			COUNT(DISTINCT CASE WHEN e.status = 'completed' THEN e.user_id END) as total_completions,

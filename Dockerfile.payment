@@ -4,6 +4,10 @@ WORKDIR /app
 
 # Copy go mod files
 COPY payment-service/go.mod payment-service/go.sum ./
+
+# Copy shared pkg directory for go mod download
+COPY pkg/ ../pkg/
+
 RUN go mod download
 
 # Copy source code

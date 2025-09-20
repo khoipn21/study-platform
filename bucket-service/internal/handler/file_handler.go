@@ -82,22 +82,55 @@ func (h *FileHandler) UploadFile(c *gin.Context) {
 	var processedData []byte
 	var thumbnailURL *string
 
-	if h.imageService.IsImageFile(contentType) {
+	if h.imageService != nil && h.imageService.IsImageFile(contentType) {
+		// Process main image
 		processed, err := h.imageService.ProcessImage(file, contentType)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to process image"})
-			return
-		}
-		processedData = processed.Data
-		contentType = processed.ContentType
+			fmt.Printf("Image processing error: %v\n", err)
+			// For now, skip image processing and treat as regular file
+			processedData = make([]byte, header.Size)
+			file.Seek(0, 0)
+			file.Read(processedData)
+		} else if processed != nil {
+			processedData = processed.Data
+			if processed.ContentType != "" {
+				contentType = processed.ContentType
+			}
 
-		// Generate thumbnails
-		file.Seek(0, 0) // Reset file pointer
-		thumbnails, err := h.imageService.GenerateThumbnails(file, contentType)
-		if err == nil && len(thumbnails) > 0 {
-			// Upload thumbnail (using medium size)
-			if thumbnail, ok := thumbnails["medium"]; ok {
+			// Try to generate thumbnails - completely isolated to prevent any panics
+			func() {
+				defer func() {
+					if r := recover(); r != nil {
+						fmt.Printf("Thumbnail generation panic recovered: %v\n", r)
+					}
+				}()
+
+				// Reset file pointer for thumbnail generation
+				file.Seek(0, 0)
+				thumbnails, err := h.imageService.GenerateThumbnails(file, contentType)
+				if err != nil {
+					fmt.Printf("Thumbnail generation error: %v\n", err)
+					return
+				}
+
+				if thumbnails == nil || len(thumbnails) == 0 {
+					fmt.Printf("No thumbnails generated\n")
+					return
+				}
+
+				// Upload thumbnail (using medium size)
+				thumbnail, exists := thumbnails["medium"]
+				if !exists || thumbnail == nil || len(thumbnail.Data) == 0 {
+					fmt.Printf("Medium thumbnail not available or empty\n")
+					return
+				}
+
 				thumbReader := bytes.NewReader(thumbnail.Data)
+				if thumbReader == nil {
+					fmt.Printf("Failed to create thumbnail reader\n")
+					return
+				}
+
 				thumbInput := &service.UploadInput{
 					Reader:      thumbReader,
 					Filename:    "thumb_" + header.Filename,
@@ -108,10 +141,16 @@ func (h *FileHandler) UploadFile(c *gin.Context) {
 				}
 
 				thumbResult, err := h.s3Service.UploadFile(c.Request.Context(), thumbInput)
-				if err == nil {
-					*thumbnailURL = thumbResult.URL
+				if err != nil {
+					fmt.Printf("Thumbnail upload error: %v\n", err)
+					return
 				}
-			}
+
+				if thumbResult != nil && thumbResult.URL != "" {
+					thumbnailURL = &thumbResult.URL
+					fmt.Printf("Thumbnail uploaded successfully: %s\n", thumbResult.URL)
+				}
+			}()
 		}
 	} else {
 		// Read file data for non-images
@@ -374,6 +413,11 @@ func (h *FileHandler) GetPublicFile(c *gin.Context) {
 
 // Helper methods
 func (h *FileHandler) validateFile(header *multipart.FileHeader, file multipart.File) error {
+	// Check for empty file
+	if header.Size == 0 {
+		return fmt.Errorf("file is empty, cannot upload zero-byte file")
+	}
+
 	// Check file size
 	if header.Size > h.config.Upload.MaxFileSize {
 		return fmt.Errorf("file size exceeds limit of %d bytes", h.config.Upload.MaxFileSize)

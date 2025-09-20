@@ -437,3 +437,35 @@ func (sr *SessionRepository) GetUserVideoProgress(userID, videoID uuid.UUID) (*m
 
 	return session, nil
 }
+
+// GetActiveSessionByUserVideo retrieves active session for a user and video combination
+func (sr *SessionRepository) GetActiveSessionByUserVideo(userID, videoID uuid.UUID) (*model.ViewingSession, error) {
+	query := `
+		SELECT id, session_id, user_id, video_id, started_at, last_heartbeat,
+			   current_time_seconds, current_quality, total_watch_time_seconds,
+			   completed, user_agent, ip_address, created_at
+		FROM viewing_sessions
+		WHERE user_id = $1 AND video_id = $2 AND completed = false
+			  AND last_heartbeat > NOW() - INTERVAL '1 hour'
+		ORDER BY last_heartbeat DESC
+		LIMIT 1
+	`
+
+	session := &model.ViewingSession{}
+
+	err := sr.db.QueryRow(query, userID, videoID).Scan(
+		&session.ID, &session.SessionID, &session.UserID, &session.VideoID,
+		&session.StartedAt, &session.LastHeartbeat, &session.CurrentTimeSeconds,
+		&session.CurrentQuality, &session.TotalWatchTimeSeconds, &session.Completed,
+		&session.UserAgent, &session.IPAddress, &session.CreatedAt,
+	)
+
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, fmt.Errorf("session not found")
+		}
+		return nil, fmt.Errorf("failed to get active session: %w", err)
+	}
+
+	return session, nil
+}

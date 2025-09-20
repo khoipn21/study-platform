@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/study-platform/course-service/internal/model"
@@ -41,7 +42,9 @@ func (s *CourseService) CreateCourse(ctx context.Context, course *model.Course) 
 	}
 	
 	// Set default values
-	course.Status = model.CourseStatusDraft
+	if course.Status == "" {
+		course.Status = model.CourseStatusDraft
+	}
 	course.EnrollmentCount = 0
 	course.Rating = 0
 	course.RatingCount = 0
@@ -263,31 +266,54 @@ func (s *CourseService) ListLectures(ctx context.Context, filters model.LectureF
 
 func (s *CourseService) EnrollInCourse(ctx context.Context, enrollment *model.Enrollment) error {
 	s.logger.Infof("Enrolling user %s in course %s", enrollment.UserID.String(), enrollment.CourseID.String())
-	
+
 	// Verify course exists and is published
 	course, err := s.courseRepo.GetByID(ctx, enrollment.CourseID)
 	if err != nil {
 		s.logger.Errorf("Course not found for enrollment %s: %v", enrollment.CourseID.String(), err)
 		return fmt.Errorf("course not found: %w", err)
 	}
-	
+
 	if course.Status != model.CourseStatusPublished {
 		return fmt.Errorf("course is not available for enrollment")
 	}
-	
-	err = s.enrollmentRepo.Create(ctx, enrollment)
-	if err != nil {
-		s.logger.Errorf("Failed to create enrollment: %v", err)
-		return fmt.Errorf("failed to enroll in course: %w", err)
+
+	// Check if user is already enrolled
+	existingEnrollment, err := s.enrollmentRepo.GetByUserAndCourse(ctx, enrollment.UserID, enrollment.CourseID)
+	if err == nil && existingEnrollment != nil {
+		return fmt.Errorf("user is already enrolled in this course")
 	}
-	
-	// Update course enrollment count
-	err = s.courseRepo.UpdateEnrollmentCount(ctx, enrollment.CourseID)
-	if err != nil {
-		s.logger.Errorf("Failed to update enrollment count %s: %v", enrollment.CourseID.String(), err)
+
+	// Set payment requirements based on course type
+	if course.IsPaid && course.Price > 0 {
+		// CRITICAL SECURITY FIX: For paid courses, DO NOT create enrollment without payment verification
+		s.logger.Warnf("PAYMENT REQUIRED: User %s attempting to enroll in paid course %s (Price: %.2f %s) - ENROLLMENT DENIED",
+			enrollment.UserID.String(), enrollment.CourseID.String(), course.Price, course.Currency)
+
+		// Return error immediately - no enrollment should be created for paid courses
+		// Enrollment will only be created after successful payment verification through the payment service
+		return fmt.Errorf("payment required: course costs %.2f %s. Please purchase this course through the payment system to access content", course.Price, course.Currency)
+	} else {
+		// Free course - allow direct enrollment
+		enrollment.PaymentRequired = false
+		enrollment.PaymentStatus = "not_required"
+		enrollment.Status = model.EnrollmentStatusActive
+
+		err = s.enrollmentRepo.Create(ctx, enrollment)
+		if err != nil {
+			s.logger.Errorf("Failed to create enrollment: %v", err)
+			return fmt.Errorf("failed to enroll in course: %w", err)
+		}
+
+		// Update course enrollment count
+		err = s.courseRepo.UpdateEnrollmentCount(ctx, enrollment.CourseID)
+		if err != nil {
+			s.logger.Errorf("Failed to update enrollment count %s: %v", enrollment.CourseID.String(), err)
+		}
+
+		s.logger.Infof("User enrolled successfully in free course: %s", enrollment.ID.String())
 	}
-	
-	s.logger.Infof("User enrolled successfully: %s", enrollment.ID.String())
+
 	return nil
 }
 
@@ -308,14 +334,115 @@ func (s *CourseService) ListEnrollments(ctx context.Context, filters model.Enrol
 	if filters.PageSize <= 0 {
 		filters.PageSize = 20
 	}
-	
+
 	result, err := s.enrollmentRepo.List(ctx, filters)
 	if err != nil {
 		s.logger.Errorf("Failed to list enrollments: %v", err)
 		return nil, fmt.Errorf("failed to list enrollments: %w", err)
 	}
-	
+
 	return result, nil
+}
+
+// CreatePaidEnrollment creates an enrollment after successful payment verification
+func (s *CourseService) CreatePaidEnrollment(ctx context.Context, userID, courseID uuid.UUID, orderID string, paidAmount float64, currency string) error {
+	s.logger.Infof("Creating paid enrollment - User: %s, Course: %s, Order: %s", userID.String(), courseID.String(), orderID)
+
+	// Verify course exists and is paid
+	course, err := s.courseRepo.GetByID(ctx, courseID)
+	if err != nil {
+		s.logger.Errorf("Course not found for paid enrollment %s: %v", courseID.String(), err)
+		return fmt.Errorf("course not found: %w", err)
+	}
+
+	if !course.IsPaid || course.Price <= 0 {
+		return fmt.Errorf("course is not a paid course")
+	}
+
+	// Check if user is already enrolled
+	existingEnrollment, err := s.enrollmentRepo.GetByUserAndCourse(ctx, userID, courseID)
+	if err == nil && existingEnrollment != nil {
+		s.logger.Warnf("User %s is already enrolled in course %s", userID.String(), courseID.String())
+		return fmt.Errorf("user is already enrolled in this course")
+	}
+
+	// Create enrollment with payment information
+	now := time.Now()
+	enrollment := &model.Enrollment{
+		UserID:                userID,
+		CourseID:              courseID,
+		Status:                model.EnrollmentStatusActive,
+		PaymentRequired:       true,
+		PaymentStatus:         "completed",
+		LemonSqueezyOrderID:   &orderID,
+		PaymentAmount:         &paidAmount,
+		PaymentCurrency:       &currency,
+		PaidAt:                &now,
+	}
+
+	err = s.enrollmentRepo.Create(ctx, enrollment)
+	if err != nil {
+		s.logger.Errorf("Failed to create paid enrollment: %v", err)
+		return fmt.Errorf("failed to create enrollment: %w", err)
+	}
+
+	// Update course enrollment count
+	err = s.courseRepo.UpdateEnrollmentCount(ctx, courseID)
+	if err != nil {
+		s.logger.Errorf("Failed to update enrollment count %s: %v", courseID.String(), err)
+	}
+
+	s.logger.Infof("Paid enrollment created successfully: %s", enrollment.ID.String())
+	return nil
+}
+
+// CompleteEnrollmentPayment activates an enrollment after successful payment (legacy method, kept for compatibility)
+func (s *CourseService) CompleteEnrollmentPayment(ctx context.Context, userID, courseID uuid.UUID, orderID string, paidAmount float64, currency string) error {
+	s.logger.Infof("Completing payment for enrollment - User: %s, Course: %s, Order: %s", userID.String(), courseID.String(), orderID)
+
+	// Try to find existing pending enrollment first
+	enrollment, err := s.enrollmentRepo.GetByUserAndCourse(ctx, userID, courseID)
+	if err != nil {
+		// No existing enrollment found, create new paid enrollment
+		return s.CreatePaidEnrollment(ctx, userID, courseID, orderID, paidAmount, currency)
+	}
+
+	if enrollment.Status != model.EnrollmentStatusPending {
+		// If enrollment exists but not pending, check if payment was already completed
+		if enrollment.Status == model.EnrollmentStatusActive && enrollment.PaymentStatus == "completed" {
+			s.logger.Infof("Enrollment already active and paid for User: %s, Course: %s", userID.String(), courseID.String())
+			return nil
+		}
+		return fmt.Errorf("enrollment is not in pending status (current: %s)", enrollment.Status)
+	}
+
+	if !enrollment.PaymentRequired {
+		return fmt.Errorf("payment not required for this enrollment")
+	}
+
+	// Update enrollment with payment information
+	now := time.Now()
+	enrollment.Status = model.EnrollmentStatusActive
+	enrollment.PaymentStatus = "completed"
+	enrollment.LemonSqueezyOrderID = &orderID
+	enrollment.PaymentAmount = &paidAmount
+	enrollment.PaymentCurrency = &currency
+	enrollment.PaidAt = &now
+
+	err = s.enrollmentRepo.Update(ctx, enrollment)
+	if err != nil {
+		s.logger.Errorf("Failed to update enrollment after payment: %v", err)
+		return fmt.Errorf("failed to activate enrollment: %w", err)
+	}
+
+	// Update course enrollment count
+	err = s.courseRepo.UpdateEnrollmentCount(ctx, enrollment.CourseID)
+	if err != nil {
+		s.logger.Errorf("Failed to update enrollment count %s: %v", enrollment.CourseID.String(), err)
+	}
+
+	s.logger.Infof("Enrollment activated after successful payment: %s", enrollment.ID.String())
+	return nil
 }
 
 func (s *CourseService) validateCourse(course *model.Course) error {
@@ -362,6 +489,144 @@ func (s *CourseService) validateLecture(lecture *model.Lecture) error {
 	if lecture.DurationMinutes < 0 {
 		return fmt.Errorf("lecture duration cannot be negative")
 	}
-	
+
 	return nil
+}
+
+// ValidateCourseAccess checks if a user has access to a course
+func (s *CourseService) ValidateCourseAccess(ctx context.Context, userID, courseID uuid.UUID) (*model.CourseAccessResult, error) {
+	// Get course details
+	course, err := s.courseRepo.GetByID(ctx, courseID)
+	if err != nil {
+		s.logger.Errorf("Failed to get course %s: %v", courseID.String(), err)
+		return nil, fmt.Errorf("failed to get course: %w", err)
+	}
+
+	// If course is free, grant full access
+	if !course.IsPaid {
+		return &model.CourseAccessResult{
+			HasAccess:   true,
+			AccessLevel: model.AccessLevelFull,
+			CourseType:  model.CourseTypeFree,
+			Message:     "Free course - full access granted",
+		}, nil
+	}
+
+	// For paid courses, check enrollment
+	enrollment, err := s.enrollmentRepo.GetByUserAndCourse(ctx, userID, courseID)
+	if err != nil {
+		// No enrollment found, check if preview is allowed
+		return &model.CourseAccessResult{
+			HasAccess:   false,
+			AccessLevel: model.AccessLevelPreview,
+			CourseType:  model.CourseTypePaid,
+			CoursePrice: course.Price,
+			Currency:    course.Currency,
+			Message:     "Purchase required to access this content",
+		}, nil
+	}
+
+	// Check enrollment status
+	if enrollment.Status == model.EnrollmentStatusActive {
+		return &model.CourseAccessResult{
+			HasAccess:   true,
+			AccessLevel: model.AccessLevelFull,
+			CourseType:  model.CourseTypePaid,
+			Message:     "Course purchased - full access granted",
+		}, nil
+	}
+
+	// Enrollment exists but not active
+	return &model.CourseAccessResult{
+		HasAccess:   false,
+		AccessLevel: model.AccessLevelDenied,
+		CourseType:  model.CourseTypePaid,
+		CoursePrice: course.Price,
+		Currency:    course.Currency,
+		Message:     "Enrollment inactive - purchase required",
+	}, nil
+}
+
+// ValidateLectureAccess checks if a user has access to a specific lecture
+func (s *CourseService) ValidateLectureAccess(ctx context.Context, userID, lectureID uuid.UUID) (*model.LectureAccessResult, error) {
+	// Get lecture details
+	lecture, err := s.lectureRepo.GetByID(ctx, lectureID)
+	if err != nil {
+		s.logger.Errorf("Failed to get lecture %s: %v", lectureID.String(), err)
+		return nil, fmt.Errorf("failed to get lecture: %w", err)
+	}
+
+	// Get course access first
+	courseAccess, err := s.ValidateCourseAccess(ctx, userID, lecture.CourseID)
+	if err != nil {
+		return nil, err
+	}
+
+	// If lecture is marked as free, allow access
+	if lecture.IsFree {
+		return &model.LectureAccessResult{
+			HasAccess:     true,
+			AccessLevel:   model.AccessLevelFull,
+			LectureType:   model.LectureTypeFree,
+			CourseAccess:  courseAccess,
+			Message:       "Free lecture - full access granted",
+		}, nil
+	}
+
+	// If user has full course access, grant lecture access
+	if courseAccess.HasAccess && courseAccess.AccessLevel == model.AccessLevelFull {
+		return &model.LectureAccessResult{
+			HasAccess:     true,
+			AccessLevel:   model.AccessLevelFull,
+			LectureType:   model.LectureTypePaid,
+			CourseAccess:  courseAccess,
+			Message:       "Full course access - lecture available",
+		}, nil
+	}
+
+	// For preview access, check if this is a preview lecture (first lecture or marked as preview)
+	if s.isPreviewLecture(ctx, lecture) {
+		return &model.LectureAccessResult{
+			HasAccess:     true,
+			AccessLevel:   model.AccessLevelPreview,
+			LectureType:   model.LectureTypePreview,
+			CourseAccess:  courseAccess,
+			PreviewTimeLimit: 600, // 10 minutes preview
+			Message:       "Preview access - limited time available",
+		}, nil
+	}
+
+	// No access
+	return &model.LectureAccessResult{
+		HasAccess:     false,
+		AccessLevel:   model.AccessLevelDenied,
+		LectureType:   model.LectureTypePaid,
+		CourseAccess:  courseAccess,
+		Message:       "Purchase required to access this lecture",
+	}, nil
+}
+
+// isPreviewLecture determines if a lecture should be available for preview
+func (s *CourseService) isPreviewLecture(ctx context.Context, lecture *model.Lecture) bool {
+	// Check if it's the first lecture in the course
+	lectures, err := s.lectureRepo.GetByCourseID(ctx, lecture.CourseID)
+	if err != nil {
+		s.logger.Errorf("Failed to get course lectures: %v", err)
+		return false
+	}
+
+	// If this is the first lecture (lowest order number), allow preview
+	if len(lectures) > 0 {
+		firstLecture := lectures[0]
+		for _, l := range lectures {
+			if l.OrderNumber < firstLecture.OrderNumber {
+				firstLecture = l
+			}
+		}
+		if lecture.ID == firstLecture.ID {
+			return true
+		}
+	}
+
+	return false
 }

@@ -37,6 +37,7 @@ func main() {
 	chatbotServiceURL := getEnv("CHATBOT_SERVICE_URL", "http://localhost:8086")
 	forumServiceURL := getEnv("FORUM_SERVICE_URL", "http://localhost:8087")
 	paymentServiceURL := getEnv("PAYMENT_SERVICE_URL", "http://localhost:8088")
+	instructorDashboardServiceURL := getEnv("INSTRUCTOR_DASHBOARD_SERVICE_URL", "http://localhost:8089")
 
 	// Initialize circuit breaker and retry managers
 	circuitBreakerConfig := middleware.CircuitBreakerConfig{
@@ -51,6 +52,7 @@ func main() {
 	retryManager.SetConfig("course-service", middleware.DefaultRetryConfig())
 	retryManager.SetConfig("progress-service", middleware.DefaultRetryConfig())
 	retryManager.SetConfig("bucket-service", middleware.DefaultRetryConfig())
+	retryManager.SetConfig("instructor-dashboard", middleware.DefaultRetryConfig())
 
 	// Connect to auth service with circuit breaker and retry
 	authCB := circuitBreakerManager.GetCircuitBreaker("auth-service")
@@ -99,6 +101,9 @@ func main() {
 	chatbotHandler := handler.NewChatbotHandler(chatbotServiceURL)
 	forumHandler := handler.NewForumHandler(forumServiceURL)
 	paymentHandler := handler.NewPaymentHandler(paymentServiceURL, log)
+	lemonSqueezyHandler := handler.NewLemonSqueezyHandler(log)
+	instructorDashboardHandler := handler.NewInstructorDashboardHandler(instructorDashboardServiceURL)
+	studentDashboardHandler := handler.NewStudentDashboardHandler()
 	docsHandler := handler.NewDocsHandler()
 
 	// Initialize middleware
@@ -131,6 +136,9 @@ func main() {
 		chatbotHandler,
 		forumHandler,
 		paymentHandler,
+		lemonSqueezyHandler,
+		instructorDashboardHandler,
+		studentDashboardHandler,
 		docsHandler,
 		authMiddleware,
 		loggingMiddleware,

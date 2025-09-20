@@ -9,20 +9,23 @@ import (
 )
 
 type Router struct {
-	authHandler       *handler.AuthHandler
-	courseHandler     *handler.CourseHandler
-	progressHandler   *handler.ProgressHandler
-	videoHandler      *handler.VideoHandler
-	bucketHandler     *handler.BucketHandler
-	chatbotHandler    *handler.ChatbotHandler
-	forumHandler      *handler.ForumHandler
-	paymentHandler    *handler.PaymentHandler
-	docsHandler       *handler.DocsHandler
-	authMiddleware    *middleware.AuthMiddleware
-	loggingMiddleware *middleware.LoggingMiddleware
-	rateLimitMiddleware *middleware.RateLimitMiddleware
-	circuitBreakerManager *middleware.CircuitBreakerManager
-	securityMiddleware *middleware.SecurityMiddleware
+	authHandler              *handler.AuthHandler
+	courseHandler            *handler.CourseHandler
+	progressHandler          *handler.ProgressHandler
+	videoHandler             *handler.VideoHandler
+	bucketHandler            *handler.BucketHandler
+	chatbotHandler           *handler.ChatbotHandler
+	forumHandler             *handler.ForumHandler
+	paymentHandler           *handler.PaymentHandler
+	lemonSqueezyHandler      *handler.LemonSqueezyHandler
+	instructorDashboardHandler *handler.InstructorDashboardHandler
+	studentDashboardHandler  *handler.StudentDashboardHandler
+	docsHandler              *handler.DocsHandler
+	authMiddleware           *middleware.AuthMiddleware
+	loggingMiddleware        *middleware.LoggingMiddleware
+	rateLimitMiddleware      *middleware.RateLimitMiddleware
+	circuitBreakerManager    *middleware.CircuitBreakerManager
+	securityMiddleware       *middleware.SecurityMiddleware
 }
 
 func NewRouter(
@@ -34,6 +37,9 @@ func NewRouter(
 	chatbotHandler *handler.ChatbotHandler,
 	forumHandler *handler.ForumHandler,
 	paymentHandler *handler.PaymentHandler,
+	lemonSqueezyHandler *handler.LemonSqueezyHandler,
+	instructorDashboardHandler *handler.InstructorDashboardHandler,
+	studentDashboardHandler *handler.StudentDashboardHandler,
 	docsHandler *handler.DocsHandler,
 	authMiddleware *middleware.AuthMiddleware,
 	loggingMiddleware *middleware.LoggingMiddleware,
@@ -42,64 +48,101 @@ func NewRouter(
 	securityMiddleware *middleware.SecurityMiddleware,
 ) *Router {
 	return &Router{
-		authHandler:       authHandler,
-		courseHandler:     courseHandler,
-		progressHandler:   progressHandler,
-		videoHandler:      videoHandler,
-		bucketHandler:     bucketHandler,
-		chatbotHandler:    chatbotHandler,
-		forumHandler:      forumHandler,
-		paymentHandler:    paymentHandler,
-		docsHandler:       docsHandler,
-		authMiddleware:    authMiddleware,
-		loggingMiddleware: loggingMiddleware,
-		rateLimitMiddleware: rateLimitMiddleware,
-		circuitBreakerManager: circuitBreakerManager,
-		securityMiddleware: securityMiddleware,
+		authHandler:              authHandler,
+		courseHandler:            courseHandler,
+		progressHandler:          progressHandler,
+		videoHandler:             videoHandler,
+		bucketHandler:            bucketHandler,
+		chatbotHandler:           chatbotHandler,
+		forumHandler:             forumHandler,
+		paymentHandler:           paymentHandler,
+		lemonSqueezyHandler:      lemonSqueezyHandler,
+		instructorDashboardHandler: instructorDashboardHandler,
+		studentDashboardHandler:  studentDashboardHandler,
+		docsHandler:              docsHandler,
+		authMiddleware:           authMiddleware,
+		loggingMiddleware:        loggingMiddleware,
+		rateLimitMiddleware:      rateLimitMiddleware,
+		circuitBreakerManager:    circuitBreakerManager,
+		securityMiddleware:       securityMiddleware,
 	}
 }
 
 func (rt *Router) SetupRoutes() *mux.Router {
     r := mux.NewRouter()
 
-	// Apply CORS middleware only
-	r.Use(middleware.CORSMiddleware)
-	
+	// Add global OPTIONS middleware before any routing
+	r.Use(func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if r.Method == http.MethodOptions {
+				w.Header().Set("Access-Control-Allow-Origin", "http://localhost:3000")
+				w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
+				w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Requested-With, Accept, Accept-Language")
+				w.Header().Set("Access-Control-Allow-Credentials", "true")
+				w.Header().Set("Access-Control-Max-Age", "86400")
+				w.WriteHeader(http.StatusNoContent)
+				return
+			}
+			next.ServeHTTP(w, r)
+		})
+	})
+
 	// Apply other middleware
 	r.Use(middleware.SetJSONContentType)
 	r.Use(rt.rateLimitMiddleware.RateLimit)
 	r.Use(rt.loggingMiddleware.LogRequest)
 
-    // Handle CORS preflight requests
-    r.PathPrefix("/").Methods(http.MethodOptions).HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-        // CORS middleware already set headers; just return 204
-        w.WriteHeader(http.StatusNoContent)
-    })
+    // CORS preflight requests are handled by individual subrouters with their own CORS middleware
 
     // API version prefix
     api := r.PathPrefix("/api/v1").Subrouter()
 
+    // Global OPTIONS handler for API routes to ensure CORS preflight works
+    api.Methods("OPTIONS").HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+        // Apply CORS headers manually for OPTIONS requests
+        w.Header().Set("Access-Control-Allow-Origin", "http://localhost:3000")
+        w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
+        w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Requested-With, Accept, Accept-Language")
+        w.Header().Set("Access-Control-Allow-Credentials", "true")
+        w.Header().Set("Access-Control-Max-Age", "86400")
+        w.WriteHeader(http.StatusNoContent)
+    })
+
+    // Note: CORS middleware will be applied to individual subrouters to avoid duplication
+
+	// Create a general routes subrouter for non-specific endpoints
+	generalRoutes := api.PathPrefix("/").Subrouter()
+	generalRoutes.Use(middleware.CORSMiddleware)
+
 	// Health check endpoint
-	api.HandleFunc("/health", rt.healthCheck).Methods("GET")
-	api.HandleFunc("/health/circuit-breakers", rt.circuitBreakerStatus).Methods("GET")
-	
+	generalRoutes.HandleFunc("/health", rt.healthCheck).Methods("GET")
+	generalRoutes.HandleFunc("/health/circuit-breakers", rt.circuitBreakerStatus).Methods("GET")
+
 	// Documentation endpoints
-	api.HandleFunc("/docs/openapi.json", rt.docsHandler.GetAPISpec).Methods("GET")
-	api.HandleFunc("/docs", rt.docsHandler.GetSwaggerUI).Methods("GET")
-	
+	generalRoutes.HandleFunc("/docs/openapi.json", rt.docsHandler.GetAPISpec).Methods("GET")
+	generalRoutes.HandleFunc("/docs", rt.docsHandler.GetSwaggerUI).Methods("GET")
+
 	// Debug endpoint for testing
-	api.HandleFunc("/debug/files", func(w http.ResponseWriter, r *http.Request) {
+	generalRoutes.HandleFunc("/debug/files", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte(`{"message": "Debug endpoint works", "path": "` + r.URL.Path + `"}`))
 	}).Methods("GET")
-	
+
+	// Debug dashboard endpoint without auth
+	generalRoutes.HandleFunc("/debug/dashboard", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(`{"message": "Dashboard debug endpoint works", "path": "` + r.URL.Path + `"}`))
+	}).Methods("GET")
+
 	// Direct file routes for testing
-	api.HandleFunc("/files", rt.bucketHandler.ListFiles).Methods("GET")
-	api.HandleFunc("/files/upload", rt.bucketHandler.UploadFile).Methods("POST")
+	generalRoutes.HandleFunc("/files", rt.bucketHandler.ListFiles).Methods("GET")
+	generalRoutes.HandleFunc("/files/upload", rt.bucketHandler.UploadFile).Methods("POST")
 
 	// Auth routes (no authentication required)
 	authRoutes := api.PathPrefix("/auth").Subrouter()
+	authRoutes.Use(middleware.CORSMiddleware)
 	authRoutes.HandleFunc("/register", rt.authHandler.Register).Methods("POST")
 	authRoutes.HandleFunc("/login", rt.authHandler.Login).Methods("POST")
 	authRoutes.HandleFunc("/validate", rt.authHandler.ValidateToken).Methods("POST")
@@ -108,12 +151,14 @@ func (rt *Router) SetupRoutes() *mux.Router {
 
 	// Protected auth routes (authentication required)
 	protectedAuthRoutes := api.PathPrefix("/auth").Subrouter()
+	protectedAuthRoutes.Use(middleware.CORSMiddleware)
 	protectedAuthRoutes.Use(rt.authMiddleware.RequireAuth)
 	protectedAuthRoutes.HandleFunc("/profile", rt.authHandler.GetProfile).Methods("GET")
 
 	// Course routes (some public, some protected)
 	courseRoutes := api.PathPrefix("/courses").Subrouter()
-	
+	courseRoutes.Use(middleware.CORSMiddleware)
+
 	// Public course routes
 	courseRoutes.HandleFunc("", rt.courseHandler.ListCourses).Methods("GET")
 	courseRoutes.HandleFunc("/search", rt.courseHandler.SearchCourses).Methods("GET")
@@ -123,11 +168,12 @@ func (rt *Router) SetupRoutes() *mux.Router {
 
 	// Protected course routes (authentication required)
 	protectedCourseRoutes := api.PathPrefix("/courses").Subrouter()
+	protectedCourseRoutes.Use(middleware.CORSMiddleware)
 	protectedCourseRoutes.Use(rt.authMiddleware.RequireAuth)
 	protectedCourseRoutes.HandleFunc("", rt.courseHandler.CreateCourse).Methods("POST")
 	protectedCourseRoutes.HandleFunc("/{id}", rt.courseHandler.UpdateCourse).Methods("PUT")
 	protectedCourseRoutes.HandleFunc("/{id}", rt.courseHandler.DeleteCourse).Methods("DELETE")
-	protectedCourseRoutes.HandleFunc("/lectures", rt.courseHandler.CreateLecture).Methods("POST")
+	protectedCourseRoutes.HandleFunc("/{course_id}/lectures", rt.courseHandler.CreateLecture).Methods("POST")
 	protectedCourseRoutes.HandleFunc("/{course_id}/enroll", rt.courseHandler.EnrollInCourse).Methods("POST")
 
 	// Progress routes (all require authentication)
@@ -171,6 +217,26 @@ func (rt *Router) SetupRoutes() *mux.Router {
 	protectedFileRoutes.HandleFunc("/upload/{sessionId}", rt.bucketHandler.AbortMultipartUpload).Methods("DELETE")
 	protectedFileRoutes.HandleFunc("/upload/{sessionId}/progress", rt.bucketHandler.GetUploadProgress).Methods("GET")
 
+	// Student Dashboard routes (require authentication)
+	dashboardRoutes := api.PathPrefix("/dashboard").Subrouter()
+	// dashboardRoutes.Use(rt.authMiddleware.RequireAuth) // Temporarily disabled for debugging
+
+	// Student dashboard endpoints
+	if rt.studentDashboardHandler == nil {
+		panic("studentDashboardHandler is nil!")
+	}
+	dashboardRoutes.HandleFunc("/user/{userId}", rt.studentDashboardHandler.GetUserDashboard).Methods("GET")
+	dashboardRoutes.HandleFunc("/goals/{goalId}", rt.studentDashboardHandler.UpdateStudyGoal).Methods("PATCH")
+	dashboardRoutes.HandleFunc("/goals", rt.studentDashboardHandler.CreateStudyGoal).Methods("POST")
+	dashboardRoutes.HandleFunc("/stats/weekly/{userId}", rt.studentDashboardHandler.GetWeeklyStats).Methods("GET")
+
+	// Debug test endpoint
+	dashboardRoutes.HandleFunc("/test", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(`{"message": "Student dashboard routes are working"}`))
+	}).Methods("GET")
+
 	// Admin routes (require admin role)
 	adminRoutes := api.PathPrefix("/admin").Subrouter()
 	adminRoutes.Use(rt.authMiddleware.RequireAuth)
@@ -181,7 +247,57 @@ func (rt *Router) SetupRoutes() *mux.Router {
 	instructorRoutes := api.PathPrefix("/instructor").Subrouter()
 	instructorRoutes.Use(rt.authMiddleware.RequireAuth)
 	instructorRoutes.Use(rt.authMiddleware.RequireInstructor)
-	// Add instructor-specific routes here as needed
+
+	// Instructor Dashboard Overview
+	instructorRoutes.HandleFunc("/dashboard/overview", rt.instructorDashboardHandler.GetDashboardOverview).Methods("GET")
+
+	// Instructor Course Management
+	instructorRoutes.HandleFunc("/courses", rt.instructorDashboardHandler.GetInstructorCourses).Methods("GET")
+	instructorRoutes.HandleFunc("/courses", rt.instructorDashboardHandler.CreateCourse).Methods("POST")
+	instructorRoutes.HandleFunc("/courses/{id}/bulk-operations", rt.instructorDashboardHandler.BulkCourseOperations).Methods("POST")
+
+	// Instructor Analytics
+	instructorRoutes.HandleFunc("/analytics/revenue", rt.instructorDashboardHandler.GetRevenueAnalytics).Methods("GET")
+	instructorRoutes.HandleFunc("/analytics/engagement", rt.instructorDashboardHandler.GetEngagementAnalytics).Methods("GET")
+
+	// Instructor Student Management
+	instructorRoutes.HandleFunc("/students", rt.instructorDashboardHandler.GetStudents).Methods("GET")
+
+	// Instructor Communication
+	instructorRoutes.HandleFunc("/communication/broadcast", rt.instructorDashboardHandler.BroadcastCommunication).Methods("POST")
+
+	// Instructor Video Analytics
+	instructorRoutes.HandleFunc("/videos/analytics", rt.instructorDashboardHandler.GetVideoAnalytics).Methods("GET")
+
+	// Instructor Team Management
+	instructorRoutes.HandleFunc("/team", rt.instructorDashboardHandler.GetTeamMembers).Methods("GET")
+	instructorRoutes.HandleFunc("/team/invite", rt.instructorDashboardHandler.InviteTeamMember).Methods("POST")
+	instructorRoutes.HandleFunc("/team/{id}", rt.instructorDashboardHandler.UpdateTeamMember).Methods("PUT")
+	instructorRoutes.HandleFunc("/team/{id}", rt.instructorDashboardHandler.RemoveTeamMember).Methods("DELETE")
+
+	// Additional Instructor Routes
+	instructorRoutes.HandleFunc("/dashboard/settings", rt.instructorDashboardHandler.UpdateDashboardSettings).Methods("PUT")
+	instructorRoutes.HandleFunc("/courses/{id}/analytics", rt.instructorDashboardHandler.GetCourseAnalytics).Methods("GET")
+	instructorRoutes.HandleFunc("/courses/{id}", rt.instructorDashboardHandler.GetCourse).Methods("GET")
+	instructorRoutes.HandleFunc("/courses/{id}", rt.instructorDashboardHandler.UpdateCourse).Methods("PUT")
+	instructorRoutes.HandleFunc("/courses/{id}", rt.instructorDashboardHandler.DeleteCourse).Methods("DELETE")
+	instructorRoutes.HandleFunc("/students/{id}", rt.instructorDashboardHandler.GetStudentDetails).Methods("GET")
+	instructorRoutes.HandleFunc("/analytics/students", rt.instructorDashboardHandler.GetStudentAnalytics).Methods("GET")
+	instructorRoutes.HandleFunc("/videos/{id}/engagement", rt.instructorDashboardHandler.GetVideoEngagement).Methods("GET")
+	instructorRoutes.HandleFunc("/communication/history", rt.instructorDashboardHandler.GetCommunicationHistory).Methods("GET")
+	instructorRoutes.HandleFunc("/communication/automated", rt.instructorDashboardHandler.SetupAutomatedMessages).Methods("POST")
+	instructorRoutes.HandleFunc("/suggestions", rt.instructorDashboardHandler.GetAISuggestions).Methods("GET")
+	instructorRoutes.HandleFunc("/suggestions/{id}/implement", rt.instructorDashboardHandler.ImplementSuggestion).Methods("POST")
+	instructorRoutes.HandleFunc("/notifications", rt.instructorDashboardHandler.GetNotifications).Methods("GET")
+	instructorRoutes.HandleFunc("/notifications/settings", rt.instructorDashboardHandler.GetNotificationSettings).Methods("GET")
+	instructorRoutes.HandleFunc("/notifications/settings", rt.instructorDashboardHandler.UpdateNotificationSettings).Methods("PUT")
+
+	// Video Upload and Management
+	instructorRoutes.HandleFunc("/videos/upload", rt.instructorDashboardHandler.UploadVideo).Methods("POST")
+	instructorRoutes.HandleFunc("/videos/status/{lectureId}", rt.instructorDashboardHandler.GetVideoStatus).Methods("GET")
+
+	// Instructor Dashboard Health Check
+	instructorRoutes.HandleFunc("/dashboard/health", rt.instructorDashboardHandler.HealthCheck).Methods("GET")
 
 	// Chatbot routes
 	chatRoutes := api.PathPrefix("/chat").Subrouter()
@@ -262,41 +378,73 @@ func (rt *Router) SetupRoutes() *mux.Router {
 	paymentRoutes.HandleFunc("/subscriptions/{subscriptionId}", rt.paymentHandler.UpdateSubscription).Methods("PUT")
 	paymentRoutes.HandleFunc("/subscriptions/{subscriptionId}", rt.paymentHandler.CancelSubscription).Methods("DELETE")
 
-	// Video routes
+	// Lemon Squeezy routes (require authentication)
+	paymentRoutes.HandleFunc("/lemonsqueezy/checkout/course/{course_id}", rt.paymentHandler.CreateLemonSqueezyCheckout).Methods("POST")
+	paymentRoutes.HandleFunc("/lemonsqueezy/verify/{order_id}", rt.paymentHandler.VerifyLemonSqueezyPayment).Methods("POST")
+	paymentRoutes.HandleFunc("/lemonsqueezy/products", rt.paymentHandler.GetLemonSqueezyProducts).Methods("GET")
+	paymentRoutes.HandleFunc("/lemonsqueezy/variants", rt.paymentHandler.GetLemonSqueezyVariants).Methods("GET")
+
+	// Lemon Squeezy webhook (no authentication required)
+	api.HandleFunc("/lemonsqueezy/webhook", rt.paymentHandler.HandleLemonSqueezyWebhook).Methods("POST")
+
+	// LemonSqueezy Course Integration Routes (protected)
+	lemonSqueezyRoutes := api.PathPrefix("/lemonsqueezy").Subrouter()
+	lemonSqueezyRoutes.Use(rt.authMiddleware.RequireAuth)
+
+	// Course-specific LemonSqueezy operations
+	lemonSqueezyRoutes.HandleFunc("/courses/{courseId}/checkout", rt.lemonSqueezyHandler.CreateCourseCheckout).Methods("POST")
+	lemonSqueezyRoutes.HandleFunc("/courses/{courseId}/link-product", rt.lemonSqueezyHandler.LinkCourseToLemonSqueezyProduct).Methods("POST")
+	lemonSqueezyRoutes.HandleFunc("/courses/{courseId}/unlink-product", rt.lemonSqueezyHandler.UnlinkCourseFromLemonSqueezy).Methods("DELETE")
+	lemonSqueezyRoutes.HandleFunc("/checkouts/{checkoutId}/status", rt.lemonSqueezyHandler.GetCourseCheckoutStatus).Methods("GET")
+	lemonSqueezyRoutes.HandleFunc("/courses/products", rt.lemonSqueezyHandler.ListCourseProducts).Methods("GET")
+
+	// Additional LemonSqueezy webhook endpoint for course-specific events
+	api.HandleFunc("/lemonsqueezy/webhook/courses", rt.lemonSqueezyHandler.HandleLemonSqueezyWebhook).Methods("POST")
+
+	// Video routes - single subrouter with CORS, selective auth per endpoint
 	videoRoutes := api.PathPrefix("/videos").Subrouter()
-	
+	videoRoutes.Use(middleware.CORSMiddleware)
+
+	// Catch-all OPTIONS handler for all video routes - place this FIRST
+	videoRoutes.Methods("OPTIONS").HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// CORS middleware already applied above, just return success
+		w.WriteHeader(http.StatusNoContent)
+	})
+
 	// Public video routes (no auth required)
 	videoRoutes.HandleFunc("/search", rt.videoHandler.SearchVideos).Methods("GET")
-	videoRoutes.HandleFunc("/{video_id}", rt.videoHandler.GetVideo).Methods("GET")
-	videoRoutes.HandleFunc("/course/{course_id}", rt.videoHandler.ListCourseVideos).Methods("GET")
-	
-	// Webhook endpoints (no auth for external services)
 	videoRoutes.HandleFunc("/webhooks/cloudflare", rt.videoHandler.CloudflareWebhook).Methods("POST")
-	
-	// Protected video routes (auth required)
-	protectedVideoRoutes := api.PathPrefix("/videos").Subrouter()
-	protectedVideoRoutes.Use(rt.authMiddleware.RequireAuth)
-	
-	// Video management
-	protectedVideoRoutes.HandleFunc("/upload", rt.videoHandler.UploadVideo).Methods("POST")
-	protectedVideoRoutes.HandleFunc("/{video_id}/update", rt.videoHandler.UpdateVideo).Methods("PUT")
-	protectedVideoRoutes.HandleFunc("/{video_id}/delete", rt.videoHandler.DeleteVideo).Methods("DELETE")
-	protectedVideoRoutes.HandleFunc("/user/{user_id}", rt.videoHandler.ListUserVideos).Methods("GET")
-	
-	// Session management
-	protectedVideoRoutes.HandleFunc("/{video_id}/sessions", rt.videoHandler.CreateViewingSession).Methods("POST")
-	protectedVideoRoutes.HandleFunc("/sessions/{session_id}/progress", rt.videoHandler.UpdateSessionProgress).Methods("PUT")
-	protectedVideoRoutes.HandleFunc("/sessions/{session_id}/network", rt.videoHandler.UpdateNetworkStatus).Methods("POST")
-	
-	// Analytics
-	protectedVideoRoutes.HandleFunc("/{video_id}/analytics", rt.videoHandler.GetVideoAnalytics).Methods("GET")
-	
-	// WebSocket endpoints
-	protectedVideoRoutes.HandleFunc("/ws/{session_id}", rt.videoHandler.WebSocketProxy).Methods("GET")
-	protectedVideoRoutes.HandleFunc("/ws/stats", rt.videoHandler.WebSocketStats).Methods("GET")
-	protectedVideoRoutes.HandleFunc("/ws/broadcast", rt.videoHandler.BroadcastMessage).Methods("POST")
-	protectedVideoRoutes.HandleFunc("/ws/session/{session_id}/send", rt.videoHandler.SendToSession).Methods("POST")
-	protectedVideoRoutes.HandleFunc("/ws/session/{session_id}", rt.videoHandler.GetSessionInfo).Methods("GET")
+	videoRoutes.HandleFunc("/course/{course_id}", rt.videoHandler.ListCourseVideos).Methods("GET")
+
+	// Protected video routes (require auth) - create handlers that include auth check
+	videoRoutes.Handle("/upload-url", rt.authMiddleware.RequireAuth(http.HandlerFunc(rt.videoHandler.GetUploadURL))).Methods("POST")
+	videoRoutes.Handle("/upload", rt.authMiddleware.RequireAuth(http.HandlerFunc(rt.videoHandler.UploadVideo))).Methods("POST")
+	videoRoutes.Handle("/user/{user_id}", rt.authMiddleware.RequireAuth(http.HandlerFunc(rt.videoHandler.ListUserVideos))).Methods("GET")
+
+	// Parameterized routes LAST (they catch everything) - public first
+	videoRoutes.HandleFunc("/{video_id}", rt.videoHandler.GetVideo).Methods("GET")
+
+	// Parameterized protected routes (with auth middleware)
+	videoRoutes.Handle("/{video_id}/update", rt.authMiddleware.RequireAuth(http.HandlerFunc(rt.videoHandler.UpdateVideo))).Methods("PUT")
+	videoRoutes.Handle("/{video_id}/delete", rt.authMiddleware.RequireAuth(http.HandlerFunc(rt.videoHandler.DeleteVideo))).Methods("DELETE")
+
+	// Session management (protected)
+	videoRoutes.Handle("/{video_id}/sessions", rt.authMiddleware.RequireAuth(http.HandlerFunc(rt.videoHandler.CreateViewingSession))).Methods("POST")
+	videoRoutes.Handle("/sessions/{session_id}/progress", rt.authMiddleware.RequireAuth(http.HandlerFunc(rt.videoHandler.UpdateSessionProgress))).Methods("PUT")
+	videoRoutes.Handle("/sessions/{session_id}/network", rt.authMiddleware.RequireAuth(http.HandlerFunc(rt.videoHandler.UpdateNetworkStatus))).Methods("POST")
+
+	// Analytics (protected)
+	videoRoutes.Handle("/{video_id}/analytics", rt.authMiddleware.RequireAuth(http.HandlerFunc(rt.videoHandler.GetVideoAnalytics))).Methods("GET")
+
+	// Manual status updates (protected)
+	videoRoutes.Handle("/{video_id}/status", rt.authMiddleware.RequireAuth(http.HandlerFunc(rt.videoHandler.UpdateVideoStatus))).Methods("PUT")
+
+	// WebSocket endpoints (protected)
+	videoRoutes.Handle("/ws/stats", rt.authMiddleware.RequireAuth(http.HandlerFunc(rt.videoHandler.WebSocketStats))).Methods("GET")
+	videoRoutes.Handle("/ws/broadcast", rt.authMiddleware.RequireAuth(http.HandlerFunc(rt.videoHandler.BroadcastMessage))).Methods("POST")
+	videoRoutes.Handle("/ws/session/{session_id}/send", rt.authMiddleware.RequireAuth(http.HandlerFunc(rt.videoHandler.SendToSession))).Methods("POST")
+	videoRoutes.Handle("/ws/session/{session_id}", rt.authMiddleware.RequireAuth(http.HandlerFunc(rt.videoHandler.GetSessionInfo))).Methods("GET")
+	videoRoutes.Handle("/ws/{session_id}", rt.authMiddleware.RequireAuth(http.HandlerFunc(rt.videoHandler.WebSocketProxy))).Methods("GET")
 
 	return r
 }

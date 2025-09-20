@@ -3,6 +3,7 @@ package handler
 import (
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -18,6 +19,40 @@ func NewVideoHandler(videoService *service.VideoService) *VideoHandler {
 	return &VideoHandler{
 		videoService: videoService,
 	}
+}
+
+// GetUploadURL handles getting upload URL for video upload
+// POST /api/videos/upload-url
+func (vh *VideoHandler) GetUploadURL(c *gin.Context) {
+	// Get user ID from context (set by auth middleware)
+	userIDStr, exists := c.Get("user_id")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "User not authenticated"})
+		return
+	}
+
+	userID, err := uuid.Parse(userIDStr.(string))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid user ID"})
+		return
+	}
+
+	var req struct {
+		Filename string `json:"filename" binding:"required"`
+		Size     int64  `json:"size" binding:"required"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	response, err := vh.videoService.GetUploadURL(c.Request.Context(), userID, req.Filename, req.Size)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, response)
 }
 
 // UploadVideo handles video upload requests
@@ -115,7 +150,10 @@ func (vh *VideoHandler) CreateSession(c *gin.Context) {
 		return
 	}
 
-	response, err := vh.videoService.CreateViewingSession(c.Request.Context(), videoID, userID, &req)
+	// Extract client IP address for session tracking
+	clientIP := vh.getClientIP(c)
+
+	response, err := vh.videoService.CreateViewingSession(c.Request.Context(), videoID, userID, &req, clientIP)
 	if err != nil {
 		if err.Error() == "access denied" {
 			c.JSON(http.StatusForbidden, gin.H{"error": "Access denied"})
@@ -233,10 +271,7 @@ func (vh *VideoHandler) ListUserVideos(c *gin.Context) {
 // GET /api/videos/search
 func (vh *VideoHandler) SearchVideos(c *gin.Context) {
 	query := c.Query("q")
-	if query == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Search query is required"})
-		return
-	}
+	// Allow empty queries - repository will return all public videos
 
 	// Parse pagination parameters
 	limitStr := c.DefaultQuery("limit", "20")
@@ -315,13 +350,65 @@ func (vh *VideoHandler) CloudflareWebhook(c *gin.Context) {
 		return
 	}
 
+	// Optional: Add webhook signature verification here
+	// For now, we'll accept all webhooks for development
+
+	// Debug logging
+	if uid, ok := webhookData["uid"].(string); ok {
+		c.Header("X-Debug-UID", uid)
+	}
+
 	err := vh.videoService.ProcessCloudflareWebhook(c.Request.Context(), webhookData)
+	if err != nil {
+		// Add debug info to error response
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": err.Error(),
+			"debug": "Error in ProcessCloudflareWebhook",
+			"uid":   webhookData["uid"],
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Webhook processed successfully"})
+}
+
+// UpdateVideoStatus manually updates video status (for recovery)
+// PUT /api/videos/{video_id}/status
+func (vh *VideoHandler) UpdateVideoStatus(c *gin.Context) {
+	videoIDStr := c.Param("video_id")
+	videoID, err := uuid.Parse(videoIDStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid video ID"})
+		return
+	}
+
+	var req struct {
+		Status string `json:"status" binding:"required"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	// Validate status
+	validStatuses := map[string]bool{
+		"uploading":  true,
+		"processing": true,
+		"ready":      true,
+		"error":      true,
+	}
+	if !validStatuses[req.Status] {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid status. Valid statuses: uploading, processing, ready, error"})
+		return
+	}
+
+	err = vh.videoService.UpdateVideoStatus(c.Request.Context(), videoID, req.Status)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"message": "Webhook processed successfully"})
+	c.JSON(http.StatusOK, gin.H{"message": "Video status updated successfully"})
 }
 
 // GetVideoAnalytics handles video analytics requests
@@ -471,4 +558,33 @@ func (vh *VideoHandler) UpdateVideo(c *gin.Context) {
 	// TODO: Implement video update in service
 	// For now, return success
 	c.JSON(http.StatusOK, video)
+}
+
+// getClientIP extracts the real client IP address from various headers
+func (vh *VideoHandler) getClientIP(c *gin.Context) string {
+	// Check for X-Forwarded-For header (most common for proxies)
+	if forwarded := c.GetHeader("X-Forwarded-For"); forwarded != "" {
+		// X-Forwarded-For can contain multiple IPs, take the first one
+		if idx := strings.Index(forwarded, ","); idx != -1 {
+			return strings.TrimSpace(forwarded[:idx])
+		}
+		return strings.TrimSpace(forwarded)
+	}
+
+	// Check for X-Real-IP header
+	if realIP := c.GetHeader("X-Real-IP"); realIP != "" {
+		return strings.TrimSpace(realIP)
+	}
+
+	// Check for CF-Connecting-IP (Cloudflare)
+	if cfIP := c.GetHeader("CF-Connecting-IP"); cfIP != "" {
+		return strings.TrimSpace(cfIP)
+	}
+
+	// Fallback to RemoteAddr
+	ip := c.ClientIP()
+	if ip == "" {
+		ip = "127.0.0.1" // Default fallback for empty IP
+	}
+	return ip
 }

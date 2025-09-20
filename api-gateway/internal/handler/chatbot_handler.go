@@ -77,9 +77,18 @@ func (h *ChatbotHandler) HandleWebSocket(w http.ResponseWriter, r *http.Request)
 }
 
 func (h *ChatbotHandler) proxyRequest(w http.ResponseWriter, r *http.Request, path, method string) {
-	// Get user info from context (set by auth middleware)
-	userID := r.Header.Get("X-User-ID")
-	userRole := r.Header.Get("X-User-Role")
+	// CRITICAL FIX for BUG-003: Get user info from context (set by auth middleware)
+	var userID, userRole string
+
+	// Extract user ID from context
+	if userIDValue := r.Context().Value("user_id"); userIDValue != nil {
+		userID = userIDValue.(string)
+	}
+
+	// Extract user role from context
+	if userRoleValue := r.Context().Value("user_role"); userRoleValue != nil {
+		userRole = userRoleValue.(string)
+	}
 
 	// Create target URL
 	targetURL := h.chatbotServiceURL + path

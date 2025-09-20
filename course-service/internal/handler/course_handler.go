@@ -43,6 +43,7 @@ func (h *CourseHandler) CreateCourse(ctx context.Context, req *pb.CreateCourseRe
 		Price:        req.Price,
 		Currency:     req.Currency,
 		ThumbnailURL: req.ThumbnailUrl,
+		Status:       model.CourseStatus(req.Status),
 		Tags:         req.Tags,
 	}
 	

@@ -34,6 +34,7 @@ type CreateCourseRequest struct {
 	Price        float64  `json:"price"`
 	Currency     string   `json:"currency"`
 	ThumbnailURL string   `json:"thumbnail_url"`
+	Status       string   `json:"status"`
 	Tags         []string `json:"tags"`
 }
 
@@ -50,7 +51,6 @@ type UpdateCourseRequest struct {
 }
 
 type CreateLectureRequest struct {
-	CourseID        string `json:"course_id"`
 	Title           string `json:"title"`
 	Description     string `json:"description"`
 	OrderNumber     int32  `json:"order_number"`
@@ -97,6 +97,7 @@ func (h *CourseHandler) CreateCourse(w http.ResponseWriter, r *http.Request) {
 		Price:        req.Price,
 		Currency:     req.Currency,
 		ThumbnailUrl: req.ThumbnailURL,
+		Status:       req.Status,
 		Tags:         req.Tags,
 	}
 
@@ -319,6 +320,14 @@ func (h *CourseHandler) SearchCourses(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *CourseHandler) CreateLecture(w http.ResponseWriter, r *http.Request) {
+	// Extract course ID from URL parameter
+	vars := mux.Vars(r)
+	courseID := vars["course_id"]
+	if courseID == "" {
+		h.sendError(w, http.StatusBadRequest, "Course ID is required")
+		return
+	}
+
 	var req CreateLectureRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		h.sendError(w, http.StatusBadRequest, "Invalid request body")
@@ -326,8 +335,8 @@ func (h *CourseHandler) CreateLecture(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Validate required fields
-	if req.CourseID == "" || req.Title == "" {
-		h.sendError(w, http.StatusBadRequest, "Course ID and title are required")
+	if req.Title == "" {
+		h.sendError(w, http.StatusBadRequest, "Title is required")
 		return
 	}
 
@@ -336,7 +345,7 @@ func (h *CourseHandler) CreateLecture(w http.ResponseWriter, r *http.Request) {
 
 	// Call course service
 	grpcReq := &coursepb.CreateLectureRequest{
-		CourseId:        req.CourseID,
+		CourseId:        courseID,
 		Title:           req.Title,
 		Description:     req.Description,
 		OrderNumber:     req.OrderNumber,

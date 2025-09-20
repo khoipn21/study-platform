@@ -78,11 +78,6 @@ func (vr *VideoRepository) GetVideoByID(id uuid.UUID) (*model.Video, error) {
 		&thumbnailURL, &streamURL, &previewURL,
 		&metadataBytes, &video.CreatedAt, &video.UpdatedAt, &video.DeletedAt,
 	)
-	
-	// Handle nullable fields
-	video.ThumbnailURL = thumbnailURL.String
-	video.StreamURL = streamURL.String  
-	video.PreviewURL = previewURL.String
 
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -90,6 +85,11 @@ func (vr *VideoRepository) GetVideoByID(id uuid.UUID) (*model.Video, error) {
 		}
 		return nil, fmt.Errorf("failed to get video: %w", err)
 	}
+
+	// Handle nullable fields
+	video.ThumbnailURL = thumbnailURL.String
+	video.StreamURL = streamURL.String
+	video.PreviewURL = previewURL.String
 
 	if len(metadataBytes) > 0 {
 		if err := video.Metadata.Scan(metadataBytes); err != nil {
@@ -103,22 +103,23 @@ func (vr *VideoRepository) GetVideoByID(id uuid.UUID) (*model.Video, error) {
 // GetVideoByCloudflareUID retrieves a video by its Cloudflare UID
 func (vr *VideoRepository) GetVideoByCloudflareUID(cloudflareUID string) (*model.Video, error) {
 	query := `
-		SELECT id, cloudflare_uid, title, description, duration_seconds, 
-			   file_size_bytes, upload_user_id, course_id, lecture_id, 
+		SELECT id, cloudflare_uid, title, description, duration_seconds,
+			   file_size_bytes, upload_user_id, course_id, lecture_id,
 			   status, visibility, thumbnail_url, stream_url, preview_url,
 			   metadata, created_at, updated_at, deleted_at
-		FROM videos 
+		FROM videos
 		WHERE cloudflare_uid = $1 AND deleted_at IS NULL
 	`
 
 	video := &model.Video{}
 	var metadataBytes []byte
+	var thumbnailURL, streamURL, previewURL sql.NullString
 
 	err := vr.db.QueryRow(query, cloudflareUID).Scan(
 		&video.ID, &video.CloudflareUID, &video.Title, &video.Description,
 		&video.DurationSeconds, &video.FileSizeBytes, &video.UploadUserID,
 		&video.CourseID, &video.LectureID, &video.Status, &video.Visibility,
-		&video.ThumbnailURL, &video.StreamURL, &video.PreviewURL,
+		&thumbnailURL, &streamURL, &previewURL,
 		&metadataBytes, &video.CreatedAt, &video.UpdatedAt, &video.DeletedAt,
 	)
 
@@ -128,6 +129,11 @@ func (vr *VideoRepository) GetVideoByCloudflareUID(cloudflareUID string) (*model
 		}
 		return nil, fmt.Errorf("failed to get video: %w", err)
 	}
+
+	// Handle nullable fields
+	video.ThumbnailURL = thumbnailURL.String
+	video.StreamURL = streamURL.String
+	video.PreviewURL = previewURL.String
 
 	if len(metadataBytes) > 0 {
 		if err := video.Metadata.Scan(metadataBytes); err != nil {
@@ -211,11 +217,11 @@ func (vr *VideoRepository) DeleteVideo(id uuid.UUID) error {
 // ListVideosByUser lists videos uploaded by a specific user
 func (vr *VideoRepository) ListVideosByUser(userID uuid.UUID, limit, offset int) ([]*model.Video, error) {
 	query := `
-		SELECT id, cloudflare_uid, title, description, duration_seconds, 
-			   file_size_bytes, upload_user_id, course_id, lecture_id, 
+		SELECT id, cloudflare_uid, title, description, duration_seconds,
+			   file_size_bytes, upload_user_id, course_id, lecture_id,
 			   status, visibility, thumbnail_url, stream_url, preview_url,
 			   metadata, created_at, updated_at
-		FROM videos 
+		FROM videos
 		WHERE upload_user_id = $1 AND deleted_at IS NULL
 		ORDER BY created_at DESC
 		LIMIT $2 OFFSET $3
@@ -231,18 +237,24 @@ func (vr *VideoRepository) ListVideosByUser(userID uuid.UUID, limit, offset int)
 	for rows.Next() {
 		video := &model.Video{}
 		var metadataBytes []byte
+		var thumbnailURL, streamURL, previewURL sql.NullString
 
 		err := rows.Scan(
 			&video.ID, &video.CloudflareUID, &video.Title, &video.Description,
 			&video.DurationSeconds, &video.FileSizeBytes, &video.UploadUserID,
 			&video.CourseID, &video.LectureID, &video.Status, &video.Visibility,
-			&video.ThumbnailURL, &video.StreamURL, &video.PreviewURL,
+			&thumbnailURL, &streamURL, &previewURL,
 			&metadataBytes, &video.CreatedAt, &video.UpdatedAt,
 		)
 
 		if err != nil {
 			return nil, fmt.Errorf("failed to scan video: %w", err)
 		}
+
+		// Handle nullable fields
+		video.ThumbnailURL = thumbnailURL.String
+		video.StreamURL = streamURL.String
+		video.PreviewURL = previewURL.String
 
 		if len(metadataBytes) > 0 {
 			if err := video.Metadata.Scan(metadataBytes); err != nil {
@@ -263,11 +275,11 @@ func (vr *VideoRepository) ListVideosByUser(userID uuid.UUID, limit, offset int)
 // ListVideosByCourse lists videos for a specific course
 func (vr *VideoRepository) ListVideosByCourse(courseID uuid.UUID, limit, offset int) ([]*model.Video, error) {
 	query := `
-		SELECT id, cloudflare_uid, title, description, duration_seconds, 
-			   file_size_bytes, upload_user_id, course_id, lecture_id, 
+		SELECT id, cloudflare_uid, title, description, duration_seconds,
+			   file_size_bytes, upload_user_id, course_id, lecture_id,
 			   status, visibility, thumbnail_url, stream_url, preview_url,
 			   metadata, created_at, updated_at
-		FROM videos 
+		FROM videos
 		WHERE course_id = $1 AND deleted_at IS NULL AND status = 'ready'
 		ORDER BY created_at ASC
 		LIMIT $2 OFFSET $3
@@ -283,18 +295,24 @@ func (vr *VideoRepository) ListVideosByCourse(courseID uuid.UUID, limit, offset 
 	for rows.Next() {
 		video := &model.Video{}
 		var metadataBytes []byte
+		var thumbnailURL, streamURL, previewURL sql.NullString
 
 		err := rows.Scan(
 			&video.ID, &video.CloudflareUID, &video.Title, &video.Description,
 			&video.DurationSeconds, &video.FileSizeBytes, &video.UploadUserID,
 			&video.CourseID, &video.LectureID, &video.Status, &video.Visibility,
-			&video.ThumbnailURL, &video.StreamURL, &video.PreviewURL,
+			&thumbnailURL, &streamURL, &previewURL,
 			&metadataBytes, &video.CreatedAt, &video.UpdatedAt,
 		)
 
 		if err != nil {
 			return nil, fmt.Errorf("failed to scan video: %w", err)
 		}
+
+		// Handle nullable fields
+		video.ThumbnailURL = thumbnailURL.String
+		video.StreamURL = streamURL.String
+		video.PreviewURL = previewURL.String
 
 		if len(metadataBytes) > 0 {
 			if err := video.Metadata.Scan(metadataBytes); err != nil {
@@ -314,21 +332,54 @@ func (vr *VideoRepository) ListVideosByCourse(courseID uuid.UUID, limit, offset 
 
 // SearchVideos searches videos by title and description
 func (vr *VideoRepository) SearchVideos(query string, limit, offset int) ([]*model.Video, error) {
-	sqlQuery := `
-		SELECT id, cloudflare_uid, title, description, duration_seconds, 
-			   file_size_bytes, upload_user_id, course_id, lecture_id, 
-			   status, visibility, thumbnail_url, stream_url, preview_url,
-			   metadata, created_at, updated_at
-		FROM videos 
-		WHERE (title ILIKE $1 OR description ILIKE $1) 
-		  AND deleted_at IS NULL AND status = 'ready' AND visibility IN ('public', 'unlisted')
-		ORDER BY created_at DESC
-		LIMIT $2 OFFSET $3
-	`
+	// Handle empty or whitespace-only queries by returning all public videos
+	trimmedQuery := strings.TrimSpace(query)
+	if trimmedQuery == "" {
+		return vr.GetPublicVideos(limit, offset)
+	}
 
-	searchTerm := "%" + strings.ToLower(query) + "%"
+	var sqlQuery string
+	var args []interface{}
 
-	rows, err := vr.db.Query(sqlQuery, searchTerm, limit, offset)
+	// Use full-text search for better performance and relevance
+	if strings.Contains(trimmedQuery, " ") || len(trimmedQuery) > 3 {
+		// Multi-word or longer queries use full-text search
+		sqlQuery = `
+			SELECT id, cloudflare_uid, title, description, duration_seconds,
+				   file_size_bytes, upload_user_id, course_id, lecture_id,
+				   status, visibility, thumbnail_url, stream_url, preview_url,
+				   metadata, created_at, updated_at,
+				   ts_rank(to_tsvector('english', title || ' ' || description), plainto_tsquery('english', $1)) as rank
+			FROM videos
+			WHERE to_tsvector('english', title || ' ' || description) @@ plainto_tsquery('english', $1)
+			  AND deleted_at IS NULL AND status = 'ready' AND visibility IN ('public', 'unlisted')
+			ORDER BY rank DESC, created_at DESC
+			LIMIT $2 OFFSET $3
+		`
+		args = []interface{}{trimmedQuery, limit, offset}
+	} else {
+		// Single word or short queries use ILIKE for partial matches
+		sqlQuery = `
+			SELECT id, cloudflare_uid, title, description, duration_seconds,
+				   file_size_bytes, upload_user_id, course_id, lecture_id,
+				   status, visibility, thumbnail_url, stream_url, preview_url,
+				   metadata, created_at, updated_at
+			FROM videos
+			WHERE (title ILIKE $1 OR description ILIKE $1)
+			  AND deleted_at IS NULL AND status = 'ready' AND visibility IN ('public', 'unlisted')
+			ORDER BY
+				CASE
+					WHEN title ILIKE $1 THEN 1
+					ELSE 2
+				END,
+				created_at DESC
+			LIMIT $2 OFFSET $3
+		`
+		searchTerm := "%" + strings.ToLower(trimmedQuery) + "%"
+		args = []interface{}{searchTerm, limit, offset}
+	}
+
+	rows, err := vr.db.Query(sqlQuery, args...)
 	if err != nil {
 		return nil, fmt.Errorf("failed to search videos: %w", err)
 	}
@@ -338,18 +389,96 @@ func (vr *VideoRepository) SearchVideos(query string, limit, offset int) ([]*mod
 	for rows.Next() {
 		video := &model.Video{}
 		var metadataBytes []byte
+		var thumbnailURL, streamURL, previewURL sql.NullString
+
+		// Handle both query types (with and without rank)
+		if strings.Contains(sqlQuery, "ts_rank") {
+			var rank float64
+			err := rows.Scan(
+				&video.ID, &video.CloudflareUID, &video.Title, &video.Description,
+				&video.DurationSeconds, &video.FileSizeBytes, &video.UploadUserID,
+				&video.CourseID, &video.LectureID, &video.Status, &video.Visibility,
+				&thumbnailURL, &streamURL, &previewURL,
+				&metadataBytes, &video.CreatedAt, &video.UpdatedAt, &rank,
+			)
+			if err != nil {
+				return nil, fmt.Errorf("failed to scan video with rank: %w", err)
+			}
+		} else {
+			err := rows.Scan(
+				&video.ID, &video.CloudflareUID, &video.Title, &video.Description,
+				&video.DurationSeconds, &video.FileSizeBytes, &video.UploadUserID,
+				&video.CourseID, &video.LectureID, &video.Status, &video.Visibility,
+				&thumbnailURL, &streamURL, &previewURL,
+				&metadataBytes, &video.CreatedAt, &video.UpdatedAt,
+			)
+			if err != nil {
+				return nil, fmt.Errorf("failed to scan video: %w", err)
+			}
+		}
+
+		// Handle nullable fields
+		video.ThumbnailURL = thumbnailURL.String
+		video.StreamURL = streamURL.String
+		video.PreviewURL = previewURL.String
+
+		if len(metadataBytes) > 0 {
+			if err := video.Metadata.Scan(metadataBytes); err != nil {
+				return nil, fmt.Errorf("failed to unmarshal metadata: %w", err)
+			}
+		}
+
+		videos = append(videos, video)
+	}
+
+	if err = rows.Err(); err != nil {
+		return nil, fmt.Errorf("rows error: %w", err)
+	}
+
+	return videos, nil
+}
+
+// GetPublicVideos retrieves all public videos (used for empty search queries)
+func (vr *VideoRepository) GetPublicVideos(limit, offset int) ([]*model.Video, error) {
+	query := `
+		SELECT id, cloudflare_uid, title, description, duration_seconds,
+			   file_size_bytes, upload_user_id, course_id, lecture_id,
+			   status, visibility, thumbnail_url, stream_url, preview_url,
+			   metadata, created_at, updated_at
+		FROM videos
+		WHERE deleted_at IS NULL AND status = 'ready' AND visibility IN ('public', 'unlisted')
+		ORDER BY created_at DESC
+		LIMIT $1 OFFSET $2
+	`
+
+	rows, err := vr.db.Query(query, limit, offset)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query public videos: %w", err)
+	}
+	defer rows.Close()
+
+	var videos []*model.Video
+	for rows.Next() {
+		video := &model.Video{}
+		var metadataBytes []byte
+		var thumbnailURL, streamURL, previewURL sql.NullString
 
 		err := rows.Scan(
 			&video.ID, &video.CloudflareUID, &video.Title, &video.Description,
 			&video.DurationSeconds, &video.FileSizeBytes, &video.UploadUserID,
 			&video.CourseID, &video.LectureID, &video.Status, &video.Visibility,
-			&video.ThumbnailURL, &video.StreamURL, &video.PreviewURL,
+			&thumbnailURL, &streamURL, &previewURL,
 			&metadataBytes, &video.CreatedAt, &video.UpdatedAt,
 		)
 
 		if err != nil {
 			return nil, fmt.Errorf("failed to scan video: %w", err)
 		}
+
+		// Handle nullable fields
+		video.ThumbnailURL = thumbnailURL.String
+		video.StreamURL = streamURL.String
+		video.PreviewURL = previewURL.String
 
 		if len(metadataBytes) > 0 {
 			if err := video.Metadata.Scan(metadataBytes); err != nil {
@@ -488,11 +617,11 @@ func (vr *VideoRepository) UpdateVideoURLs(id uuid.UUID, thumbnailURL, streamURL
 // GetVideosByStatus retrieves videos with a specific status
 func (vr *VideoRepository) GetVideosByStatus(status string, limit, offset int) ([]*model.Video, error) {
 	query := `
-		SELECT id, cloudflare_uid, title, description, duration_seconds, 
-			   file_size_bytes, upload_user_id, course_id, lecture_id, 
+		SELECT id, cloudflare_uid, title, description, duration_seconds,
+			   file_size_bytes, upload_user_id, course_id, lecture_id,
 			   status, visibility, thumbnail_url, stream_url, preview_url,
 			   metadata, created_at, updated_at
-		FROM videos 
+		FROM videos
 		WHERE status = $1 AND deleted_at IS NULL
 		ORDER BY created_at DESC
 		LIMIT $2 OFFSET $3
@@ -508,18 +637,24 @@ func (vr *VideoRepository) GetVideosByStatus(status string, limit, offset int) (
 	for rows.Next() {
 		video := &model.Video{}
 		var metadataBytes []byte
+		var thumbnailURL, streamURL, previewURL sql.NullString
 
 		err := rows.Scan(
 			&video.ID, &video.CloudflareUID, &video.Title, &video.Description,
 			&video.DurationSeconds, &video.FileSizeBytes, &video.UploadUserID,
 			&video.CourseID, &video.LectureID, &video.Status, &video.Visibility,
-			&video.ThumbnailURL, &video.StreamURL, &video.PreviewURL,
+			&thumbnailURL, &streamURL, &previewURL,
 			&metadataBytes, &video.CreatedAt, &video.UpdatedAt,
 		)
 
 		if err != nil {
 			return nil, fmt.Errorf("failed to scan video: %w", err)
 		}
+
+		// Handle nullable fields
+		video.ThumbnailURL = thumbnailURL.String
+		video.StreamURL = streamURL.String
+		video.PreviewURL = previewURL.String
 
 		if len(metadataBytes) > 0 {
 			if err := video.Metadata.Scan(metadataBytes); err != nil {

@@ -4,7 +4,7 @@ import (
 	"database/sql"
 	"fmt"
 
-	"payment-service/internal/model"
+	"github.com/study-platform/payment-service/internal/model"
 )
 
 type PaymentMethodRepository struct {

@@ -21,111 +21,139 @@ func NewEnrollmentRepository(db *database.DB) *EnrollmentRepository {
 }
 
 func (r *EnrollmentRepository) Create(ctx context.Context, enrollment *model.Enrollment) error {
-	// Check if enrollment already exists
-	existing, err := r.GetByUserAndCourse(ctx, enrollment.UserID, enrollment.CourseID)
-	if err == nil && existing != nil {
-		return fmt.Errorf("user is already enrolled in this course")
-	}
-	
 	query := `
-		INSERT INTO enrollments (id, user_id, course_id, status, progress_percentage, enrolled_at, last_accessed)
-		VALUES ($1, $2, $3, $4, $5, $6, $7)
+		INSERT INTO enrollments (
+			id, user_id, course_id, status, progress_percentage,
+			payment_required, payment_status, lemon_squeezy_order_id,
+			payment_amount, payment_currency, paid_at,
+			enrolled_at, last_accessed
+		)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
 	`
-	
-	enrollment.ID = uuid.New()
+
+	if enrollment.ID == uuid.Nil {
+		enrollment.ID = uuid.New()
+	}
 	enrollment.EnrolledAt = time.Now()
-	enrollment.Status = model.EnrollmentStatusEnrolled
-	enrollment.ProgressPercentage = 0
+	if enrollment.ProgressPercentage == 0 {
+		enrollment.ProgressPercentage = 0
+	}
 	now := time.Now()
 	enrollment.LastAccessed = &now
-	
-	_, err = r.db.ExecContext(ctx, query,
+
+	_, err := r.db.ExecContext(ctx, query,
 		enrollment.ID, enrollment.UserID, enrollment.CourseID, enrollment.Status,
-		enrollment.ProgressPercentage, enrollment.EnrolledAt, enrollment.LastAccessed,
+		enrollment.ProgressPercentage, enrollment.PaymentRequired, enrollment.PaymentStatus,
+		enrollment.LemonSqueezyOrderID, enrollment.PaymentAmount, enrollment.PaymentCurrency,
+		enrollment.PaidAt, enrollment.EnrolledAt, enrollment.LastAccessed,
 	)
-	
+
 	return err
 }
 
 func (r *EnrollmentRepository) GetByID(ctx context.Context, id uuid.UUID) (*model.Enrollment, error) {
 	query := `
-		SELECT id, user_id, course_id, status, progress_percentage, enrolled_at, completed_at, last_accessed
+		SELECT
+			id, user_id, course_id, status, progress_percentage,
+			payment_required, payment_status, lemon_squeezy_order_id,
+			payment_amount, payment_currency, paid_at,
+			enrolled_at, completed_at, last_accessed
 		FROM enrollments
 		WHERE id = $1
 	`
-	
+
 	enrollment := &model.Enrollment{}
 	err := r.db.QueryRowContext(ctx, query, id).Scan(
 		&enrollment.ID, &enrollment.UserID, &enrollment.CourseID, &enrollment.Status,
-		&enrollment.ProgressPercentage, &enrollment.EnrolledAt, &enrollment.CompletedAt, &enrollment.LastAccessed,
+		&enrollment.ProgressPercentage, &enrollment.PaymentRequired, &enrollment.PaymentStatus,
+		&enrollment.LemonSqueezyOrderID, &enrollment.PaymentAmount, &enrollment.PaymentCurrency,
+		&enrollment.PaidAt, &enrollment.EnrolledAt, &enrollment.CompletedAt, &enrollment.LastAccessed,
 	)
-	
+
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, fmt.Errorf("enrollment not found")
 		}
 		return nil, err
 	}
-	
+
 	return enrollment, nil
 }
 
 func (r *EnrollmentRepository) GetByUserAndCourse(ctx context.Context, userID, courseID uuid.UUID) (*model.Enrollment, error) {
 	query := `
-		SELECT id, user_id, course_id, status, progress_percentage, enrolled_at, completed_at, last_accessed
+		SELECT
+			id, user_id, course_id, status, progress_percentage,
+			payment_required, payment_status, lemon_squeezy_order_id,
+			payment_amount, payment_currency, paid_at,
+			enrolled_at, completed_at, last_accessed
 		FROM enrollments
 		WHERE user_id = $1 AND course_id = $2
 	`
-	
+
 	enrollment := &model.Enrollment{}
 	err := r.db.QueryRowContext(ctx, query, userID, courseID).Scan(
 		&enrollment.ID, &enrollment.UserID, &enrollment.CourseID, &enrollment.Status,
-		&enrollment.ProgressPercentage, &enrollment.EnrolledAt, &enrollment.CompletedAt, &enrollment.LastAccessed,
+		&enrollment.ProgressPercentage, &enrollment.PaymentRequired, &enrollment.PaymentStatus,
+		&enrollment.LemonSqueezyOrderID, &enrollment.PaymentAmount, &enrollment.PaymentCurrency,
+		&enrollment.PaidAt, &enrollment.EnrolledAt, &enrollment.CompletedAt, &enrollment.LastAccessed,
 	)
-	
+
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, fmt.Errorf("enrollment not found")
 		}
 		return nil, err
 	}
-	
+
 	return enrollment, nil
 }
 
 func (r *EnrollmentRepository) Update(ctx context.Context, enrollment *model.Enrollment) error {
 	query := `
 		UPDATE enrollments
-		SET status = $2, progress_percentage = $3, completed_at = $4, last_accessed = $5
+		SET
+			status = $2,
+			progress_percentage = $3,
+			payment_required = $4,
+			payment_status = $5,
+			lemon_squeezy_order_id = $6,
+			payment_amount = $7,
+			payment_currency = $8,
+			paid_at = $9,
+			completed_at = $10,
+			last_accessed = $11
 		WHERE id = $1
 	`
-	
+
 	now := time.Now()
 	enrollment.LastAccessed = &now
-	
+
 	// Set completed_at if status is completed
 	if enrollment.Status == model.EnrollmentStatusCompleted && enrollment.CompletedAt == nil {
 		enrollment.CompletedAt = &now
 	}
-	
+
 	result, err := r.db.ExecContext(ctx, query,
 		enrollment.ID, enrollment.Status, enrollment.ProgressPercentage,
+		enrollment.PaymentRequired, enrollment.PaymentStatus, enrollment.LemonSqueezyOrderID,
+		enrollment.PaymentAmount, enrollment.PaymentCurrency, enrollment.PaidAt,
 		enrollment.CompletedAt, enrollment.LastAccessed,
 	)
-	
+
 	if err != nil {
 		return err
 	}
-	
+
 	rowsAffected, err := result.RowsAffected()
 	if err != nil {
 		return err
 	}
-	
+
 	if rowsAffected == 0 {
 		return fmt.Errorf("enrollment not found")
 	}
-	
+
 	return nil
 }
 
@@ -155,7 +183,11 @@ func (r *EnrollmentRepository) List(ctx context.Context, filters model.Enrollmen
 	argCount := 0
 	
 	baseQuery := `
-		SELECT id, user_id, course_id, status, progress_percentage, enrolled_at, completed_at, last_accessed
+		SELECT
+			id, user_id, course_id, status, progress_percentage,
+			payment_required, payment_status, lemon_squeezy_order_id,
+			payment_amount, payment_currency, paid_at,
+			enrolled_at, completed_at, last_accessed
 		FROM enrollments
 	`
 	
@@ -216,7 +248,9 @@ func (r *EnrollmentRepository) List(ctx context.Context, filters model.Enrollmen
 		var enrollment model.Enrollment
 		err := rows.Scan(
 			&enrollment.ID, &enrollment.UserID, &enrollment.CourseID, &enrollment.Status,
-			&enrollment.ProgressPercentage, &enrollment.EnrolledAt, &enrollment.CompletedAt, &enrollment.LastAccessed,
+			&enrollment.ProgressPercentage, &enrollment.PaymentRequired, &enrollment.PaymentStatus,
+			&enrollment.LemonSqueezyOrderID, &enrollment.PaymentAmount, &enrollment.PaymentCurrency,
+			&enrollment.PaidAt, &enrollment.EnrolledAt, &enrollment.CompletedAt, &enrollment.LastAccessed,
 		)
 		if err != nil {
 			return nil, err
@@ -265,7 +299,11 @@ func (r *EnrollmentRepository) UpdateProgress(ctx context.Context, userID, cours
 
 func (r *EnrollmentRepository) GetUserEnrollments(ctx context.Context, userID uuid.UUID) ([]model.Enrollment, error) {
 	query := `
-		SELECT id, user_id, course_id, status, progress_percentage, enrolled_at, completed_at, last_accessed
+		SELECT
+			id, user_id, course_id, status, progress_percentage,
+			payment_required, payment_status, lemon_squeezy_order_id,
+			payment_amount, payment_currency, paid_at,
+			enrolled_at, completed_at, last_accessed
 		FROM enrollments
 		WHERE user_id = $1
 		ORDER BY enrolled_at DESC
@@ -282,7 +320,9 @@ func (r *EnrollmentRepository) GetUserEnrollments(ctx context.Context, userID uu
 		var enrollment model.Enrollment
 		err := rows.Scan(
 			&enrollment.ID, &enrollment.UserID, &enrollment.CourseID, &enrollment.Status,
-			&enrollment.ProgressPercentage, &enrollment.EnrolledAt, &enrollment.CompletedAt, &enrollment.LastAccessed,
+			&enrollment.ProgressPercentage, &enrollment.PaymentRequired, &enrollment.PaymentStatus,
+			&enrollment.LemonSqueezyOrderID, &enrollment.PaymentAmount, &enrollment.PaymentCurrency,
+			&enrollment.PaidAt, &enrollment.EnrolledAt, &enrollment.CompletedAt, &enrollment.LastAccessed,
 		)
 		if err != nil {
 			return nil, err
@@ -295,7 +335,11 @@ func (r *EnrollmentRepository) GetUserEnrollments(ctx context.Context, userID uu
 
 func (r *EnrollmentRepository) GetCourseEnrollments(ctx context.Context, courseID uuid.UUID) ([]model.Enrollment, error) {
 	query := `
-		SELECT id, user_id, course_id, status, progress_percentage, enrolled_at, completed_at, last_accessed
+		SELECT
+			id, user_id, course_id, status, progress_percentage,
+			payment_required, payment_status, lemon_squeezy_order_id,
+			payment_amount, payment_currency, paid_at,
+			enrolled_at, completed_at, last_accessed
 		FROM enrollments
 		WHERE course_id = $1
 		ORDER BY enrolled_at DESC
@@ -312,7 +356,9 @@ func (r *EnrollmentRepository) GetCourseEnrollments(ctx context.Context, courseI
 		var enrollment model.Enrollment
 		err := rows.Scan(
 			&enrollment.ID, &enrollment.UserID, &enrollment.CourseID, &enrollment.Status,
-			&enrollment.ProgressPercentage, &enrollment.EnrolledAt, &enrollment.CompletedAt, &enrollment.LastAccessed,
+			&enrollment.ProgressPercentage, &enrollment.PaymentRequired, &enrollment.PaymentStatus,
+			&enrollment.LemonSqueezyOrderID, &enrollment.PaymentAmount, &enrollment.PaymentCurrency,
+			&enrollment.PaidAt, &enrollment.EnrolledAt, &enrollment.CompletedAt, &enrollment.LastAccessed,
 		)
 		if err != nil {
 			return nil, err

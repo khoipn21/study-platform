@@ -1,11 +1,13 @@
 package handler
 
 import (
+	"fmt"
 	"net/http"
 	"strconv"
+	"time"
 
-	"payment-service/internal/model"
-	"payment-service/internal/service"
+	"github.com/study-platform/payment-service/internal/model"
+	"github.com/study-platform/payment-service/internal/service"
 
 	"github.com/gin-gonic/gin"
 )
@@ -163,7 +165,7 @@ func (h *PaymentHandler) PurchaseCourse(c *gin.Context) {
 		return
 	}
 
-	transaction, err := h.paymentService.PurchaseCourse(userID, courseID, &req)
+	transaction, err := h.paymentService.PurchaseCourse(c.Request.Context(), userID, courseID, &req)
 	if err != nil {
 		if err.Error() == "course already purchased" {
 			c.JSON(http.StatusConflict, gin.H{"error": err.Error()})
@@ -189,7 +191,7 @@ func (h *PaymentHandler) ValidatePayment(c *gin.Context) {
 		return
 	}
 
-	transaction, err := h.paymentService.ValidatePayment(userID, &req)
+	transaction, err := h.paymentService.ValidatePayment(c.Request.Context(), userID, &req)
 	if err != nil {
 		if err.Error() == "transaction not found or not owned by user" {
 			c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
@@ -251,7 +253,7 @@ func (h *PaymentHandler) GetTransaction(c *gin.Context) {
 		return
 	}
 
-	transaction, err := h.paymentService.GetTransaction(userID, transactionID)
+	transaction, err := h.paymentService.GetTransaction(c.Request.Context(), userID, transactionID)
 	if err != nil {
 		if err.Error() == "transaction not found or not owned by user" {
 			c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
@@ -283,7 +285,7 @@ func (h *PaymentHandler) RefundTransaction(c *gin.Context) {
 		return
 	}
 
-	transaction, err := h.paymentService.RefundTransaction(userID, transactionID, &req)
+	transaction, err := h.paymentService.RefundTransaction(c.Request.Context(), userID, transactionID, &req)
 	if err != nil {
 		if err.Error() == "transaction not found or not owned by user" {
 			c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
@@ -462,4 +464,113 @@ func (h *PaymentHandler) HandlePayPalWebhook(c *gin.Context) {
 	// In a real implementation, this would validate the webhook signature
 	// and process the event accordingly
 	c.JSON(http.StatusOK, gin.H{"message": "Webhook received"})
+}
+
+// Payment verification handlers for course access control
+func (h *PaymentHandler) VerifyPaymentForCourse(c *gin.Context) {
+	userID := c.Query("user_id")
+	courseID := c.Query("course_id")
+
+	if userID == "" || courseID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "user_id and course_id are required",
+		})
+		return
+	}
+
+	ctx := c.Request.Context()
+	result, err := h.paymentService.VerifyPaymentForCourse(ctx, userID, courseID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": "Failed to verify payment",
+			"details": err.Error(),
+		})
+		return
+	}
+
+	// Add audit logging
+	h.auditPaymentVerification(userID, courseID, result.HasAccess, result.PaymentStatus, result.Reason)
+
+	c.JSON(http.StatusOK, result)
+}
+
+// VerifyCourseAccess provides a simple true/false response for course access
+func (h *PaymentHandler) VerifyCourseAccess(c *gin.Context) {
+	userID := c.Query("user_id")
+	courseID := c.Query("course_id")
+
+	if userID == "" || courseID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "user_id and course_id are required",
+		})
+		return
+	}
+
+	ctx := c.Request.Context()
+	hasAccess, err := h.paymentService.VerifyCourseAccess(ctx, userID, courseID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": "Failed to verify course access",
+			"details": err.Error(),
+		})
+		return
+	}
+
+	// Add audit logging
+	h.auditPaymentVerification(userID, courseID, hasAccess, "access_check", "Course access verification")
+
+	c.JSON(http.StatusOK, gin.H{
+		"has_access": hasAccess,
+		"user_id": userID,
+		"course_id": courseID,
+	})
+}
+
+// CheckEnrollmentStatus checks if user is enrolled (for internal service calls)
+func (h *PaymentHandler) CheckEnrollmentStatus(c *gin.Context) {
+	userID := c.Query("user_id")
+	courseID := c.Query("course_id")
+
+	if userID == "" || courseID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "user_id and course_id are required",
+		})
+		return
+	}
+
+	isEnrolled, err := h.paymentService.CheckUserEnrollment(userID, courseID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": "Failed to check enrollment",
+			"details": err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"is_enrolled": isEnrolled,
+		"user_id": userID,
+		"course_id": courseID,
+	})
+}
+
+// auditPaymentVerification logs payment verification events for compliance and security
+func (h *PaymentHandler) auditPaymentVerification(userID, courseID string, hasAccess bool, status, reason string) {
+	// This should integrate with your logging system
+	// For now, we'll use structured logging
+	logData := map[string]interface{}{
+		"event_type": "payment_verification",
+		"user_id": userID,
+		"course_id": courseID,
+		"has_access": hasAccess,
+		"payment_status": status,
+		"reason": reason,
+		"timestamp": time.Now().UTC().Format(time.RFC3339),
+		"service": "payment-service",
+		"handler": "payment_verification",
+	}
+
+	// In production, this should go to your audit logging system
+	// For now, log as JSON for easy parsing
+	fmt.Printf("PAYMENT_AUDIT: %+v\n", logData)
 }

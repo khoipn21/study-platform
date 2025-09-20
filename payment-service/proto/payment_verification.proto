@@ -1,0 +1,275 @@
+syntax = "proto3";
+
+package payment;
+
+option go_package = "github.com/study-platform/payment-service/proto;payment";
+
+import "google/protobuf/timestamp.proto";
+
+// PaymentVerificationService provides payment and access validation
+service PaymentVerificationService {
+    // Course access validation
+    rpc VerifyCourseAccess(VerifyCourseAccessRequest) returns (VerifyCourseAccessResponse);
+
+    // Lecture access validation
+    rpc VerifyLectureAccess(VerifyLectureAccessRequest) returns (VerifyLectureAccessResponse);
+
+    // Transaction operations
+    rpc GetUserTransactions(GetUserTransactionsRequest) returns (GetUserTransactionsResponse);
+    rpc GetTransaction(GetTransactionRequest) returns (GetTransactionResponse);
+    rpc VerifyPaymentStatus(VerifyPaymentStatusRequest) returns (VerifyPaymentStatusResponse);
+
+    // Checkout operations
+    rpc CreateCheckoutSession(CreateCheckoutSessionRequest) returns (CreateCheckoutSessionResponse);
+
+    // Preview session management
+    rpc UpdatePreviewSession(UpdatePreviewSessionRequest) returns (UpdatePreviewSessionResponse);
+    rpc GetPreviewSession(GetPreviewSessionRequest) returns (GetPreviewSessionResponse);
+
+    // Cache management
+    rpc ClearUserAccessCache(ClearUserAccessCacheRequest) returns (ClearUserAccessCacheResponse);
+
+    // Analytics
+    rpc GetAccessStatistics(GetAccessStatisticsRequest) returns (GetAccessStatisticsResponse);
+}
+
+// Course Access Verification
+message VerifyCourseAccessRequest {
+    string user_id = 1;
+    string course_id = 2;
+    AccessAuditInfo audit_info = 3;
+}
+
+message VerifyCourseAccessResponse {
+    string user_id = 1;
+    string course_id = 2;
+    bool has_access = 3;
+    string access_level = 4; // full, preview, denied
+    bool payment_required = 5;
+    bool payment_verified = 6;
+    string transaction_id = 7;
+    google.protobuf.Timestamp access_expires_at = 8;
+    double course_price = 9;
+    string currency = 10;
+    string checkout_url = 11;
+    string message = 12;
+    google.protobuf.Timestamp cached_until = 13;
+    double risk_score = 14;
+}
+
+// Lecture Access Verification
+message VerifyLectureAccessRequest {
+    string user_id = 1;
+    string lecture_id = 2;
+    AccessAuditInfo audit_info = 3;
+}
+
+message VerifyLectureAccessResponse {
+    string user_id = 1;
+    string lecture_id = 2;
+    string course_id = 3;
+    bool has_access = 4;
+    string access_level = 5;
+    bool is_preview = 6;
+    int32 preview_time_remaining = 7;
+    VerifyCourseAccessResponse course_access = 8;
+    string message = 9;
+}
+
+// Transaction Operations
+message GetUserTransactionsRequest {
+    string user_id = 1;
+    int32 limit = 2;
+    int32 offset = 3;
+    string status_filter = 4;
+    string course_id_filter = 5;
+}
+
+message GetUserTransactionsResponse {
+    repeated Transaction transactions = 1;
+    int32 total_count = 2;
+    bool has_more = 3;
+}
+
+message GetTransactionRequest {
+    string transaction_id = 1;
+    string user_id = 2;
+}
+
+message GetTransactionResponse {
+    Transaction transaction = 1;
+    PaymentVerificationDetails verification_details = 2;
+}
+
+message VerifyPaymentStatusRequest {
+    string transaction_id = 1;
+    string user_id = 2;
+    bool force_provider_check = 3;
+}
+
+message VerifyPaymentStatusResponse {
+    Transaction transaction = 1;
+    PaymentVerificationDetails verification_details = 2;
+    VerifyCourseAccessResponse access_status = 3;
+}
+
+// Checkout Operations
+message CreateCheckoutSessionRequest {
+    string user_id = 1;
+    string course_id = 2;
+    CheckoutOptions options = 3;
+    string client_ip = 4;
+}
+
+message CreateCheckoutSessionResponse {
+    string checkout_url = 1;
+    string checkout_id = 2;
+    google.protobuf.Timestamp expires_at = 3;
+    string transaction_id = 4;
+}
+
+// Preview Session Management
+message UpdatePreviewSessionRequest {
+    string user_id = 1;
+    string lecture_id = 2;
+    int32 duration_seconds = 3;
+}
+
+message UpdatePreviewSessionResponse {
+    bool success = 1;
+    int32 remaining_time = 2;
+    bool preview_exhausted = 3;
+    string message = 4;
+}
+
+message GetPreviewSessionRequest {
+    string user_id = 1;
+    string lecture_id = 2;
+}
+
+message GetPreviewSessionResponse {
+    PreviewSession session = 1;
+    bool exists = 2;
+}
+
+// Cache Management
+message ClearUserAccessCacheRequest {
+    string user_id = 1;
+    string course_id = 2;
+}
+
+message ClearUserAccessCacheResponse {
+    bool success = 1;
+    string message = 2;
+}
+
+// Analytics
+message GetAccessStatisticsRequest {
+    string course_id = 1;
+    int32 days = 2;
+    string metric_type = 3; // access_attempts, revenue, conversions
+}
+
+message GetAccessStatisticsResponse {
+    AccessStatistics statistics = 1;
+}
+
+// Supporting Messages
+message AccessAuditInfo {
+    string user_id = 1;
+    string resource_id = 2;
+    string resource_type = 3; // course, lecture
+    string client_ip = 4;
+    string user_agent = 5;
+    string session_id = 6;
+}
+
+message Transaction {
+    string id = 1;
+    string user_id = 2;
+    string course_id = 3;
+    double amount = 4;
+    string currency = 5;
+    string status = 6;
+    string payment_provider = 7;
+    string lemon_squeezy_order_id = 8;
+    string lemon_squeezy_checkout_id = 9;
+    string webhook_event_id = 10;
+    google.protobuf.Timestamp payment_verified_at = 11;
+    google.protobuf.Timestamp refunded_at = 12;
+    google.protobuf.Timestamp expires_at = 13;
+    string custom_data = 14; // JSON string
+    double risk_score = 15;
+    google.protobuf.Timestamp created_at = 16;
+    google.protobuf.Timestamp updated_at = 17;
+}
+
+message PaymentVerificationDetails {
+    string provider_order_id = 1;
+    string provider_status = 2;
+    double provider_amount = 3;
+    string provider_currency = 4;
+    google.protobuf.Timestamp verified_at = 5;
+    string verification_source = 6; // webhook, api, manual
+    string provider_details = 7; // JSON string
+}
+
+message CheckoutOptions {
+    string success_url = 1;
+    string cancel_url = 2;
+    string customer_email = 3;
+    string customer_name = 4;
+    string custom_data = 5; // JSON string
+    bool embed_checkout = 6;
+    string preferred_currency = 7;
+}
+
+message PreviewSession {
+    string id = 1;
+    string user_id = 2;
+    string lecture_id = 3;
+    google.protobuf.Timestamp session_started_at = 4;
+    int32 session_duration_seconds = 5;
+    int32 preview_limit_seconds = 6;
+    bool preview_exhausted = 7;
+    string ip_address = 8;
+    google.protobuf.Timestamp last_accessed_at = 9;
+    google.protobuf.Timestamp created_at = 10;
+    google.protobuf.Timestamp updated_at = 11;
+}
+
+message AccessStatistics {
+    int64 total_attempts = 1;
+    int64 successful_access = 2;
+    int64 preview_access = 3;
+    int64 denied_access = 4;
+    int64 unique_users = 5;
+    double success_rate = 6;
+    double conversion_rate = 7;
+    double total_revenue = 8;
+    double average_revenue_per_user = 9;
+    repeated DailyStatistic daily_stats = 10;
+}
+
+message DailyStatistic {
+    string date = 1; // YYYY-MM-DD format
+    int64 attempts = 2;
+    int64 successes = 3;
+    int64 conversions = 4;
+    double revenue = 5;
+    int64 unique_users = 6;
+}
+
+// Error Handling
+message ValidationError {
+    string field = 1;
+    string message = 2;
+    string code = 3;
+}
+
+message ErrorResponse {
+    string error_code = 1;
+    string error_message = 2;
+    repeated ValidationError validation_errors = 3;
+    string trace_id = 4;
+}

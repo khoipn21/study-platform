@@ -151,11 +151,22 @@ func (s *S3Service) UploadFile(ctx context.Context, input *UploadInput) (*Upload
 		return nil, fmt.Errorf("failed to upload to S3: %w", err)
 	}
 
+	// Construct the URL manually if Location is empty
+	url := result.Location
+	if url == "" {
+		if s.config.S3.Endpoint == "https://s3.amazonaws.com" {
+			url = fmt.Sprintf("https://%s.s3.%s.amazonaws.com/%s", bucketName, s.config.S3.Region, objectKey)
+		} else {
+			// For MinIO or custom endpoints
+			url = fmt.Sprintf("%s/%s/%s", s.config.S3.Endpoint, bucketName, objectKey)
+		}
+	}
+
 	return &UploadResult{
 		FileID:      fileID,
 		ObjectKey:   objectKey,
 		BucketName:  bucketName,
-		URL:         result.Location,
+		URL:         url,
 		Size:        size,
 		Checksum:    checksum,
 		ContentType: input.ContentType,

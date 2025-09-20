@@ -91,18 +91,29 @@ func (am *AuthMiddleware) OptionalAuth(next http.Handler) http.Handler {
 			return
 		}
 
+		// CRITICAL FIX for BUG-006: Strict token validation for security
+		// If Authorization header is present, the token MUST be valid
+
 		// Extract token from "Bearer <token>" format
 		parts := strings.Split(authHeader, " ")
 		if len(parts) != 2 || parts[0] != "Bearer" {
-			// Invalid format, continue without authentication
-			next.ServeHTTP(w, r)
+			am.logger.Errorf("SECURITY: Invalid authorization header format from %s", r.RemoteAddr)
+			am.sendError(w, http.StatusUnauthorized, "Invalid authorization header format")
 			return
 		}
 
 		token := parts[1]
 		if token == "" {
-			// No token, continue without authentication
-			next.ServeHTTP(w, r)
+			am.logger.Errorf("SECURITY: Empty token provided from %s", r.RemoteAddr)
+			am.sendError(w, http.StatusUnauthorized, "Empty token provided")
+			return
+		}
+
+		// Basic token format validation (JWT should have 3 parts separated by dots)
+		tokenParts := strings.Split(token, ".")
+		if len(tokenParts) != 3 {
+			am.logger.Errorf("SECURITY: Malformed JWT token from %s", r.RemoteAddr)
+			am.sendError(w, http.StatusUnauthorized, "Malformed token")
 			return
 		}
 
@@ -116,14 +127,19 @@ func (am *AuthMiddleware) OptionalAuth(next http.Handler) http.Handler {
 
 		resp, err := am.authClient.ValidateToken(ctx, req)
 		if err != nil {
-			am.logger.Errorf("Token validation failed: %v", err)
-			// Continue without authentication on error
-			next.ServeHTTP(w, r)
+			am.logger.Errorf("SECURITY: Token validation service error from %s: %v", r.RemoteAddr, err)
+			am.sendError(w, http.StatusUnauthorized, "Token validation failed")
 			return
 		}
 
-		if resp.Valid && resp.User != nil {
-			// Add user information to request context
+		if !resp.Valid {
+			am.logger.Errorf("SECURITY: Invalid token provided from %s", r.RemoteAddr)
+			am.sendError(w, http.StatusUnauthorized, "Invalid token")
+			return
+		}
+
+		// Token is valid - add user information to request context
+		if resp.User != nil {
 			ctx = context.WithValue(r.Context(), "user_id", resp.User.Id)
 			ctx = context.WithValue(ctx, "user_role", resp.User.Role)
 			ctx = context.WithValue(ctx, "user_email", resp.User.Email)

@@ -619,3 +619,222 @@ var CourseService_ServiceDesc = grpc.ServiceDesc{
 	Streams:  []grpc.StreamDesc{},
 	Metadata: "proto/course.proto",
 }
+
+const (
+	AccessValidationService_ValidateCourseAccess_FullMethodName   = "/course.AccessValidationService/ValidateCourseAccess"
+	AccessValidationService_ValidateLectureAccess_FullMethodName  = "/course.AccessValidationService/ValidateLectureAccess"
+	AccessValidationService_ValidateResourceAccess_FullMethodName = "/course.AccessValidationService/ValidateResourceAccess"
+	AccessValidationService_BatchValidateAccess_FullMethodName    = "/course.AccessValidationService/BatchValidateAccess"
+)
+
+// AccessValidationServiceClient is the client API for AccessValidationService service.
+//
+// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
+type AccessValidationServiceClient interface {
+	// Access validation
+	ValidateCourseAccess(ctx context.Context, in *ValidateCourseAccessRequest, opts ...grpc.CallOption) (*ValidateCourseAccessResponse, error)
+	ValidateLectureAccess(ctx context.Context, in *ValidateLectureAccessRequest, opts ...grpc.CallOption) (*ValidateLectureAccessResponse, error)
+	ValidateResourceAccess(ctx context.Context, in *ValidateResourceAccessRequest, opts ...grpc.CallOption) (*ValidateResourceAccessResponse, error)
+	BatchValidateAccess(ctx context.Context, in *BatchValidateAccessRequest, opts ...grpc.CallOption) (*BatchValidateAccessResponse, error)
+}
+
+type accessValidationServiceClient struct {
+	cc grpc.ClientConnInterface
+}
+
+func NewAccessValidationServiceClient(cc grpc.ClientConnInterface) AccessValidationServiceClient {
+	return &accessValidationServiceClient{cc}
+}
+
+func (c *accessValidationServiceClient) ValidateCourseAccess(ctx context.Context, in *ValidateCourseAccessRequest, opts ...grpc.CallOption) (*ValidateCourseAccessResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ValidateCourseAccessResponse)
+	err := c.cc.Invoke(ctx, AccessValidationService_ValidateCourseAccess_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *accessValidationServiceClient) ValidateLectureAccess(ctx context.Context, in *ValidateLectureAccessRequest, opts ...grpc.CallOption) (*ValidateLectureAccessResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ValidateLectureAccessResponse)
+	err := c.cc.Invoke(ctx, AccessValidationService_ValidateLectureAccess_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *accessValidationServiceClient) ValidateResourceAccess(ctx context.Context, in *ValidateResourceAccessRequest, opts ...grpc.CallOption) (*ValidateResourceAccessResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ValidateResourceAccessResponse)
+	err := c.cc.Invoke(ctx, AccessValidationService_ValidateResourceAccess_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *accessValidationServiceClient) BatchValidateAccess(ctx context.Context, in *BatchValidateAccessRequest, opts ...grpc.CallOption) (*BatchValidateAccessResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(BatchValidateAccessResponse)
+	err := c.cc.Invoke(ctx, AccessValidationService_BatchValidateAccess_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// AccessValidationServiceServer is the server API for AccessValidationService service.
+// All implementations must embed UnimplementedAccessValidationServiceServer
+// for forward compatibility.
+type AccessValidationServiceServer interface {
+	// Access validation
+	ValidateCourseAccess(context.Context, *ValidateCourseAccessRequest) (*ValidateCourseAccessResponse, error)
+	ValidateLectureAccess(context.Context, *ValidateLectureAccessRequest) (*ValidateLectureAccessResponse, error)
+	ValidateResourceAccess(context.Context, *ValidateResourceAccessRequest) (*ValidateResourceAccessResponse, error)
+	BatchValidateAccess(context.Context, *BatchValidateAccessRequest) (*BatchValidateAccessResponse, error)
+	mustEmbedUnimplementedAccessValidationServiceServer()
+}
+
+// UnimplementedAccessValidationServiceServer must be embedded to have
+// forward compatible implementations.
+//
+// NOTE: this should be embedded by value instead of pointer to avoid a nil
+// pointer dereference when methods are called.
+type UnimplementedAccessValidationServiceServer struct{}
+
+func (UnimplementedAccessValidationServiceServer) ValidateCourseAccess(context.Context, *ValidateCourseAccessRequest) (*ValidateCourseAccessResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ValidateCourseAccess not implemented")
+}
+func (UnimplementedAccessValidationServiceServer) ValidateLectureAccess(context.Context, *ValidateLectureAccessRequest) (*ValidateLectureAccessResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ValidateLectureAccess not implemented")
+}
+func (UnimplementedAccessValidationServiceServer) ValidateResourceAccess(context.Context, *ValidateResourceAccessRequest) (*ValidateResourceAccessResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ValidateResourceAccess not implemented")
+}
+func (UnimplementedAccessValidationServiceServer) BatchValidateAccess(context.Context, *BatchValidateAccessRequest) (*BatchValidateAccessResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method BatchValidateAccess not implemented")
+}
+func (UnimplementedAccessValidationServiceServer) mustEmbedUnimplementedAccessValidationServiceServer() {
+}
+func (UnimplementedAccessValidationServiceServer) testEmbeddedByValue() {}
+
+// UnsafeAccessValidationServiceServer may be embedded to opt out of forward compatibility for this service.
+// Use of this interface is not recommended, as added methods to AccessValidationServiceServer will
+// result in compilation errors.
+type UnsafeAccessValidationServiceServer interface {
+	mustEmbedUnimplementedAccessValidationServiceServer()
+}
+
+func RegisterAccessValidationServiceServer(s grpc.ServiceRegistrar, srv AccessValidationServiceServer) {
+	// If the following call pancis, it indicates UnimplementedAccessValidationServiceServer was
+	// embedded by pointer and is nil.  This will cause panics if an
+	// unimplemented method is ever invoked, so we test this at initialization
+	// time to prevent it from happening at runtime later due to I/O.
+	if t, ok := srv.(interface{ testEmbeddedByValue() }); ok {
+		t.testEmbeddedByValue()
+	}
+	s.RegisterService(&AccessValidationService_ServiceDesc, srv)
+}
+
+func _AccessValidationService_ValidateCourseAccess_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ValidateCourseAccessRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AccessValidationServiceServer).ValidateCourseAccess(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AccessValidationService_ValidateCourseAccess_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AccessValidationServiceServer).ValidateCourseAccess(ctx, req.(*ValidateCourseAccessRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _AccessValidationService_ValidateLectureAccess_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ValidateLectureAccessRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AccessValidationServiceServer).ValidateLectureAccess(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AccessValidationService_ValidateLectureAccess_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AccessValidationServiceServer).ValidateLectureAccess(ctx, req.(*ValidateLectureAccessRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _AccessValidationService_ValidateResourceAccess_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ValidateResourceAccessRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AccessValidationServiceServer).ValidateResourceAccess(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AccessValidationService_ValidateResourceAccess_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AccessValidationServiceServer).ValidateResourceAccess(ctx, req.(*ValidateResourceAccessRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _AccessValidationService_BatchValidateAccess_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(BatchValidateAccessRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AccessValidationServiceServer).BatchValidateAccess(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AccessValidationService_BatchValidateAccess_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AccessValidationServiceServer).BatchValidateAccess(ctx, req.(*BatchValidateAccessRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+// AccessValidationService_ServiceDesc is the grpc.ServiceDesc for AccessValidationService service.
+// It's only intended for direct use with grpc.RegisterService,
+// and not to be introspected or modified (even as a copy)
+var AccessValidationService_ServiceDesc = grpc.ServiceDesc{
+	ServiceName: "course.AccessValidationService",
+	HandlerType: (*AccessValidationServiceServer)(nil),
+	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "ValidateCourseAccess",
+			Handler:    _AccessValidationService_ValidateCourseAccess_Handler,
+		},
+		{
+			MethodName: "ValidateLectureAccess",
+			Handler:    _AccessValidationService_ValidateLectureAccess_Handler,
+		},
+		{
+			MethodName: "ValidateResourceAccess",
+			Handler:    _AccessValidationService_ValidateResourceAccess_Handler,
+		},
+		{
+			MethodName: "BatchValidateAccess",
+			Handler:    _AccessValidationService_BatchValidateAccess_Handler,
+		},
+	},
+	Streams:  []grpc.StreamDesc{},
+	Metadata: "proto/course.proto",
+}

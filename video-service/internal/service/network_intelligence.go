@@ -74,7 +74,7 @@ func (nis *NetworkIntelligenceService) RecommendQuality(score int, currentQualit
 
 	recommended := qualityMap[score]
 
-	// Avoid frequent switching
+	// Avoid frequent switching with hysteresis
 	if nis.shouldPreventSwitch(currentQuality, recommended) {
 		return currentQuality
 	}
@@ -82,7 +82,7 @@ func (nis *NetworkIntelligenceService) RecommendQuality(score int, currentQualit
 	return recommended
 }
 
-// shouldPreventSwitch prevents frequent quality switching
+// shouldPreventSwitch prevents frequent quality switching with hysteresis
 func (nis *NetworkIntelligenceService) shouldPreventSwitch(current, recommended string) bool {
 	if current == "" {
 		return false
@@ -95,8 +95,21 @@ func (nis *NetworkIntelligenceService) shouldPreventSwitch(current, recommended 
 	currentLevel := qualityOrder[current]
 	recommendedLevel := qualityOrder[recommended]
 
-	// Only switch if the difference is significant (more than 1 level)
-	return math.Abs(float64(currentLevel-recommendedLevel)) <= 1
+	// Implement hysteresis - require larger difference for upscaling vs downscaling
+	diff := float64(recommendedLevel - currentLevel)
+
+	// For upscaling (better quality), require smaller difference
+	if diff > 0 && diff < 2 {
+		return true // Prevent upscaling unless difference is significant
+	}
+
+	// For downscaling (worse quality), allow more easily to adapt to poor network
+	if diff < 0 && math.Abs(diff) < 1 {
+		return true // Prevent minor downscaling
+	}
+
+	// Allow switching for significant differences
+	return false
 }
 
 // ProcessNetworkUpdate processes network status updates and provides recommendations
@@ -124,9 +137,37 @@ func (nis *NetworkIntelligenceService) ProcessNetworkUpdate(ctx context.Context,
 		}
 	}
 
-	// Recommend new quality
+	// Check minimum time interval between quality changes (10 seconds minimum)
+	lastChangeKey := fmt.Sprintf("last_quality_change:%s", sessionID)
+	lastChangeTime, err := nis.redisClient.Get(ctx, lastChangeKey).Result()
+	if err == nil {
+		if lastTime, parseErr := time.Parse(time.RFC3339, lastChangeTime); parseErr == nil {
+			if time.Since(lastTime) < 10*time.Second {
+				// Too soon for another quality change, return current quality
+				recommendedQuality := currentQuality
+				if recommendedQuality == "" {
+					recommendedQuality = "720p" // Safe default
+				}
+				metrics.RecommendedQuality = recommendedQuality
+
+				return &model.NetworkStatusResponse{
+					RecommendedQuality: recommendedQuality,
+					QualityScore:       score,
+					ShouldPreload:      nis.shouldEnablePreloading(metrics),
+					BufferTarget:       nis.calculateBufferTarget(metrics),
+				}, nil
+			}
+		}
+	}
+
+	// Recommend new quality with hysteresis
 	recommendedQuality := nis.RecommendQuality(score, currentQuality)
 	metrics.RecommendedQuality = recommendedQuality
+
+	// If quality is changing, record the change time
+	if currentQuality != "" && currentQuality != recommendedQuality {
+		nis.redisClient.Set(ctx, lastChangeKey, time.Now().Format(time.RFC3339), 1*time.Minute)
+	}
 
 	// Cache the network metrics
 	if err := nis.redisClient.CacheNetworkMetrics(ctx, sessionID, metrics, 5*time.Minute); err != nil {

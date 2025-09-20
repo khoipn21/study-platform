@@ -253,3 +253,53 @@ func (cs *CloudflareService) GetThumbnailURL(uid string) string {
 func (cs *CloudflareService) GetEmbedURL(uid string) string {
 	return fmt.Sprintf("https://customer-mwulubub36waz34d.cloudflarestream.com/%s/iframe", uid)
 }
+
+// CreateDirectUploadURLWithExpiration creates a direct upload URL with custom expiration
+func (cs *CloudflareService) CreateDirectUploadURLWithExpiration(maxDurationSeconds int) (*DirectUploadResponse, error) {
+	url := fmt.Sprintf("https://api.cloudflare.com/client/v4/accounts/%s/stream/direct_upload", cs.config.CloudflareAccountID)
+
+	payload := map[string]interface{}{
+		"maxDurationSeconds": maxDurationSeconds,
+		"requireSignedURLs": true, // Enable signed URLs for security
+		"expiry": time.Now().Add(time.Duration(maxDurationSeconds) * time.Second).UTC().Format(time.RFC3339),
+	}
+
+	jsonData, err := json.Marshal(payload)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal request: %w", err)
+	}
+
+	req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonData))
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer "+cs.config.CloudflareStreamToken)
+
+	resp, err := cs.httpClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("request failed: %w", err)
+	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read response: %w", err)
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("API request failed with status %d: %s", resp.StatusCode, string(body))
+	}
+
+	var response DirectUploadResponse
+	if err := json.Unmarshal(body, &response); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal response: %w", err)
+	}
+
+	if !response.Success {
+		return nil, fmt.Errorf("cloudflare API error: %v", response.Errors)
+	}
+
+	return &response, nil
+}

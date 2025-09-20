@@ -151,12 +151,13 @@ type UploadVideoRequest struct {
 }
 
 type UploadVideoResponse struct {
-	VideoID                  uuid.UUID `json:"video_id"`
-	CloudflareUID            string    `json:"cloudflare_uid"`
-	Title                    string    `json:"title"`
-	Status                   string    `json:"status"`
-	UploadURL               string    `json:"upload_url"`
-	EstimatedProcessingTime string    `json:"estimated_processing_time"`
+	VideoID                  uuid.UUID  `json:"video_id"`
+	CloudflareUID            string     `json:"cloudflare_uid"`
+	Title                    string     `json:"title"`
+	Status                   string     `json:"status"`
+	UploadURL               string     `json:"upload_url"`
+	EstimatedProcessingTime string     `json:"estimated_processing_time"`
+	ExpiresAt               *time.Time `json:"expires_at,omitempty"`
 }
 
 // Session request/response types

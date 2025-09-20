@@ -273,3 +273,16 @@ func (r *RedisClient) GetActiveSessions(ctx context.Context, userID string) ([]s
 	key := fmt.Sprintf("active_sessions:%s", userID)
 	return r.client.SMembers(ctx, key).Result()
 }
+
+// General key-value operations
+func (r *RedisClient) Set(ctx context.Context, key string, value interface{}, expiration time.Duration) error {
+	return r.client.Set(ctx, key, value, expiration).Err()
+}
+
+func (r *RedisClient) Get(ctx context.Context, key string) *redis.StringCmd {
+	return r.client.Get(ctx, key)
+}
+
+func (r *RedisClient) Del(ctx context.Context, keys ...string) error {
+	return r.client.Del(ctx, keys...).Err()
+}

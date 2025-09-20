@@ -26,13 +26,18 @@ type DatabaseConfig struct {
 }
 
 type PaymentConfig struct {
-	StripeSecretKey      string `json:"stripe_secret_key"`
-	StripePublishableKey string `json:"stripe_publishable_key"`
-	StripeWebhookSecret  string `json:"stripe_webhook_secret"`
-	PayPalClientID       string `json:"paypal_client_id"`
-	PayPalClientSecret   string `json:"paypal_client_secret"`
-	PayPalSandbox        bool   `json:"paypal_sandbox"`
-	Currency             string `json:"currency"`
+	// Lemon Squeezy Configuration
+	LemonSqueezyAPIKey       string `json:"lemon_squeezy_api_key"`
+	LemonSqueezyStoreID      string `json:"lemon_squeezy_store_id"`
+	LemonSqueezyProductID    string `json:"lemon_squeezy_product_id"`
+	LemonSqueezyVariantID    string `json:"lemon_squeezy_variant_id"`
+	LemonSqueezyWebhookSecret string `json:"lemon_squeezy_webhook_secret"`
+	LemonSqueezyWebhookURL   string `json:"lemon_squeezy_webhook_url"`
+	LemonSqueezyBaseURL      string `json:"lemon_squeezy_base_url"`
+
+	// General Payment Settings
+	Currency        string `json:"currency"`
+	PaymentProvider string `json:"payment_provider"`
 }
 
 type ServicesConfig struct {
@@ -54,13 +59,15 @@ func LoadConfig() *Config {
 			SSLMode:  getEnv("DB_SSLMODE", "disable"),
 		},
 		Payment: PaymentConfig{
-			StripeSecretKey:      getEnv("STRIPE_SECRET_KEY", "sk_test_..."),
-			StripePublishableKey: getEnv("STRIPE_PUBLISHABLE_KEY", "pk_test_..."),
-			StripeWebhookSecret:  getEnv("STRIPE_WEBHOOK_SECRET", "whsec_..."),
-			PayPalClientID:       getEnv("PAYPAL_CLIENT_ID", ""),
-			PayPalClientSecret:   getEnv("PAYPAL_CLIENT_SECRET", ""),
-			PayPalSandbox:        getEnv("PAYPAL_SANDBOX", "true") == "true",
-			Currency:             getEnv("PAYMENT_CURRENCY", "USD"),
+			LemonSqueezyAPIKey:       getEnv("LEMON_SQUEEZY_API_KEY", ""),
+			LemonSqueezyStoreID:      getEnv("LEMON_SQUEEZY_STORE_ID", ""),
+			LemonSqueezyProductID:    getEnv("LEMON_SQUEEZY_PRODUCT_ID", ""),
+			LemonSqueezyVariantID:    getEnv("LEMON_SQUEEZY_VARIANT_ID", ""),
+			LemonSqueezyWebhookSecret: getEnv("LEMON_SQUEEZY_WEBHOOK_SECRET", ""),
+			LemonSqueezyWebhookURL:   getEnv("LEMON_SQUEEZY_WEBHOOK_URL", ""),
+			LemonSqueezyBaseURL:      getEnv("LEMON_SQUEEZY_BASE_URL", "https://api.lemonsqueezy.com/v1"),
+			Currency:                 getEnv("PAYMENT_CURRENCY", "VND"),
+			PaymentProvider:          getEnv("PAYMENT_PROVIDER", "lemonsqueezy"),
 		},
 		Services: ServicesConfig{
 			ProgressServiceURL: getEnv("PROGRESS_SERVICE_URL", "progress-service:8080"),

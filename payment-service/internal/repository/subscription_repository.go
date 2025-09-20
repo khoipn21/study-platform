@@ -4,7 +4,7 @@ import (
 	"database/sql"
 	"fmt"
 
-	"payment-service/internal/model"
+	"github.com/study-platform/payment-service/internal/model"
 )
 
 type SubscriptionRepository struct {
@@ -17,21 +17,21 @@ func NewSubscriptionRepository(db *sql.DB) *SubscriptionRepository {
 
 func (r *SubscriptionRepository) Create(sub *model.Subscription) error {
 	query := `
-		INSERT INTO subscriptions (id, user_id, payment_method_id, plan_name, status, billing_period, next_billing_date, price, created_at, updated_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`
+		INSERT INTO subscriptions (id, user_id, payment_method_id, provider_id, plan_name, status, billing_period, next_billing_date, cancelled_at, expired_at, price, created_at, updated_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)`
 
-	_, err := r.db.Exec(query, sub.ID, sub.UserID, sub.PaymentMethodID, sub.PlanName, sub.Status, sub.BillingPeriod, sub.NextBillingDate, sub.Price, sub.CreatedAt, sub.UpdatedAt)
+	_, err := r.db.Exec(query, sub.ID, sub.UserID, sub.PaymentMethodID, sub.ProviderID, sub.PlanName, sub.Status, sub.BillingPeriod, sub.NextBillingDate, sub.CancelledAt, sub.ExpiredAt, sub.Price, sub.CreatedAt, sub.UpdatedAt)
 	return err
 }
 
 func (r *SubscriptionRepository) GetByID(id string) (*model.Subscription, error) {
 	sub := &model.Subscription{}
 	query := `
-		SELECT id, user_id, payment_method_id, plan_name, status, billing_period, next_billing_date, price, created_at, updated_at
+		SELECT id, user_id, payment_method_id, provider_id, plan_name, status, billing_period, next_billing_date, cancelled_at, expired_at, price, created_at, updated_at
 		FROM subscriptions WHERE id = $1`
 
 	err := r.db.QueryRow(query, id).Scan(
-		&sub.ID, &sub.UserID, &sub.PaymentMethodID, &sub.PlanName, &sub.Status, &sub.BillingPeriod, &sub.NextBillingDate, &sub.Price, &sub.CreatedAt, &sub.UpdatedAt,
+		&sub.ID, &sub.UserID, &sub.PaymentMethodID, &sub.ProviderID, &sub.PlanName, &sub.Status, &sub.BillingPeriod, &sub.NextBillingDate, &sub.CancelledAt, &sub.ExpiredAt, &sub.Price, &sub.CreatedAt, &sub.UpdatedAt,
 	)
 	if err != nil {
 		return nil, err
@@ -42,7 +42,7 @@ func (r *SubscriptionRepository) GetByID(id string) (*model.Subscription, error)
 
 func (r *SubscriptionRepository) GetByUserID(userID string) ([]*model.Subscription, error) {
 	query := `
-		SELECT id, user_id, payment_method_id, plan_name, status, billing_period, next_billing_date, price, created_at, updated_at
+		SELECT id, user_id, payment_method_id, provider_id, plan_name, status, billing_period, next_billing_date, cancelled_at, expired_at, price, created_at, updated_at
 		FROM subscriptions WHERE user_id = $1 ORDER BY created_at DESC`
 
 	rows, err := r.db.Query(query, userID)
@@ -55,7 +55,7 @@ func (r *SubscriptionRepository) GetByUserID(userID string) ([]*model.Subscripti
 	for rows.Next() {
 		sub := &model.Subscription{}
 		err := rows.Scan(
-			&sub.ID, &sub.UserID, &sub.PaymentMethodID, &sub.PlanName, &sub.Status, &sub.BillingPeriod, &sub.NextBillingDate, &sub.Price, &sub.CreatedAt, &sub.UpdatedAt,
+			&sub.ID, &sub.UserID, &sub.PaymentMethodID, &sub.ProviderID, &sub.PlanName, &sub.Status, &sub.BillingPeriod, &sub.NextBillingDate, &sub.CancelledAt, &sub.ExpiredAt, &sub.Price, &sub.CreatedAt, &sub.UpdatedAt,
 		)
 		if err != nil {
 			return nil, err
@@ -68,11 +68,11 @@ func (r *SubscriptionRepository) GetByUserID(userID string) ([]*model.Subscripti
 
 func (r *SubscriptionRepository) Update(sub *model.Subscription) error {
 	query := `
-		UPDATE subscriptions 
-		SET payment_method_id = $2, plan_name = $3, status = $4, billing_period = $5, next_billing_date = $6, price = $7, updated_at = $8
+		UPDATE subscriptions
+		SET payment_method_id = $2, provider_id = $3, plan_name = $4, status = $5, billing_period = $6, next_billing_date = $7, price = $8, updated_at = $9
 		WHERE id = $1`
 
-	result, err := r.db.Exec(query, sub.ID, sub.PaymentMethodID, sub.PlanName, sub.Status, sub.BillingPeriod, sub.NextBillingDate, sub.Price, sub.UpdatedAt)
+	result, err := r.db.Exec(query, sub.ID, sub.PaymentMethodID, sub.ProviderID, sub.PlanName, sub.Status, sub.BillingPeriod, sub.NextBillingDate, sub.Price, sub.UpdatedAt)
 	if err != nil {
 		return err
 	}
@@ -111,7 +111,7 @@ func (r *SubscriptionRepository) Delete(id string) error {
 
 func (r *SubscriptionRepository) GetByStatus(status string) ([]*model.Subscription, error) {
 	query := `
-		SELECT id, user_id, payment_method_id, plan_name, status, billing_period, next_billing_date, price, created_at, updated_at
+		SELECT id, user_id, payment_method_id, provider_id, plan_name, status, billing_period, next_billing_date, price, created_at, updated_at
 		FROM subscriptions WHERE status = $1 ORDER BY created_at DESC`
 
 	rows, err := r.db.Query(query, status)
@@ -124,7 +124,7 @@ func (r *SubscriptionRepository) GetByStatus(status string) ([]*model.Subscripti
 	for rows.Next() {
 		sub := &model.Subscription{}
 		err := rows.Scan(
-			&sub.ID, &sub.UserID, &sub.PaymentMethodID, &sub.PlanName, &sub.Status, &sub.BillingPeriod, &sub.NextBillingDate, &sub.Price, &sub.CreatedAt, &sub.UpdatedAt,
+			&sub.ID, &sub.UserID, &sub.PaymentMethodID, &sub.ProviderID, &sub.PlanName, &sub.Status, &sub.BillingPeriod, &sub.NextBillingDate, &sub.CancelledAt, &sub.ExpiredAt, &sub.Price, &sub.CreatedAt, &sub.UpdatedAt,
 		)
 		if err != nil {
 			return nil, err
@@ -143,4 +143,45 @@ func (r *SubscriptionRepository) CheckOwnership(id, userID string) (bool, error)
 		return false, err
 	}
 	return count > 0, nil
+}
+
+// GetSubscriptionByProviderID gets a subscription by provider ID
+func (r *SubscriptionRepository) GetSubscriptionByProviderID(providerID string) (*model.Subscription, error) {
+	sub := &model.Subscription{}
+	query := `
+		SELECT id, user_id, payment_method_id, provider_id, plan_name, status, billing_period, next_billing_date, cancelled_at, expired_at, price, created_at, updated_at
+		FROM subscriptions WHERE provider_id = $1`
+
+	err := r.db.QueryRow(query, providerID).Scan(
+		&sub.ID, &sub.UserID, &sub.PaymentMethodID, &sub.ProviderID, &sub.PlanName, &sub.Status, &sub.BillingPeriod, &sub.NextBillingDate, &sub.CancelledAt, &sub.ExpiredAt, &sub.Price, &sub.CreatedAt, &sub.UpdatedAt,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	return sub, nil
+}
+
+// UpdateSubscription updates a subscription
+func (r *SubscriptionRepository) UpdateSubscription(sub *model.Subscription) error {
+	query := `
+		UPDATE subscriptions
+		SET payment_method_id = $2, provider_id = $3, plan_name = $4, status = $5, billing_period = $6, next_billing_date = $7, cancelled_at = $8, expired_at = $9, price = $10, updated_at = $11
+		WHERE id = $1`
+
+	result, err := r.db.Exec(query, sub.ID, sub.PaymentMethodID, sub.ProviderID, sub.PlanName, sub.Status, sub.BillingPeriod, sub.NextBillingDate, sub.CancelledAt, sub.ExpiredAt, sub.Price, sub.UpdatedAt)
+	if err != nil {
+		return err
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+
+	if rowsAffected == 0 {
+		return fmt.Errorf("subscription not found")
+	}
+
+	return nil
 }

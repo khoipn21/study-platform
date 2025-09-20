@@ -14,18 +14,26 @@ service CourseService {
     rpc DeleteCourse(DeleteCourseRequest) returns (DeleteCourseResponse);
     rpc ListCourses(ListCoursesRequest) returns (ListCoursesResponse);
     rpc SearchCourses(SearchCoursesRequest) returns (SearchCoursesResponse);
-    
+
     // Lecture management
     rpc CreateLecture(CreateLectureRequest) returns (CreateLectureResponse);
     rpc GetLecture(GetLectureRequest) returns (GetLectureResponse);
     rpc UpdateLecture(UpdateLectureRequest) returns (UpdateLectureResponse);
     rpc DeleteLecture(DeleteLectureRequest) returns (DeleteLectureResponse);
     rpc ListLectures(ListLecturesRequest) returns (ListLecturesResponse);
-    
+
     // Course enrollment
     rpc EnrollInCourse(EnrollInCourseRequest) returns (EnrollInCourseResponse);
     rpc GetEnrollment(GetEnrollmentRequest) returns (GetEnrollmentResponse);
     rpc ListEnrollments(ListEnrollmentsRequest) returns (ListEnrollmentsResponse);
+}
+
+service AccessValidationService {
+    // Access validation
+    rpc ValidateCourseAccess(ValidateCourseAccessRequest) returns (ValidateCourseAccessResponse);
+    rpc ValidateLectureAccess(ValidateLectureAccessRequest) returns (ValidateLectureAccessResponse);
+    rpc ValidateResourceAccess(ValidateResourceAccessRequest) returns (ValidateResourceAccessResponse);
+    rpc BatchValidateAccess(BatchValidateAccessRequest) returns (BatchValidateAccessResponse);
 }
 
 // Course messages
@@ -86,7 +94,8 @@ message CreateCourseRequest {
     double price = 6;
     string currency = 7;
     string thumbnail_url = 8;
-    repeated string tags = 9;
+    string status = 9;
+    repeated string tags = 10;
 }
 
 message CreateCourseResponse {
@@ -258,4 +267,84 @@ message ListEnrollmentsResponse {
     int32 total_count = 2;
     int32 page = 3;
     int32 page_size = 4;
+}
+
+// Access validation requests/responses
+message ValidateCourseAccessRequest {
+    string user_id = 1;
+    string course_id = 2;
+    string user_role = 3;
+}
+
+message ValidateCourseAccessResponse {
+    bool has_access = 1;
+    string access_level = 2; // none, student, instructor, owner, admin
+    string message = 3;
+    string error_code = 4;
+    int64 expires_at = 5;
+    double course_price = 6;
+    string course_currency = 7;
+    string enrollment_id = 8;
+}
+
+message ValidateLectureAccessRequest {
+    string user_id = 1;
+    string lecture_id = 2;
+    string user_role = 3;
+    bool enforce_sequential_access = 4;
+}
+
+message ValidateLectureAccessResponse {
+    bool has_access = 1;
+    string access_level = 2;
+    string message = 3;
+    string error_code = 4;
+    int64 expires_at = 5;
+    string course_id = 6;
+    int32 lecture_order = 7;
+    int32 duration = 8;
+    int64 available_from = 9;
+    double course_price = 10;
+    string course_currency = 11;
+}
+
+message ValidateResourceAccessRequest {
+    string user_id = 1;
+    string resource_id = 2;
+    string user_role = 3;
+    string requested_action = 4; // view, download, edit, delete
+}
+
+message ValidateResourceAccessResponse {
+    bool has_access = 1;
+    string access_level = 2;
+    string message = 3;
+    string error_code = 4;
+    repeated string allowed_actions = 5;
+    string resource_type = 6;
+    string course_id = 7;
+}
+
+message BatchAccessValidationItem {
+    string resource_id = 1;
+    string resource_type = 2; // course, lecture, resource
+}
+
+message BatchValidateAccessRequest {
+    string user_id = 1;
+    string user_role = 2;
+    repeated BatchAccessValidationItem items = 3;
+}
+
+message BatchAccessValidationResult {
+    string resource_id = 1;
+    string resource_type = 2;
+    bool has_access = 3;
+    string access_level = 4;
+    string message = 5;
+    string error_code = 6;
+}
+
+message BatchValidateAccessResponse {
+    repeated BatchAccessValidationResult results = 1;
 }
