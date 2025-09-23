@@ -266,6 +266,54 @@ func (c *Client) ListVariants(ctx context.Context, productID string) ([]interfac
 	return response.Data, nil
 }
 
+// Variant represents a Lemon Squeezy variant
+type Variant struct {
+	ID         string  `json:"id"`
+	ProductID  string  `json:"product_id"`
+	Name       string  `json:"name"`
+	Price      float64 `json:"price"`
+	FormattedPrice string `json:"formatted_price"`
+}
+
+// GetVariants returns all available variants
+func (c *Client) GetVariants() ([]Variant, error) {
+	ctx := context.Background()
+	respData, err := c.makeRequest(ctx, "GET", "/variants", nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get variants: %w", err)
+	}
+
+	var response struct {
+		Data []struct {
+			ID         string `json:"id"`
+			Type       string `json:"type"`
+			Attributes struct {
+				ProductID      int     `json:"product_id"`
+				Name           string  `json:"name"`
+				Price          int     `json:"price"` // Price in cents
+				FormattedPrice string  `json:"formatted_price"`
+			} `json:"attributes"`
+		} `json:"data"`
+	}
+
+	if err := json.Unmarshal(respData, &response); err != nil {
+		return nil, fmt.Errorf("failed to parse variants response: %w", err)
+	}
+
+	var variants []Variant
+	for _, v := range response.Data {
+		variants = append(variants, Variant{
+			ID:             v.ID,
+			ProductID:      strconv.Itoa(v.Attributes.ProductID),
+			Name:           v.Attributes.Name,
+			Price:          float64(v.Attributes.Price) / 100.0, // Convert from cents
+			FormattedPrice: v.Attributes.FormattedPrice,
+		})
+	}
+
+	return variants, nil
+}
+
 func (c *Client) makeRequest(ctx context.Context, method, endpoint string, payload interface{}) ([]byte, error) {
 	url := c.baseURL + endpoint
 

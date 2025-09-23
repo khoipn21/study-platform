@@ -163,6 +163,7 @@ func setupRouter(paymentHandler *handler.PaymentHandler, lemonSqueezyHandler *ha
 		api.GET("/enrollments/check/:courseId", paymentHandler.CheckEnrollment)
 
 		// Lemon Squeezy endpoints
+		api.POST("/lemonsqueezy/products", lemonSqueezyHandler.CreateProduct)
 		api.POST("/lemonsqueezy/checkout/course/:course_id", lemonSqueezyHandler.CreateCheckout)
 		api.POST("/lemonsqueezy/verify/:order_id", lemonSqueezyHandler.VerifyPayment)
 		api.GET("/lemonsqueezy/products", lemonSqueezyHandler.GetProducts)

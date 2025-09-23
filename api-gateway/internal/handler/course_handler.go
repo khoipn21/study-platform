@@ -1,10 +1,15 @@
 package handler
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
+	"io"
+	"mime/multipart"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/gorilla/mux"
@@ -14,28 +19,52 @@ import (
 )
 
 type CourseHandler struct {
-	courseClient coursepb.CourseServiceClient
-	logger       logger.Logger
+	courseClient     coursepb.CourseServiceClient
+	bucketServiceURL string
+	logger           logger.Logger
 }
 
-func NewCourseHandler(courseConn *grpc.ClientConn, logger logger.Logger) *CourseHandler {
+func NewCourseHandler(courseConn *grpc.ClientConn, bucketServiceURL string, logger logger.Logger) *CourseHandler {
 	return &CourseHandler{
-		courseClient: coursepb.NewCourseServiceClient(courseConn),
-		logger:       logger,
+		courseClient:     coursepb.NewCourseServiceClient(courseConn),
+		bucketServiceURL: bucketServiceURL,
+		logger:           logger,
 	}
 }
 
 type CreateCourseRequest struct {
-	Title        string   `json:"title"`
-	Description  string   `json:"description"`
-	InstructorID string   `json:"instructor_id"`
-	Category     string   `json:"category"`
-	Level        string   `json:"level"`
-	Price        float64  `json:"price"`
-	Currency     string   `json:"currency"`
-	ThumbnailURL string   `json:"thumbnail_url"`
-	Status       string   `json:"status"`
-	Tags         []string `json:"tags"`
+	Title                  string                     `json:"title"`
+	Description            string                     `json:"description"`
+	InstructorID           string                     `json:"instructor_id"`
+	Category               string                     `json:"category"`
+	Level                  string                     `json:"level"`
+	Price                  float64                    `json:"price"`
+	Currency               string                     `json:"currency"`
+	ThumbnailURL           string                     `json:"thumbnail_url"`
+	Status                 string                     `json:"status"`
+	Tags                   []string                   `json:"tags"`
+	Language               string                     `json:"language"`
+	LearningOutcomes       []string                   `json:"learning_outcomes"`
+	Requirements           []string                   `json:"requirements"`
+	EstimatedDurationHours float64                    `json:"estimated_duration_hours"`
+	AutoApproveEnrollment  bool                       `json:"auto_approve_enrollment"`
+	AllowPreviews          bool                       `json:"allow_previews"`
+	HasCertificate         bool                       `json:"has_certificate"`
+	MobileAccess           bool                       `json:"mobile_access"`
+	StartDate              string                     `json:"start_date"`
+	EndDate                string                     `json:"end_date"`
+	MaxStudents            int32                      `json:"max_students"`
+	Lectures               []CreateLectureRequest     `json:"lectures"`
+	Resources              []CreateResourceRequest    `json:"resources"`
+}
+
+type CreateResourceRequest struct {
+	Title       string `json:"title"`
+	Description string `json:"description"`
+	Type        string `json:"type"`
+	URL         string `json:"url"`
+	FileSize    int64  `json:"file_size"`
+	IsPublic    bool   `json:"is_public"`
 }
 
 type UpdateCourseRequest struct {
@@ -51,8 +80,10 @@ type UpdateCourseRequest struct {
 }
 
 type CreateLectureRequest struct {
+	ID              string `json:"id"`
 	Title           string `json:"title"`
 	Description     string `json:"description"`
+	Type            string `json:"type"`
 	OrderNumber     int32  `json:"order_number"`
 	DurationMinutes int32  `json:"duration_minutes"`
 	VideoURL        string `json:"video_url"`
@@ -72,10 +103,22 @@ type UpdateLectureRequest struct {
 }
 
 func (h *CourseHandler) CreateCourse(w http.ResponseWriter, r *http.Request) {
+	h.logger.Infof("========== COURSE HANDLER CreateCourse CALLED ==========")
+	fmt.Printf("========== COURSE HANDLER CreateCourse CALLED ==========\n")
+
 	var req CreateCourseRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		h.logger.Errorf("Failed to decode request body: %v", err)
 		h.sendError(w, http.StatusBadRequest, "Invalid request body")
 		return
+	}
+	h.logger.Infof("Decoded request - Title: %s, Lectures count: %d", req.Title, len(req.Lectures))
+
+	// Debug: Write lecture information to a debug file
+	if len(req.Lectures) > 0 {
+		h.logger.Infof("First lecture title: %s", req.Lectures[0].Title)
+	} else {
+		h.logger.Infof("NO LECTURES FOUND IN REQUEST")
 	}
 
 	// Validate required fields
@@ -84,7 +127,7 @@ func (h *CourseHandler) CreateCourse(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
 	// Call course service
@@ -107,9 +150,70 @@ func (h *CourseHandler) CreateCourse(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Format response
+	courseID := resp.Course.Id
+	h.logger.Infof("Course created successfully: %s", courseID)
+
+	// Debug: Log the number of lectures received
+	h.logger.Infof("Number of lectures to create: %d", len(req.Lectures))
+
+	// Create lectures for the course
+	var createdLectures []*coursepb.Lecture
+	for i, lecture := range req.Lectures {
+		h.logger.Infof("Creating lecture %d: %s", i+1, lecture.Title)
+		lectureReq := &coursepb.CreateLectureRequest{
+			CourseId:        courseID,
+			Title:           lecture.Title,
+			Description:     lecture.Description,
+			OrderNumber:     int32(i + 1), // Use sequential order
+			DurationMinutes: lecture.DurationMinutes,
+			VideoUrl:        lecture.VideoURL,
+			VideoId:         lecture.VideoID,
+			IsFree:          lecture.IsFree,
+		}
+
+		lectureResp, err := h.courseClient.CreateLecture(ctx, lectureReq)
+		if err != nil {
+			h.logger.Errorf("Failed to create lecture '%s': %v", lecture.Title, err)
+			// Continue with other lectures, don't fail the entire course creation
+			continue
+		}
+		createdLectures = append(createdLectures, lectureResp.Lecture)
+		h.logger.Infof("Lecture created: %s (%s)", lectureResp.Lecture.Title, lectureResp.Lecture.Id)
+	}
+
+	// Create Lemon Squeezy product if course has a price
+	var lemonSqueezyProductID string
+	if req.Price > 0 && req.Status == "published" {
+		// Extract user information from context for authentication headers
+		userID, userIDOk := r.Context().Value("user_id").(string)
+		userRole := ""
+		if userRoleValue := r.Context().Value("user_role"); userRoleValue != nil {
+			userRole = userRoleValue.(string)
+		}
+
+		if !userIDOk || userID == "" {
+			h.logger.Errorf("User ID not found in context for Lemon Squeezy product creation")
+		} else {
+			lemonSqueezyProductID, err = h.createLemonSqueezyProduct(ctx, resp.Course, userID, userRole)
+			if err != nil {
+				h.logger.Errorf("Failed to create Lemon Squeezy product for course %s: %v", courseID, err)
+				// Don't fail the course creation, just log the error
+			}
+		}
+	}
+
+	// Format response with created lectures
 	data := h.formatCourse(resp.Course)
-	h.sendSuccess(w, resp.Message, data)
+	data["lectures"] = h.formatLectures(createdLectures)
+	data["lemon_squeezy_product_id"] = lemonSqueezyProductID
+
+	// Debug: Add debug information to response
+	data["debug_info"] = map[string]interface{}{
+		"lectures_requested": len(req.Lectures),
+		"lectures_created": len(createdLectures),
+	}
+
+	h.sendSuccess(w, "MODIFIED API GATEWAY: Course and lectures created successfully", data)
 }
 
 func (h *CourseHandler) GetCourse(w http.ResponseWriter, r *http.Request) {
@@ -575,4 +679,305 @@ func (h *CourseHandler) handleGRPCError(w http.ResponseWriter, err error, defaul
 	// Same implementation as auth handler
 	h.logger.Errorf("gRPC error: %v", err)
 	h.sendError(w, http.StatusInternalServerError, defaultMessage)
+}
+
+// formatLectures formats multiple lectures
+func (h *CourseHandler) formatLectures(lectures []*coursepb.Lecture) []map[string]interface{} {
+	var result []map[string]interface{}
+	for _, lecture := range lectures {
+		result = append(result, h.formatLecture(lecture))
+	}
+	return result
+}
+
+// createLemonSqueezyProduct creates a product in Lemon Squeezy for the course
+func (h *CourseHandler) createLemonSqueezyProduct(ctx context.Context, course *coursepb.Course, userID, userRole string) (string, error) {
+	h.logger.Infof("Creating Lemon Squeezy product for course: %s (user: %s, role: %s)", course.Title, userID, userRole)
+
+	// Prepare request payload for payment service
+	payload := map[string]interface{}{
+		"course_id":    course.Id,
+		"title":        course.Title,
+		"description":  course.Description,
+		"price":        course.Price,
+		"currency":     course.Currency,
+		"category":     course.Category,
+		"instructor_id": course.InstructorId,
+	}
+
+	payloadBytes, err := json.Marshal(payload)
+	if err != nil {
+		return "", fmt.Errorf("failed to marshal payload: %w", err)
+	}
+
+	// Call payment service to create Lemon Squeezy product
+	paymentServiceURL := "http://payment-service:8088/api/v1/lemonsqueezy/products"
+	req, err := http.NewRequestWithContext(ctx, "POST", paymentServiceURL, bytes.NewBuffer(payloadBytes))
+	if err != nil {
+		return "", fmt.Errorf("failed to create request: %w", err)
+	}
+
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-User-ID", userID)
+	if userRole != "" {
+		req.Header.Set("X-User-Role", userRole)
+	}
+	h.logger.Infof("Calling payment service with headers: X-User-ID=%s, X-User-Role=%s", userID, userRole)
+
+	client := &http.Client{Timeout: 10 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		h.logger.Errorf("Failed to call payment service: %v", err)
+		return "", fmt.Errorf("failed to call payment service: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusCreated {
+		h.logger.Errorf("Payment service returned error: %d", resp.StatusCode)
+		return "", fmt.Errorf("payment service error: status %d", resp.StatusCode)
+	}
+
+	// Parse response
+	var result map[string]interface{}
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return "", fmt.Errorf("failed to decode response: %w", err)
+	}
+
+	// Extract product ID from response
+	data, ok := result["data"].(map[string]interface{})
+	if !ok {
+		return "", fmt.Errorf("invalid response format")
+	}
+
+	productID, ok := data["product_id"].(string)
+	if !ok {
+		return "", fmt.Errorf("product_id not found in response")
+	}
+
+	h.logger.Infof("Lemon Squeezy product created successfully: %s", productID)
+	return productID, nil
+}
+
+// CreateCourseWithThumbnail handles course creation with thumbnail file upload
+func (h *CourseHandler) CreateCourseWithThumbnail(w http.ResponseWriter, r *http.Request) {
+	h.logger.Infof("========== COURSE HANDLER CreateCourseWithThumbnail CALLED ==========")
+
+	// Parse multipart form with a 32MB limit
+	err := r.ParseMultipartForm(32 << 20)
+	if err != nil {
+		h.logger.Errorf("Failed to parse multipart form: %v", err)
+		h.sendError(w, http.StatusBadRequest, "Invalid multipart form")
+		return
+	}
+
+	// Extract course data from form
+	req := CreateCourseRequest{
+		Title:        r.FormValue("title"),
+		Description:  r.FormValue("description"),
+		InstructorID: r.FormValue("instructor_id"),
+		Category:     r.FormValue("category"),
+		Level:        r.FormValue("level"),
+		Currency:     r.FormValue("currency"),
+		Status:       r.FormValue("status"),
+	}
+
+	// Parse optional fields
+	if priceStr := r.FormValue("price"); priceStr != "" {
+		if price, err := strconv.ParseFloat(priceStr, 64); err == nil {
+			req.Price = price
+		}
+	}
+
+	// Parse tags if provided
+	if tagsStr := r.FormValue("tags"); tagsStr != "" {
+		req.Tags = strings.Split(tagsStr, ",")
+		// Trim whitespace from tags
+		for i, tag := range req.Tags {
+			req.Tags[i] = strings.TrimSpace(tag)
+		}
+	}
+
+	// Validate required fields
+	if req.Title == "" || req.Description == "" || req.InstructorID == "" {
+		h.sendError(w, http.StatusBadRequest, "Title, description, and instructor_id are required")
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	defer cancel()
+
+	// Handle thumbnail upload if provided
+	var thumbnailURL string
+	if file, fileHeader, err := r.FormFile("thumbnail"); err == nil {
+		defer file.Close()
+
+		h.logger.Infof("Thumbnail file uploaded: %s, size: %d bytes", fileHeader.Filename, fileHeader.Size)
+
+		// Validate thumbnail file
+		if err := h.validateThumbnailFile(fileHeader); err != nil {
+			h.sendError(w, http.StatusBadRequest, fmt.Sprintf("Invalid thumbnail: %s", err.Error()))
+			return
+		}
+
+		// Upload thumbnail to bucket service
+		uploadedURL, err := h.uploadThumbnailToBucket(ctx, file, fileHeader, r.Header.Get("Authorization"))
+		if err != nil {
+			h.logger.Errorf("Failed to upload thumbnail: %v", err)
+			h.sendError(w, http.StatusInternalServerError, "Failed to upload thumbnail")
+			return
+		}
+
+		thumbnailURL = uploadedURL
+		h.logger.Infof("Thumbnail uploaded successfully: %s", thumbnailURL)
+	}
+
+	// Set thumbnail URL in request
+	req.ThumbnailURL = thumbnailURL
+
+	// Call course service to create course
+	grpcReq := &coursepb.CreateCourseRequest{
+		Title:        req.Title,
+		Description:  req.Description,
+		InstructorId: req.InstructorID,
+		Category:     req.Category,
+		Level:        req.Level,
+		Price:        req.Price,
+		Currency:     req.Currency,
+		ThumbnailUrl: req.ThumbnailURL,
+		Status:       req.Status,
+		Tags:         req.Tags,
+	}
+
+	resp, err := h.courseClient.CreateCourse(ctx, grpcReq)
+	if err != nil {
+		h.handleGRPCError(w, err, "Failed to create course")
+		return
+	}
+
+	courseID := resp.Course.Id
+	h.logger.Infof("Course created successfully: %s", courseID)
+
+	// Create Lemon Squeezy product if course has a price
+	var lemonSqueezyProductID string
+	if req.Price > 0 && req.Status == "published" {
+		// Extract user information from context for authentication headers
+		userID, userIDOk := r.Context().Value("user_id").(string)
+		userRole := ""
+		if userRoleValue := r.Context().Value("user_role"); userRoleValue != nil {
+			userRole = userRoleValue.(string)
+		}
+
+		if !userIDOk || userID == "" {
+			h.logger.Errorf("User ID not found in context for Lemon Squeezy product creation")
+		} else {
+			lemonSqueezyProductID, err = h.createLemonSqueezyProduct(ctx, resp.Course, userID, userRole)
+			if err != nil {
+				h.logger.Errorf("Failed to create Lemon Squeezy product for course %s: %v", courseID, err)
+				// Don't fail the course creation, just log the error
+			}
+		}
+	}
+
+	// Format response
+	data := h.formatCourse(resp.Course)
+	data["lemon_squeezy_product_id"] = lemonSqueezyProductID
+	data["thumbnail_uploaded"] = thumbnailURL != ""
+
+	h.sendSuccess(w, "Course created successfully with thumbnail", data)
+}
+
+// uploadThumbnailToBucket uploads the thumbnail file to the bucket service
+func (h *CourseHandler) uploadThumbnailToBucket(ctx context.Context, file multipart.File, fileHeader *multipart.FileHeader, authHeader string) (string, error) {
+	// Create a new HTTP request for bucket service
+	body := &bytes.Buffer{}
+	writer := multipart.NewWriter(body)
+
+	// Copy the file to the new form
+	part, err := writer.CreateFormFile("file", fileHeader.Filename)
+	if err != nil {
+		return "", fmt.Errorf("failed to create form file: %w", err)
+	}
+
+	// Reset file position to beginning
+	file.Seek(0, 0)
+	_, err = io.Copy(part, file)
+	if err != nil {
+		return "", fmt.Errorf("failed to copy file: %w", err)
+	}
+
+	// Add additional form fields
+	writer.WriteField("bucket", "images") // Use images bucket for thumbnails
+	writer.WriteField("is_public", "true") // Make thumbnails publicly accessible
+
+	writer.Close()
+
+	// Create HTTP request to bucket service
+	bucketURL := fmt.Sprintf("http://%s/api/files/upload", h.bucketServiceURL)
+	req, err := http.NewRequestWithContext(ctx, "POST", bucketURL, body)
+	if err != nil {
+		return "", fmt.Errorf("failed to create request: %w", err)
+	}
+
+	req.Header.Set("Content-Type", writer.FormDataContentType())
+	if authHeader != "" {
+		req.Header.Set("Authorization", authHeader)
+	}
+
+	// Send request
+	client := &http.Client{Timeout: 30 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		return "", fmt.Errorf("failed to upload to bucket service: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusCreated {
+		responseBody, _ := io.ReadAll(resp.Body)
+		return "", fmt.Errorf("bucket service returned status %d: %s", resp.StatusCode, string(responseBody))
+	}
+
+	// Parse response to get the file URL
+	var uploadResponse struct {
+		FileID       string `json:"file_id"`
+		Filename     string `json:"filename"`
+		URL          string `json:"url"`
+		ThumbnailURL string `json:"thumbnail_url"`
+	}
+
+	if err := json.NewDecoder(resp.Body).Decode(&uploadResponse); err != nil {
+		return "", fmt.Errorf("failed to decode bucket service response: %w", err)
+	}
+
+	// Return the thumbnail URL if available, otherwise the main URL
+	if uploadResponse.ThumbnailURL != "" {
+		return uploadResponse.ThumbnailURL, nil
+	}
+	return uploadResponse.URL, nil
+}
+
+// validateThumbnailFile validates the uploaded thumbnail file
+func (h *CourseHandler) validateThumbnailFile(fileHeader *multipart.FileHeader) error {
+	// Check file size (max 5MB)
+	maxSize := int64(5 * 1024 * 1024)
+	if fileHeader.Size > maxSize {
+		return fmt.Errorf("thumbnail file too large (max 5MB)")
+	}
+
+	// Check file extension
+	filename := strings.ToLower(fileHeader.Filename)
+	allowedExts := []string{".jpg", ".jpeg", ".png", ".gif", ".webp"}
+
+	validExt := false
+	for _, ext := range allowedExts {
+		if strings.HasSuffix(filename, ext) {
+			validExt = true
+			break
+		}
+	}
+
+	if !validExt {
+		return fmt.Errorf("invalid file type (allowed: jpg, jpeg, png, gif, webp)")
+	}
+
+	return nil
 }

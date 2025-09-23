@@ -129,22 +129,14 @@ func (s *S3Service) UploadFile(ctx context.Context, input *UploadInput) (*Upload
 		input.Reader = strings.NewReader(string(data))
 	}
 
-	// Set ACL based on public flag
-	var acl types.ObjectCannedACL
-	if input.IsPublic {
-		acl = types.ObjectCannedACLPublicRead
-	} else {
-		acl = types.ObjectCannedACLPrivate
-	}
-
-	// Upload to S3
+	// Upload to S3 (removing ACL parameter as it's not supported by the bucket)
+	// Public/private access should be controlled via bucket policies instead
 	result, err := s.uploader.Upload(ctx, &s3.PutObjectInput{
 		Bucket:        aws.String(bucketName),
 		Key:           aws.String(objectKey),
 		Body:          input.Reader,
 		ContentType:   aws.String(input.ContentType),
 		Metadata:      metadata,
-		ACL:           acl,
 		ContentLength: aws.Int64(size),
 	})
 	if err != nil {

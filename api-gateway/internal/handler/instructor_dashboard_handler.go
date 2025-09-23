@@ -12,14 +12,16 @@ import (
 )
 
 type InstructorDashboardHandler struct {
-	serviceURL   string
-	client       *http.Client
+	serviceURL    string
+	client        *http.Client
+	courseHandler *CourseHandler
 }
 
-func NewInstructorDashboardHandler(serviceURL string) *InstructorDashboardHandler {
+func NewInstructorDashboardHandler(serviceURL string, courseHandler *CourseHandler) *InstructorDashboardHandler {
 	return &InstructorDashboardHandler{
-		serviceURL: serviceURL,
-		client:     &http.Client{},
+		serviceURL:    serviceURL,
+		client:        &http.Client{},
+		courseHandler: courseHandler,
 	}
 }
 
@@ -47,19 +49,10 @@ func (h *InstructorDashboardHandler) GetInstructorCourses(w http.ResponseWriter,
 
 // CreateCourse handles POST /api/v1/instructor/courses
 func (h *InstructorDashboardHandler) CreateCourse(w http.ResponseWriter, r *http.Request) {
-	body, err := io.ReadAll(r.Body)
-	if err != nil {
-		http.Error(w, "Failed to read request body", http.StatusBadRequest)
-		return
-	}
+	fmt.Printf("========== INSTRUCTOR DASHBOARD HANDLER CreateCourse CALLED - DELEGATING TO COURSE HANDLER ==========\n")
 
-	result, err := h.proxyRequest("POST", "/api/v1/instructor/courses", r, body)
-	if err != nil {
-		http.Error(w, "Service unavailable", http.StatusServiceUnavailable)
-		return
-	}
-
-	h.writeJSONResponse(w, result)
+	// Delegate to the proper course handler that has lecture creation and Lemon Squeezy logic
+	h.courseHandler.CreateCourse(w, r)
 }
 
 // GetRevenueAnalytics handles GET /api/v1/instructor/analytics/revenue

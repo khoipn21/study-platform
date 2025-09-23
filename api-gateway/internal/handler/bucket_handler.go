@@ -30,7 +30,9 @@ func (bh *BucketHandler) UploadFile(w http.ResponseWriter, r *http.Request) {
 	bh.logger.Info("Handling file upload request")
 
 	// Create request to bucket service
-	req, err := http.NewRequest("POST", fmt.Sprintf("http://%s/api/files/upload", bh.bucketServiceURL), r.Body)
+	targetURL := fmt.Sprintf("http://%s/api/files/upload", bh.bucketServiceURL)
+	bh.logger.Info(fmt.Sprintf("Forwarding to bucket service: %s", targetURL))
+	req, err := http.NewRequest("POST", targetURL, r.Body)
 	if err != nil {
 		bh.logger.Error(fmt.Errorf("failed to create request: %w", err))
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
@@ -54,7 +56,7 @@ func (bh *BucketHandler) DownloadFile(w http.ResponseWriter, r *http.Request) {
 	bh.logger.Info(fmt.Sprintf("Handling file download request for file %s", fileID))
 
 	// Create request to bucket service
-	req, err := http.NewRequest("GET", fmt.Sprintf("%s/api/files/%s", bh.bucketServiceURL, fileID), nil)
+	req, err := http.NewRequest("GET", fmt.Sprintf("http://%s/api/files/%s", bh.bucketServiceURL, fileID), nil)
 	if err != nil {
 		bh.logger.Error(fmt.Errorf("failed to create request: %w", err))
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
@@ -76,7 +78,7 @@ func (bh *BucketHandler) DeleteFile(w http.ResponseWriter, r *http.Request) {
 	bh.logger.Info(fmt.Sprintf("Handling file deletion request for file %s", fileID))
 
 	// Create request to bucket service
-	req, err := http.NewRequest("DELETE", fmt.Sprintf("%s/api/files/%s", bh.bucketServiceURL, fileID), nil)
+	req, err := http.NewRequest("DELETE", fmt.Sprintf("http://%s/api/files/%s", bh.bucketServiceURL, fileID), nil)
 	if err != nil {
 		bh.logger.Error(fmt.Errorf("failed to create request: %w", err))
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
@@ -103,7 +105,8 @@ func (bh *BucketHandler) ListFiles(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Create request to bucket service
-	reqURL := fmt.Sprintf("%s/api/files?%s", bh.bucketServiceURL, params.Encode())
+	reqURL := fmt.Sprintf("http://%s/api/files?%s", bh.bucketServiceURL, params.Encode())
+	bh.logger.Info(fmt.Sprintf("Forwarding list request to bucket service: %s", reqURL))
 	req, err := http.NewRequest("GET", reqURL, nil)
 	if err != nil {
 		bh.logger.Error(fmt.Errorf("failed to create request: %w", err))
@@ -126,7 +129,7 @@ func (bh *BucketHandler) GetFileMetadata(w http.ResponseWriter, r *http.Request)
 	bh.logger.Info(fmt.Sprintf("Handling file metadata request for file %s", fileID))
 
 	// Create request to bucket service
-	req, err := http.NewRequest("GET", fmt.Sprintf("%s/api/files/%s/metadata", bh.bucketServiceURL, fileID), nil)
+	req, err := http.NewRequest("GET", fmt.Sprintf("http://%s/api/files/%s/metadata", bh.bucketServiceURL, fileID), nil)
 	if err != nil {
 		bh.logger.Error(fmt.Errorf("failed to create request: %w", err))
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
@@ -153,7 +156,7 @@ func (bh *BucketHandler) StartMultipartUpload(w http.ResponseWriter, r *http.Req
 	}
 
 	// Create request to bucket service
-	req, err := http.NewRequest("POST", fmt.Sprintf("%s/api/files/upload/start", bh.bucketServiceURL), bytes.NewReader(body))
+	req, err := http.NewRequest("POST", fmt.Sprintf("http://%s/api/files/upload/start", bh.bucketServiceURL), bytes.NewReader(body))
 	if err != nil {
 		bh.logger.Error(fmt.Errorf("failed to create request: %w", err))
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
@@ -184,7 +187,7 @@ func (bh *BucketHandler) CompleteMultipartUpload(w http.ResponseWriter, r *http.
 	}
 
 	// Create request to bucket service
-	req, err := http.NewRequest("POST", fmt.Sprintf("%s/api/files/upload/complete/%s", bh.bucketServiceURL, sessionID), bytes.NewReader(body))
+	req, err := http.NewRequest("POST", fmt.Sprintf("http://%s/api/files/upload/complete/%s", bh.bucketServiceURL, sessionID), bytes.NewReader(body))
 	if err != nil {
 		bh.logger.Error(fmt.Errorf("failed to create request: %w", err))
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
@@ -207,7 +210,7 @@ func (bh *BucketHandler) AbortMultipartUpload(w http.ResponseWriter, r *http.Req
 	bh.logger.Info(fmt.Sprintf("Handling multipart upload abort for session %s", sessionID))
 
 	// Create request to bucket service
-	req, err := http.NewRequest("DELETE", fmt.Sprintf("%s/api/files/upload/%s", bh.bucketServiceURL, sessionID), nil)
+	req, err := http.NewRequest("DELETE", fmt.Sprintf("http://%s/api/files/upload/%s", bh.bucketServiceURL, sessionID), nil)
 	if err != nil {
 		bh.logger.Error(fmt.Errorf("failed to create request: %w", err))
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
@@ -229,7 +232,7 @@ func (bh *BucketHandler) GetUploadProgress(w http.ResponseWriter, r *http.Reques
 	bh.logger.Info(fmt.Sprintf("Handling upload progress request for session %s", sessionID))
 
 	// Create request to bucket service
-	req, err := http.NewRequest("GET", fmt.Sprintf("%s/api/files/upload/%s/progress", bh.bucketServiceURL, sessionID), nil)
+	req, err := http.NewRequest("GET", fmt.Sprintf("http://%s/api/files/upload/%s/progress", bh.bucketServiceURL, sessionID), nil)
 	if err != nil {
 		bh.logger.Error(fmt.Errorf("failed to create request: %w", err))
 		http.Error(w, "Internal server error", http.StatusInternalServerError)

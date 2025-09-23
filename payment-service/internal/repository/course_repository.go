@@ -159,3 +159,9 @@ func (r *CourseRepository) GetByLemonSqueezyVariantID(ctx context.Context, varia
 
 	return course, nil
 }
+
+// ExecContext provides direct database access for complex queries
+func (r *CourseRepository) ExecContext(ctx context.Context, query string, args ...interface{}) error {
+	_, err := r.db.ExecContext(ctx, query, args...)
+	return err
+}

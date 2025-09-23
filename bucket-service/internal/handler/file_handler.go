@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"mime/multipart"
 	"net/http"
+	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -46,19 +47,24 @@ type UploadResponse struct {
 }
 
 func (h *FileHandler) UploadFile(c *gin.Context) {
+	fmt.Printf("DEBUG: Upload request received\n")
 	userID, exists := middleware.GetUserID(c)
 	if !exists {
+		fmt.Printf("DEBUG: User not authenticated\n")
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "User not authenticated"})
 		return
 	}
+	fmt.Printf("DEBUG: User authenticated: %s\n", userID.String())
 
 	// Parse multipart form
 	file, header, err := c.Request.FormFile("file")
 	if err != nil {
+		fmt.Fprintf(os.Stderr, "Failed to parse file: %v\n", err)
 		c.JSON(http.StatusBadRequest, gin.H{"error": "File is required"})
 		return
 	}
 	defer file.Close()
+	fmt.Fprintf(os.Stderr, "File parsed successfully: %s\n", header.Filename)
 
 	// Get optional parameters
 	bucketType := c.PostForm("bucket")
@@ -176,7 +182,8 @@ func (h *FileHandler) UploadFile(c *gin.Context) {
 
 	uploadResult, err := h.s3Service.UploadFile(c.Request.Context(), uploadInput)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to upload file"})
+		fmt.Printf("DEBUG: Upload error details: %v\n", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to upload file", "details": err.Error()})
 		return
 	}
 

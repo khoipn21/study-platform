@@ -170,6 +170,7 @@ func (rt *Router) SetupRoutes() *mux.Router {
 	protectedCourseRoutes := api.PathPrefix("/courses").Subrouter()
 	protectedCourseRoutes.Use(middleware.CORSMiddleware)
 	protectedCourseRoutes.Use(rt.authMiddleware.RequireAuth)
+	protectedCourseRoutes.HandleFunc("/upload", rt.courseHandler.CreateCourseWithThumbnail).Methods("POST")
 	protectedCourseRoutes.HandleFunc("", rt.courseHandler.CreateCourse).Methods("POST")
 	protectedCourseRoutes.HandleFunc("/{id}", rt.courseHandler.UpdateCourse).Methods("PUT")
 	protectedCourseRoutes.HandleFunc("/{id}", rt.courseHandler.DeleteCourse).Methods("DELETE")

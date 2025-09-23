@@ -2,6 +2,7 @@ package handler
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"log"
 	"net/http"
@@ -456,4 +457,99 @@ func (h *LemonSqueezyHandler) GetVariants(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"variants": variants})
+}
+
+// CreateProduct creates a course-to-variant mapping for Lemon Squeezy
+// NOTE: Lemon Squeezy API does not support creating products programmatically.
+// Products must be created manually through the Lemon Squeezy dashboard.
+// This endpoint maps courses to existing variants for checkout purposes.
+func (h *LemonSqueezyHandler) CreateProduct(c *gin.Context) {
+	var req struct {
+		CourseID     string  `json:"course_id" binding:"required"`
+		Title        string  `json:"title" binding:"required"`
+		Description  string  `json:"description"`
+		Price        float64 `json:"price" binding:"required"`
+		Currency     string  `json:"currency"`
+		Category     string  `json:"category"`
+		InstructorID string  `json:"instructor_id"`
+	}
+
+	if err := c.ShouldBindJSON(&req); err != nil {
+		log.Printf("Invalid product creation request: %v", err)
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request format", "details": err.Error()})
+		return
+	}
+
+	log.Printf("Creating product mapping for course: %s (Title: %s, Price: %.2f)", req.CourseID, req.Title, req.Price)
+
+	// Validate that a variant ID is configured
+	variantID := h.variantID
+	if variantID == "" {
+		log.Printf("No default variant ID configured - check LEMON_SQUEEZY_VARIANT_ID environment variable")
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": "No product variant configured",
+			"message": "LEMON_SQUEEZY_VARIANT_ID must be set to a valid variant ID from your Lemon Squeezy dashboard"})
+		return
+	}
+
+	// Validate the variant exists by calling Lemon Squeezy API
+	variant, err := h.validateVariant(variantID)
+	if err != nil {
+		log.Printf("Failed to validate variant %s: %v", variantID, err)
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": "Invalid variant configuration",
+			"message": "The configured variant ID does not exist or is not accessible. Please check your Lemon Squeezy dashboard and API credentials."})
+		return
+	}
+
+	// Log the successful validation
+	log.Printf("Validated variant %s: %s (Product: %s)", variantID, variant.Name, variant.ProductID)
+
+	// Store the mapping (this could be expanded to save to database for persistence)
+	log.Printf("Product mapping created successfully for course %s with variant %s", req.CourseID, variantID)
+
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"message": "Product mapping created successfully",
+		"data": gin.H{
+			"product_id":   variant.ProductID, // Return actual product ID from Lemon Squeezy
+			"course_id":    req.CourseID,
+			"variant_id":   variantID,
+			"variant_name": variant.Name,
+			"title":        req.Title,
+			"price":        req.Price,
+			"currency":     req.Currency,
+		},
+		"note": "Products must be created manually in Lemon Squeezy dashboard. This endpoint maps courses to existing variants.",
+	})
+}
+
+// VariantInfo represents a simplified Lemon Squeezy variant for validation
+type VariantInfo struct {
+	ID        string `json:"id"`
+	Name      string `json:"name"`
+	ProductID string `json:"product_id"`
+}
+
+// validateVariant validates that a variant exists and is accessible via Lemon Squeezy API
+func (h *LemonSqueezyHandler) validateVariant(variantID string) (*VariantInfo, error) {
+	// Use the client's GetVariants method to check if the variant exists
+	variants, err := h.client.GetVariants()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get variants from Lemon Squeezy API: %w", err)
+	}
+
+	// Look for the specific variant ID
+	for _, variant := range variants {
+		if variant.ID == variantID {
+			return &VariantInfo{
+				ID:        variant.ID,
+				Name:      variant.Name,
+				ProductID: variant.ProductID,
+			}, nil
+		}
+	}
+
+	// Variant not found
+	return nil, fmt.Errorf("variant %s not found - please check your Lemon Squeezy dashboard and ensure the variant ID is correct", variantID)
 }

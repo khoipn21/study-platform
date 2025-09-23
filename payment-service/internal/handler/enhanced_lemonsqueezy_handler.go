@@ -902,3 +902,106 @@ func (h *EnhancedLemonSqueezyHandler) createOrUpdateTransaction(ctx context.Cont
 
 	return transaction, nil
 }
+
+// CreateProduct creates a course-to-variant mapping for Lemon Squeezy
+func (h *EnhancedLemonSqueezyHandler) CreateProduct(c *gin.Context) {
+	var req struct {
+		CourseID     string  `json:"course_id" binding:"required"`
+		Title        string  `json:"title" binding:"required"`
+		Description  string  `json:"description"`
+		Price        float64 `json:"price" binding:"required"`
+		Currency     string  `json:"currency"`
+		Category     string  `json:"category"`
+		InstructorID string  `json:"instructor_id"`
+		VariantID    string  `json:"variant_id"` // Optional: use existing variant
+	}
+
+	if err := c.ShouldBindJSON(&req); err != nil {
+		h.logger.Warnf("Invalid product creation request: %v", err)
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request format", "details": err.Error()})
+		return
+	}
+
+	ctx := c.Request.Context()
+	h.logger.Infof("Creating product mapping for course: %s", req.CourseID)
+
+	// If no variant ID provided, find a suitable variant from available products
+	variantID := req.VariantID
+	if variantID == "" {
+		// Find a default variant based on price range
+		defaultVariant, err := h.findSuitableVariant(ctx, req.Price, req.Currency)
+		if err != nil {
+			h.logger.Errorf("Failed to find suitable variant: %v", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to find suitable product variant"})
+			return
+		}
+		variantID = defaultVariant
+	}
+
+	// Store the course-to-variant mapping in the database
+	err := h.storeCourseVariantMapping(ctx, req.CourseID, variantID, req.Title, req.Description, req.Price, req.Currency)
+	if err != nil {
+		h.logger.Errorf("Failed to store course variant mapping: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create product mapping"})
+		return
+	}
+
+	h.logger.Infof("Product mapping created successfully for course %s with variant %s", req.CourseID, variantID)
+
+	c.JSON(http.StatusOK, gin.H{
+		"success":    true,
+		"message":    "Product mapping created successfully",
+		"data": gin.H{
+			"product_id": variantID, // Return variant ID as product ID
+			"course_id":  req.CourseID,
+			"variant_id": variantID,
+			"title":      req.Title,
+			"price":      req.Price,
+			"currency":   req.Currency,
+		},
+	})
+}
+
+// findSuitableVariant finds an appropriate variant based on price
+func (h *EnhancedLemonSqueezyHandler) findSuitableVariant(ctx context.Context, price float64, currency string) (string, error) {
+	// Get available variants from Lemon Squeezy
+	variants, err := h.client.GetVariants()
+	if err != nil {
+		return "", fmt.Errorf("failed to get variants: %w", err)
+	}
+
+	// For now, return the first available variant
+	// In a production environment, you might want to:
+	// 1. Match by price range
+	// 2. Have different products for different course categories
+	// 3. Use a default "digital course" product
+	if len(variants) > 0 {
+		return variants[0].ID, nil
+	}
+
+	return "", fmt.Errorf("no variants available")
+}
+
+// storeCourseVariantMapping stores the course-to-variant mapping
+func (h *EnhancedLemonSqueezyHandler) storeCourseVariantMapping(ctx context.Context, courseID, variantID, title, description string, price float64, currency string) error {
+	// Create a mapping record in the database
+	// This could be stored in a course_products table
+	query := `
+		INSERT INTO course_products (course_id, variant_id, title, description, price, currency, created_at, updated_at)
+		VALUES ($1, $2, $3, $4, $5, $6, NOW(), NOW())
+		ON CONFLICT (course_id) DO UPDATE SET
+			variant_id = EXCLUDED.variant_id,
+			title = EXCLUDED.title,
+			description = EXCLUDED.description,
+			price = EXCLUDED.price,
+			currency = EXCLUDED.currency,
+			updated_at = NOW()
+	`
+
+	err := h.courseRepo.ExecContext(ctx, query, courseID, variantID, title, description, price, currency)
+	if err != nil {
+		return fmt.Errorf("failed to store course variant mapping: %w", err)
+	}
+
+	return nil
+}

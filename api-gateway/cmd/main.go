@@ -33,7 +33,7 @@ func main() {
 	authServiceURL := getEnv("AUTH_SERVICE_URL", "localhost:8081")
 	courseServiceURL := getEnv("COURSE_SERVICE_URL", "localhost:8082")
 	progressServiceURL := getEnv("PROGRESS_SERVICE_URL", "localhost:8083")
-	bucketServiceURL := getEnv("BUCKET_SERVICE_URL", "http://localhost:8085")
+	bucketServiceURL := getEnv("BUCKET_SERVICE_URL", "http://bucket-service:8085")
 	chatbotServiceURL := getEnv("CHATBOT_SERVICE_URL", "http://localhost:8086")
 	forumServiceURL := getEnv("FORUM_SERVICE_URL", "http://localhost:8087")
 	paymentServiceURL := getEnv("PAYMENT_SERVICE_URL", "http://localhost:8088")
@@ -94,7 +94,7 @@ func main() {
 
 	// Initialize handlers
 	authHandler := handler.NewAuthHandler(authConn, log)
-	courseHandler := handler.NewCourseHandler(courseConn, log)
+	courseHandler := handler.NewCourseHandler(courseConn, bucketServiceURL, log)
 	progressHandler := handler.NewProgressHandler(progressConn, log)
 	videoHandler := handler.NewVideoHandler()
 	bucketHandler := handler.NewBucketHandler(bucketServiceURL, log)
@@ -102,7 +102,7 @@ func main() {
 	forumHandler := handler.NewForumHandler(forumServiceURL)
 	paymentHandler := handler.NewPaymentHandler(paymentServiceURL, log)
 	lemonSqueezyHandler := handler.NewLemonSqueezyHandler(log)
-	instructorDashboardHandler := handler.NewInstructorDashboardHandler(instructorDashboardServiceURL)
+	instructorDashboardHandler := handler.NewInstructorDashboardHandler(instructorDashboardServiceURL, courseHandler)
 	studentDashboardHandler := handler.NewStudentDashboardHandler()
 	docsHandler := handler.NewDocsHandler()
 
