@@ -6,6 +6,7 @@ toolchain go1.24.5
 
 require (
 	github.com/google/uuid v1.6.0
+	github.com/jmoiron/sqlx v1.4.0
 	github.com/lib/pq v1.10.9
 	github.com/study-platform/pkg v0.0.0
 	google.golang.org/grpc v1.73.0

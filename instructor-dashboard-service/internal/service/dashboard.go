@@ -157,3 +157,43 @@ func (s *DashboardService) UpdateNotificationSettings(instructorID uuid.UUID, se
 	// For now, return success
 	return nil
 }
+
+// GetCourse retrieves a specific course for an instructor
+func (s *DashboardService) GetCourse(instructorID, courseID uuid.UUID) (*model.Course, error) {
+	course, err := s.dashboardRepo.GetCourse(instructorID, courseID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get course: %w", err)
+	}
+
+	return course, nil
+}
+
+// CreateCourse creates a new course for an instructor
+func (s *DashboardService) CreateCourse(instructorID uuid.UUID, req *model.CreateCourseRequest) (*model.Course, error) {
+	course, err := s.dashboardRepo.CreateCourse(instructorID, req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create course: %w", err)
+	}
+
+	return course, nil
+}
+
+// UpdateCourse updates an existing course for an instructor
+func (s *DashboardService) UpdateCourse(instructorID, courseID uuid.UUID, req *model.UpdateCourseRequest) (*model.Course, error) {
+	course, err := s.dashboardRepo.UpdateCourse(instructorID, courseID, req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to update course: %w", err)
+	}
+
+	return course, nil
+}
+
+// DeleteCourse deletes a course for an instructor
+func (s *DashboardService) DeleteCourse(instructorID, courseID uuid.UUID) error {
+	err := s.dashboardRepo.DeleteCourse(instructorID, courseID)
+	if err != nil {
+		return fmt.Errorf("failed to delete course: %w", err)
+	}
+
+	return nil
+}

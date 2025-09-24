@@ -48,9 +48,10 @@ func main() {
 	courseRepo := repository.NewCourseRepository(db)
 	lectureRepo := repository.NewLectureRepository(db)
 	enrollmentRepo := repository.NewEnrollmentRepository(db)
+	courseResourceRepo := repository.NewCourseResourceRepository(db.GetSqlxDB(), log)
 
 	// Initialize services
-	courseService := service.NewCourseService(courseRepo, lectureRepo, enrollmentRepo, log)
+	courseService := service.NewCourseService(courseRepo, lectureRepo, enrollmentRepo, courseResourceRepo, log)
 
 	// Initialize handlers
 	courseHandler := handler.NewCourseHandler(courseService, log)

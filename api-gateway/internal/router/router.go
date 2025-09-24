@@ -173,6 +173,7 @@ func (rt *Router) SetupRoutes() *mux.Router {
 	protectedCourseRoutes.HandleFunc("/upload", rt.courseHandler.CreateCourseWithThumbnail).Methods("POST")
 	protectedCourseRoutes.HandleFunc("", rt.courseHandler.CreateCourse).Methods("POST")
 	protectedCourseRoutes.HandleFunc("/{id}", rt.courseHandler.UpdateCourse).Methods("PUT")
+	protectedCourseRoutes.HandleFunc("/{id}/upload", rt.courseHandler.UpdateCourseWithThumbnail).Methods("PUT")
 	protectedCourseRoutes.HandleFunc("/{id}", rt.courseHandler.DeleteCourse).Methods("DELETE")
 	protectedCourseRoutes.HandleFunc("/{course_id}/lectures", rt.courseHandler.CreateLecture).Methods("POST")
 	protectedCourseRoutes.HandleFunc("/{course_id}/enroll", rt.courseHandler.EnrollInCourse).Methods("POST")

@@ -22,33 +22,38 @@ func NewLectureRepository(db *database.DB) *LectureRepository {
 
 func (r *LectureRepository) Create(ctx context.Context, lecture *model.Lecture) error {
 	query := `
-		INSERT INTO lectures (id, course_id, title, description, order_number, duration_minutes, video_url, video_id, status, is_free, created_at, updated_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+		INSERT INTO lectures (id, course_id, title, description, type, order_number, duration_minutes, video_url, video_id, status, is_free, created_at, updated_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
 	`
-	
+
 	lecture.ID = uuid.New()
 	lecture.CreatedAt = time.Now()
 	lecture.UpdatedAt = time.Now()
-	
+
+	// Set default type if not specified
+	if lecture.Type == "" {
+		lecture.Type = "video"
+	}
+
 	_, err := r.db.ExecContext(ctx, query,
-		lecture.ID, lecture.CourseID, lecture.Title, lecture.Description, lecture.OrderNumber,
+		lecture.ID, lecture.CourseID, lecture.Title, lecture.Description, lecture.Type, lecture.OrderNumber,
 		lecture.DurationMinutes, lecture.VideoURL, lecture.VideoID, lecture.Status,
 		lecture.IsFree, lecture.CreatedAt, lecture.UpdatedAt,
 	)
-	
+
 	return err
 }
 
 func (r *LectureRepository) GetByID(ctx context.Context, id uuid.UUID) (*model.Lecture, error) {
 	query := `
-		SELECT id, course_id, title, description, order_number, duration_minutes, video_url, video_id, status, is_free, created_at, updated_at
+		SELECT id, course_id, title, description, type, order_number, duration_minutes, video_url, video_id, status, is_free, created_at, updated_at
 		FROM lectures
 		WHERE id = $1
 	`
 	
 	lecture := &model.Lecture{}
 	err := r.db.QueryRowContext(ctx, query, id).Scan(
-		&lecture.ID, &lecture.CourseID, &lecture.Title, &lecture.Description, &lecture.OrderNumber,
+		&lecture.ID, &lecture.CourseID, &lecture.Title, &lecture.Description, &lecture.Type, &lecture.OrderNumber,
 		&lecture.DurationMinutes, &lecture.VideoURL, &lecture.VideoID, &lecture.Status,
 		&lecture.IsFree, &lecture.CreatedAt, &lecture.UpdatedAt,
 	)
@@ -174,7 +179,7 @@ func (r *LectureRepository) List(ctx context.Context, filters model.LectureFilte
 	for rows.Next() {
 		var lecture model.Lecture
 		err := rows.Scan(
-			&lecture.ID, &lecture.CourseID, &lecture.Title, &lecture.Description, &lecture.OrderNumber,
+			&lecture.ID, &lecture.CourseID, &lecture.Title, &lecture.Description, &lecture.Type, &lecture.OrderNumber,
 			&lecture.DurationMinutes, &lecture.VideoURL, &lecture.VideoID, &lecture.Status,
 			&lecture.IsFree, &lecture.CreatedAt, &lecture.UpdatedAt,
 		)
@@ -194,7 +199,7 @@ func (r *LectureRepository) List(ctx context.Context, filters model.LectureFilte
 
 func (r *LectureRepository) GetByCourseID(ctx context.Context, courseID uuid.UUID) ([]model.Lecture, error) {
 	query := `
-		SELECT id, course_id, title, description, order_number, duration_minutes, video_url, video_id, status, is_free, created_at, updated_at
+		SELECT id, course_id, title, description, type, order_number, duration_minutes, video_url, video_id, status, is_free, created_at, updated_at
 		FROM lectures
 		WHERE course_id = $1
 		ORDER BY order_number ASC
@@ -210,7 +215,7 @@ func (r *LectureRepository) GetByCourseID(ctx context.Context, courseID uuid.UUI
 	for rows.Next() {
 		var lecture model.Lecture
 		err := rows.Scan(
-			&lecture.ID, &lecture.CourseID, &lecture.Title, &lecture.Description, &lecture.OrderNumber,
+			&lecture.ID, &lecture.CourseID, &lecture.Title, &lecture.Description, &lecture.Type, &lecture.OrderNumber,
 			&lecture.DurationMinutes, &lecture.VideoURL, &lecture.VideoID, &lecture.Status,
 			&lecture.IsFree, &lecture.CreatedAt, &lecture.UpdatedAt,
 		)

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/jmoiron/sqlx"
 	_ "github.com/lib/pq"
 )
 
@@ -19,6 +20,7 @@ type Config struct {
 
 type DB struct {
 	*sql.DB
+	sqlxDB *sqlx.DB
 }
 
 func New(cfg Config) (*DB, error) {
@@ -27,20 +29,27 @@ func New(cfg Config) (*DB, error) {
 		cfg.Host, cfg.Port, cfg.User, cfg.Password, cfg.DBName, cfg.SSLMode,
 	)
 
-	db, err := sql.Open("postgres", dsn)
+	// Create standard sql.DB connection
+	sqlDB, err := sql.Open("postgres", dsn)
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect to database: %w", err)
 	}
 
-	db.SetMaxOpenConns(25)
-	db.SetMaxIdleConns(25)
-	db.SetConnMaxLifetime(5 * time.Minute)
+	sqlDB.SetMaxOpenConns(25)
+	sqlDB.SetMaxIdleConns(25)
+	sqlDB.SetConnMaxLifetime(5 * time.Minute)
 
-	if err := db.Ping(); err != nil {
+	if err := sqlDB.Ping(); err != nil {
 		return nil, fmt.Errorf("failed to ping database: %w", err)
 	}
 
-	return &DB{db}, nil
+	// Create sqlx.DB wrapper
+	sqlxDB := sqlx.NewDb(sqlDB, "postgres")
+
+	return &DB{
+		DB:     sqlDB,
+		sqlxDB: sqlxDB,
+	}, nil
 }
 
 func (db *DB) Close() error {
@@ -49,4 +58,9 @@ func (db *DB) Close() error {
 
 func (db *DB) Ping() error {
 	return db.DB.Ping()
+}
+
+// GetSqlxDB returns the sqlx.DB instance
+func (db *DB) GetSqlxDB() *sqlx.DB {
+	return db.sqlxDB
 }

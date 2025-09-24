@@ -83,26 +83,72 @@ type InstructorDashboardSettings struct {
 	UpdatedAt              time.Time `json:"updated_at" db:"updated_at"`
 }
 
+// Lecture represents a lecture/lesson within a course
+type Lecture struct {
+	ID               uuid.UUID `json:"id" db:"id"`
+	Title            string    `json:"title" db:"title"`
+	Description      string    `json:"description" db:"description"`
+	Type             string    `json:"type" db:"type"`
+	DurationMinutes  int       `json:"duration_minutes" db:"duration_minutes"`
+	IsFree           bool      `json:"is_free" db:"is_free"`
+	OrderNumber      int       `json:"order_number" db:"order_number"`
+	VideoURL         string    `json:"video_url,omitempty" db:"video_url"`
+	VideoID          string    `json:"video_id,omitempty" db:"video_id"`
+	Status           string    `json:"status" db:"status"`
+	CreatedAt        time.Time `json:"created_at" db:"created_at"`
+	UpdatedAt        time.Time `json:"updated_at" db:"updated_at"`
+}
+
+// Resource represents a course resource/file
+type Resource struct {
+	ID           uuid.UUID `json:"id,omitempty"`
+	Filename     string    `json:"filename"`
+	OriginalName string    `json:"original_name"`
+	FileType     string    `json:"file_type"`
+	FileSize     int64     `json:"file_size"`
+	DownloadURL  string    `json:"download_url"`
+	IsPublic     bool      `json:"is_public"`
+	UploadedAt   time.Time `json:"uploaded_at"`
+}
+
 // Course represents a course with instructor-specific data
 type Course struct {
-	ID                    uuid.UUID  `json:"id" db:"id"`
-	Title                string     `json:"title" db:"title"`
-	Description          string     `json:"description" db:"description"`
-	CreatorID            uuid.UUID  `json:"creator_id" db:"creator_id"`
-	Status               string     `json:"status" db:"status"`
-	IsPaid               bool       `json:"is_paid" db:"is_paid"`
-	Price                *float64   `json:"price" db:"price"`
-	Currency             string     `json:"currency" db:"currency"`
-	AverageRating        float64    `json:"average_rating" db:"average_rating"`
-	TotalEnrollments     int        `json:"total_enrollments" db:"total_enrollments"`
-	ActiveStudents       int        `json:"active_students"`
-	CompletionRate       float64    `json:"completion_rate"`
-	TotalRevenue         float64    `json:"total_revenue"`
-	MonthlyRevenue       float64    `json:"monthly_revenue"`
-	EngagementScore      float64    `json:"engagement_score"`
-	LastActivityAt       *time.Time `json:"last_activity_at"`
-	InstructorNotes      string     `json:"instructor_notes" db:"instructor_notes"`
-	MarketingDescription string     `json:"marketing_description" db:"marketing_description"`
+	ID                     uuid.UUID  `json:"id" db:"id"`
+	Title                  string     `json:"title" db:"title"`
+	Description            string     `json:"description" db:"description"`
+	InstructorID           uuid.UUID  `json:"instructor_id" db:"instructor_id"`
+	Category               string     `json:"category" db:"category"`
+	Level                  string     `json:"level" db:"level"`
+	Price                  float64    `json:"price" db:"price"`
+	Currency               string     `json:"currency" db:"currency"`
+	Status                 string     `json:"status" db:"status"`
+	DifficultyLevel        string     `json:"difficulty_level" db:"level"`
+	Language               string     `json:"language" db:"language"`
+	ThumbnailURL           string     `json:"thumbnail_url" db:"thumbnail_url"`
+	LearningOutcomes       []string   `json:"learning_outcomes" db:"learning_outcomes"`
+	Requirements           []string   `json:"requirements" db:"requirements"`
+	Tags                   []string   `json:"tags" db:"tags"`
+	EstimatedDurationHours int        `json:"estimated_duration_hours" db:"duration_minutes"`
+	AutoApproveEnrollment  bool       `json:"auto_approve_enrollment" db:"auto_approve_enrollment"`
+	AllowPreviews          bool       `json:"allow_previews" db:"allow_previews"`
+	HasCertificate         bool       `json:"has_certificate" db:"has_certificate"`
+	MobileAccess           bool       `json:"mobile_access" db:"mobile_access"`
+
+	// Computed/Aggregated Fields
+	AverageRating        float64    `json:"average_rating,omitempty" db:"rating"`
+	TotalEnrollments     int        `json:"total_enrollments,omitempty" db:"enrollment_count"`
+	ActiveStudents       int        `json:"active_students,omitempty"`
+	CompletionRate       float64    `json:"completion_rate,omitempty"`
+	TotalRevenue         float64    `json:"total_revenue,omitempty"`
+	MonthlyRevenue       float64    `json:"monthly_revenue,omitempty"`
+	EngagementScore      float64    `json:"engagement_score,omitempty"`
+	LastActivityAt       *time.Time `json:"last_activity_at,omitempty"`
+
+	// Related Data
+	Lectures             []Lecture  `json:"lectures,omitempty"`
+	Resources            []Resource `json:"resources,omitempty"`
+
+	// Metadata
 	CreatedAt            time.Time  `json:"created_at" db:"created_at"`
 	UpdatedAt            time.Time  `json:"updated_at" db:"updated_at"`
 }
@@ -320,4 +366,30 @@ type Notification struct {
 	Metadata    JSONB      `json:"metadata" db:"metadata"`
 	CreatedAt   time.Time  `json:"created_at" db:"created_at"`
 	ReadAt      *time.Time `json:"read_at" db:"read_at"`
+}
+
+// CreateCourseRequest represents the request to create a course
+type CreateCourseRequest struct {
+	Title        string   `json:"title" binding:"required"`
+	Description  string   `json:"description" binding:"required"`
+	Category     string   `json:"category,omitempty"`
+	Level        string   `json:"level,omitempty"`
+	Price        *float64 `json:"price,omitempty"`
+	Currency     string   `json:"currency,omitempty"`
+	ThumbnailURL string   `json:"thumbnail_url,omitempty"`
+	Status       string   `json:"status,omitempty"`
+	Tags         []string `json:"tags,omitempty"`
+}
+
+// UpdateCourseRequest represents the request to update a course
+type UpdateCourseRequest struct {
+	Title        string   `json:"title,omitempty"`
+	Description  string   `json:"description,omitempty"`
+	Category     string   `json:"category,omitempty"`
+	Level        string   `json:"level,omitempty"`
+	Price        *float64 `json:"price,omitempty"`
+	Currency     string   `json:"currency,omitempty"`
+	ThumbnailURL string   `json:"thumbnail_url,omitempty"`
+	Status       string   `json:"status,omitempty"`
+	Tags         []string `json:"tags,omitempty"`
 }

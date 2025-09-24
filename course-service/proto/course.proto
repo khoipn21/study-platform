@@ -56,6 +56,18 @@ message Course {
     repeated string tags = 16;
     google.protobuf.Timestamp created_at = 17;
     google.protobuf.Timestamp updated_at = 18;
+    // Additional fields for complete course information
+    string difficulty_level = 19;
+    string language = 20;
+    repeated string learning_outcomes = 21;
+    repeated string requirements = 22;
+    int32 estimated_duration_hours = 23;
+    bool auto_approve_enrollment = 24;
+    bool allow_previews = 25;
+    bool has_certificate = 26;
+    bool mobile_access = 27;
+    repeated Lecture lectures = 28;
+    repeated CourseResource resources = 29;
 }
 
 message Lecture {
@@ -63,14 +75,34 @@ message Lecture {
     string course_id = 2;
     string title = 3;
     string description = 4;
-    int32 order_number = 5;
-    int32 duration_minutes = 6;
-    string video_url = 7;
-    string video_id = 8;
-    string status = 9; // draft, published
-    bool is_free = 10;
-    google.protobuf.Timestamp created_at = 11;
-    google.protobuf.Timestamp updated_at = 12;
+    string type = 5; // video, document, quiz, etc.
+    int32 order_number = 6;
+    int32 duration_minutes = 7;
+    string video_url = 8;
+    string video_id = 9;
+    string status = 10; // draft, published
+    bool is_free = 11;
+    google.protobuf.Timestamp created_at = 12;
+    google.protobuf.Timestamp updated_at = 13;
+}
+
+message CourseResource {
+    string id = 1;
+    string course_id = 2;
+    string file_id = 3;
+    string resource_type = 4;
+    int32 display_order = 5;
+    bool is_required = 6;
+    google.protobuf.Timestamp created_at = 7;
+    google.protobuf.Timestamp updated_at = 8;
+    // File information
+    string filename = 9;
+    string original_name = 10;
+    string file_type = 11;
+    int64 file_size = 12;
+    string download_url = 13;
+    bool is_public = 14;
+    google.protobuf.Timestamp uploaded_at = 15;
 }
 
 message Enrollment {

@@ -23,46 +23,60 @@ func NewCourseRepository(db *database.DB) *CourseRepository {
 
 func (r *CourseRepository) Create(ctx context.Context, course *model.Course) error {
 	query := `
-		INSERT INTO courses (id, title, description, instructor_id, instructor_name, category, level, price, currency, thumbnail_url, status, tags, created_at, updated_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+		INSERT INTO courses (
+			id, title, description, instructor_id, instructor_name, category, level, price, currency,
+			thumbnail_url, status, tags, difficulty_level, language, learning_outcomes, requirements,
+			estimated_duration_hours, auto_approve_enrollment, allow_previews, has_certificate,
+			mobile_access, created_at, updated_at
+		)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23)
 	`
-	
+
 	course.ID = uuid.New()
 	course.CreatedAt = time.Now()
 	course.UpdatedAt = time.Now()
-	
+
 	_, err := r.db.ExecContext(ctx, query,
 		course.ID, course.Title, course.Description, course.InstructorID, course.InstructorName,
 		course.Category, course.Level, course.Price, course.Currency, course.ThumbnailURL,
-		course.Status, pq.Array(course.Tags), course.CreatedAt, course.UpdatedAt,
+		course.Status, pq.Array(course.Tags), course.DifficultyLevel, course.Language,
+		pq.Array(course.LearningOutcomes), pq.Array(course.Requirements), course.EstimatedDurationHours,
+		course.AutoApproveEnrollment, course.AllowPreviews, course.HasCertificate, course.MobileAccess,
+		course.CreatedAt, course.UpdatedAt,
 	)
-	
+
 	return err
 }
 
 func (r *CourseRepository) GetByID(ctx context.Context, id uuid.UUID) (*model.Course, error) {
 	query := `
 		SELECT id, title, description, instructor_id, instructor_name, category, level, price, currency,
-			   thumbnail_url, status, duration_minutes, enrollment_count, rating, rating_count, tags, created_at, updated_at
+			   thumbnail_url, status, duration_minutes, enrollment_count, rating, rating_count, tags,
+			   difficulty_level, language, learning_outcomes, requirements, estimated_duration_hours,
+			   auto_approve_enrollment, allow_previews, has_certificate, mobile_access,
+			   created_at, updated_at, deleted_at
 		FROM courses
-		WHERE id = $1
+		WHERE id = $1 AND deleted_at IS NULL
 	`
-	
+
 	course := &model.Course{}
 	err := r.db.QueryRowContext(ctx, query, id).Scan(
 		&course.ID, &course.Title, &course.Description, &course.InstructorID, &course.InstructorName,
 		&course.Category, &course.Level, &course.Price, &course.Currency, &course.ThumbnailURL,
 		&course.Status, &course.DurationMinutes, &course.EnrollmentCount, &course.Rating,
-		&course.RatingCount, pq.Array(&course.Tags), &course.CreatedAt, &course.UpdatedAt,
+		&course.RatingCount, pq.Array(&course.Tags), &course.DifficultyLevel, &course.Language,
+		pq.Array(&course.LearningOutcomes), pq.Array(&course.Requirements), &course.EstimatedDurationHours,
+		&course.AutoApproveEnrollment, &course.AllowPreviews, &course.HasCertificate, &course.MobileAccess,
+		&course.CreatedAt, &course.UpdatedAt, &course.DeletedAt,
 	)
-	
+
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, fmt.Errorf("course not found")
 		}
 		return nil, err
 	}
-	
+
 	return course, nil
 }
 
@@ -99,35 +113,99 @@ func (r *CourseRepository) Update(ctx context.Context, course *model.Course) err
 }
 
 func (r *CourseRepository) Delete(ctx context.Context, id uuid.UUID) error {
-	query := `DELETE FROM courses WHERE id = $1`
-	
-	result, err := r.db.ExecContext(ctx, query, id)
+	// Soft delete implementation
+	query := `
+		UPDATE courses
+		SET deleted_at = $2, updated_at = $2
+		WHERE id = $1 AND deleted_at IS NULL
+	`
+
+	now := time.Now()
+	result, err := r.db.ExecContext(ctx, query, id, now)
 	if err != nil {
 		return err
 	}
-	
+
 	rowsAffected, err := result.RowsAffected()
 	if err != nil {
 		return err
 	}
-	
+
 	if rowsAffected == 0 {
-		return fmt.Errorf("course not found")
+		return fmt.Errorf("course not found or already deleted")
 	}
-	
+
 	return nil
+}
+
+// SoftDeleteCourseWithCascade performs soft delete on course and cascades to lectures and enrollments
+func (r *CourseRepository) SoftDeleteCourseWithCascade(ctx context.Context, id uuid.UUID) error {
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("failed to begin transaction: %w", err)
+	}
+	defer tx.Rollback()
+
+	now := time.Now()
+
+	// First, soft delete the course
+	courseQuery := `
+		UPDATE courses
+		SET deleted_at = $2, updated_at = $2
+		WHERE id = $1 AND deleted_at IS NULL
+	`
+	result, err := tx.ExecContext(ctx, courseQuery, id, now)
+	if err != nil {
+		return fmt.Errorf("failed to soft delete course: %w", err)
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("failed to check course deletion: %w", err)
+	}
+
+	if rowsAffected == 0 {
+		return fmt.Errorf("course not found or already deleted")
+	}
+
+	// Soft delete all related lectures
+	lectureQuery := `
+		UPDATE lectures
+		SET deleted_at = $2, updated_at = $2
+		WHERE course_id = $1 AND deleted_at IS NULL
+	`
+	_, err = tx.ExecContext(ctx, lectureQuery, id, now)
+	if err != nil {
+		return fmt.Errorf("failed to soft delete lectures: %w", err)
+	}
+
+	// Soft delete all related enrollments (preserving billing history)
+	enrollmentQuery := `
+		UPDATE enrollments
+		SET deleted_at = $2
+		WHERE course_id = $1 AND deleted_at IS NULL
+	`
+	_, err = tx.ExecContext(ctx, enrollmentQuery, id, now)
+	if err != nil {
+		return fmt.Errorf("failed to soft delete enrollments: %w", err)
+	}
+
+	return tx.Commit()
 }
 
 func (r *CourseRepository) List(ctx context.Context, filters model.CourseFilters) (*model.CourseSearchResult, error) {
 	var conditions []string
 	var args []interface{}
 	argCount := 0
-	
+
 	baseQuery := `
 		SELECT id, title, description, instructor_id, instructor_name, category, level, price, currency,
-			   thumbnail_url, status, duration_minutes, enrollment_count, rating, rating_count, tags, created_at, updated_at
+			   thumbnail_url, status, duration_minutes, enrollment_count, rating, rating_count, tags, created_at, updated_at, deleted_at
 		FROM courses
 	`
+
+	// Always exclude soft-deleted courses
+	conditions = append(conditions, "deleted_at IS NULL")
 	
 	if filters.Category != "" {
 		argCount++
@@ -212,7 +290,7 @@ func (r *CourseRepository) List(ctx context.Context, filters model.CourseFilters
 			&course.ID, &course.Title, &course.Description, &course.InstructorID, &course.InstructorName,
 			&course.Category, &course.Level, &course.Price, &course.Currency, &course.ThumbnailURL,
 			&course.Status, &course.DurationMinutes, &course.EnrollmentCount, &course.Rating,
-			&course.RatingCount, pq.Array(&course.Tags), &course.CreatedAt, &course.UpdatedAt,
+			&course.RatingCount, pq.Array(&course.Tags), &course.CreatedAt, &course.UpdatedAt, &course.DeletedAt,
 		)
 		if err != nil {
 			return nil, err
@@ -232,12 +310,15 @@ func (r *CourseRepository) Search(ctx context.Context, filters model.CourseFilte
 	var conditions []string
 	var args []interface{}
 	argCount := 0
-	
+
 	baseQuery := `
 		SELECT id, title, description, instructor_id, instructor_name, category, level, price, currency,
-			   thumbnail_url, status, duration_minutes, enrollment_count, rating, rating_count, tags, created_at, updated_at
+			   thumbnail_url, status, duration_minutes, enrollment_count, rating, rating_count, tags, created_at, updated_at, deleted_at
 		FROM courses
 	`
+
+	// Always exclude soft-deleted courses
+	conditions = append(conditions, "deleted_at IS NULL")
 	
 	if filters.Query != "" {
 		argCount++
@@ -321,7 +402,7 @@ func (r *CourseRepository) Search(ctx context.Context, filters model.CourseFilte
 			&course.ID, &course.Title, &course.Description, &course.InstructorID, &course.InstructorName,
 			&course.Category, &course.Level, &course.Price, &course.Currency, &course.ThumbnailURL,
 			&course.Status, &course.DurationMinutes, &course.EnrollmentCount, &course.Rating,
-			&course.RatingCount, pq.Array(&course.Tags), &course.CreatedAt, &course.UpdatedAt,
+			&course.RatingCount, pq.Array(&course.Tags), &course.CreatedAt, &course.UpdatedAt, &course.DeletedAt,
 		)
 		if err != nil {
 			return nil, err

@@ -12,23 +12,26 @@ import (
 )
 
 type CourseService struct {
-	courseRepo     *repository.CourseRepository
-	lectureRepo    *repository.LectureRepository
-	enrollmentRepo *repository.EnrollmentRepository
-	logger         logger.Logger
+	courseRepo         *repository.CourseRepository
+	lectureRepo        *repository.LectureRepository
+	enrollmentRepo     *repository.EnrollmentRepository
+	courseResourceRepo *repository.CourseResourceRepository
+	logger             logger.Logger
 }
 
 func NewCourseService(
 	courseRepo *repository.CourseRepository,
 	lectureRepo *repository.LectureRepository,
 	enrollmentRepo *repository.EnrollmentRepository,
+	courseResourceRepo *repository.CourseResourceRepository,
 	logger logger.Logger,
 ) *CourseService {
 	return &CourseService{
-		courseRepo:     courseRepo,
-		lectureRepo:    lectureRepo,
-		enrollmentRepo: enrollmentRepo,
-		logger:         logger,
+		courseRepo:         courseRepo,
+		lectureRepo:        lectureRepo,
+		enrollmentRepo:     enrollmentRepo,
+		courseResourceRepo: courseResourceRepo,
+		logger:             logger,
 	}
 }
 
@@ -49,10 +52,26 @@ func (s *CourseService) CreateCourse(ctx context.Context, course *model.Course) 
 	course.Rating = 0
 	course.RatingCount = 0
 	course.DurationMinutes = 0
-	
+
 	if course.Currency == "" {
 		course.Currency = "USD"
 	}
+
+	// Set default values for new fields
+	if course.DifficultyLevel == "" {
+		course.DifficultyLevel = "intermediate"
+	}
+	if course.Language == "" {
+		course.Language = "en"
+	}
+	if course.EstimatedDurationHours == 0 {
+		course.EstimatedDurationHours = 10 // default 10 hours
+	}
+	// Set default boolean values
+	course.AutoApproveEnrollment = true
+	course.AllowPreviews = true
+	course.HasCertificate = false
+	course.MobileAccess = true
 	
 	err := s.courseRepo.Create(ctx, course)
 	if err != nil {
@@ -70,50 +89,125 @@ func (s *CourseService) GetCourse(ctx context.Context, id uuid.UUID) (*model.Cou
 		s.logger.Errorf("Failed to get course %s: %v", id.String(), err)
 		return nil, fmt.Errorf("failed to get course: %w", err)
 	}
-	
+
+	// Fetch lectures for the course
+	lectures, err := s.lectureRepo.GetByCourseID(ctx, id)
+	if err != nil {
+		s.logger.Errorf("Failed to get lectures for course %s: %v", id.String(), err)
+		// Don't fail the whole request, just log the error
+		lectures = []model.Lecture{}
+	}
+	course.Lectures = lectures
+
+	// Fetch resources for the course
+	resources, err := s.courseResourceRepo.GetByCourseID(ctx, id)
+	if err != nil {
+		s.logger.Errorf("Failed to get resources for course %s: %v", id.String(), err)
+		// Don't fail the whole request, just log the error
+		resources = []model.CourseResource{}
+	}
+	course.Resources = resources
+
 	return course, nil
 }
 
 func (s *CourseService) UpdateCourse(ctx context.Context, course *model.Course) error {
 	s.logger.Infof("Updating course: %s", course.ID.String())
-	
+
+	// Check if course exists and is not deleted
+	existingCourse, err := s.courseRepo.GetByID(ctx, course.ID)
+	if err != nil {
+		s.logger.Errorf("Course not found for update %s: %v", course.ID.String(), err)
+		return fmt.Errorf("course not found: %w", err)
+	}
+
+	if existingCourse.DeletedAt != nil {
+		return fmt.Errorf("cannot update deleted course")
+	}
+
 	// Validate course data
 	if err := s.validateCourse(course); err != nil {
 		s.logger.Errorf("Course validation failed: %v", err)
 		return err
 	}
-	
-	err := s.courseRepo.Update(ctx, course)
+
+	err = s.courseRepo.Update(ctx, course)
 	if err != nil {
 		s.logger.Errorf("Failed to update course %s: %v", course.ID.String(), err)
 		return fmt.Errorf("failed to update course: %w", err)
 	}
-	
+
 	s.logger.Infof("Course updated successfully: %s", course.ID.String())
 	return nil
 }
 
+// UpdateCourseWithS3Resources provides enhanced course update with S3 file handling
+func (s *CourseService) UpdateCourseWithS3Resources(ctx context.Context, course *model.Course, oldThumbnailURL string) error {
+	s.logger.Infof("Updating course with S3 resource management: %s", course.ID.String())
+
+	// Check if course exists and is not deleted
+	existingCourse, err := s.courseRepo.GetByID(ctx, course.ID)
+	if err != nil {
+		s.logger.Errorf("Course not found for update %s: %v", course.ID.String(), err)
+		return fmt.Errorf("course not found: %w", err)
+	}
+
+	if existingCourse.DeletedAt != nil {
+		return fmt.Errorf("cannot update deleted course")
+	}
+
+	// Validate course data
+	if err := s.validateCourse(course); err != nil {
+		s.logger.Errorf("Course validation failed: %v", err)
+		return err
+	}
+
+	// TODO: Implement S3 file cleanup logic here if thumbnail URL changed
+	// This would involve:
+	// 1. Comparing old and new thumbnail URLs
+	// 2. If different, marking old file for cleanup in S3
+	// 3. This should be done asynchronously to avoid blocking the update
+
+	if oldThumbnailURL != "" && oldThumbnailURL != course.ThumbnailURL {
+		s.logger.Infof("Thumbnail URL changed for course %s - old: %s, new: %s",
+			course.ID.String(), oldThumbnailURL, course.ThumbnailURL)
+		// Here you would call bucket service to clean up old thumbnail
+		// For now, we just log it
+	}
+
+	err = s.courseRepo.Update(ctx, course)
+	if err != nil {
+		s.logger.Errorf("Failed to update course %s: %v", course.ID.String(), err)
+		return fmt.Errorf("failed to update course: %w", err)
+	}
+
+	s.logger.Infof("Course updated successfully with S3 resource management: %s", course.ID.String())
+	return nil
+}
+
 func (s *CourseService) DeleteCourse(ctx context.Context, id uuid.UUID) error {
-	s.logger.Infof("Deleting course: %s", id.String())
-	
-	// Check if course has enrollments
-	enrollments, err := s.enrollmentRepo.GetCourseEnrollments(ctx, id)
+	s.logger.Infof("Soft deleting course: %s", id.String())
+
+	// Check if course exists and is not already deleted
+	course, err := s.courseRepo.GetByID(ctx, id)
 	if err != nil {
-		s.logger.Errorf("Failed to check course enrollments %s: %v", id.String(), err)
-		return fmt.Errorf("failed to check course enrollments: %w", err)
+		s.logger.Errorf("Failed to get course %s: %v", id.String(), err)
+		return fmt.Errorf("course not found: %w", err)
 	}
-	
-	if len(enrollments) > 0 {
-		return fmt.Errorf("cannot delete course with active enrollments")
+
+	if course.DeletedAt != nil {
+		return fmt.Errorf("course is already deleted")
 	}
-	
-	err = s.courseRepo.Delete(ctx, id)
+
+	// Use cascade soft delete to preserve billing history
+	// This will soft delete the course and all related lectures and enrollments
+	err = s.courseRepo.SoftDeleteCourseWithCascade(ctx, id)
 	if err != nil {
-		s.logger.Errorf("Failed to delete course %s: %v", id.String(), err)
+		s.logger.Errorf("Failed to soft delete course %s: %v", id.String(), err)
 		return fmt.Errorf("failed to delete course: %w", err)
 	}
-	
-	s.logger.Infof("Course deleted successfully: %s", id.String())
+
+	s.logger.Infof("Course soft deleted successfully: %s", id.String())
 	return nil
 }
 

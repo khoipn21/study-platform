@@ -259,8 +259,16 @@ func (h *CourseHandler) UpdateCourse(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
+
+	// Get existing course first to check for changes
+	getCourseReq := &coursepb.GetCourseRequest{Id: courseID}
+	existingCourse, err := h.courseClient.GetCourse(ctx, getCourseReq)
+	if err != nil {
+		h.handleGRPCError(w, err, "Failed to get existing course")
+		return
+	}
 
 	// Call course service
 	grpcReq := &coursepb.UpdateCourseRequest{
@@ -282,9 +290,148 @@ func (h *CourseHandler) UpdateCourse(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Log if thumbnail changed (for S3 cleanup tracking)
+	if existingCourse.Course.ThumbnailUrl != req.ThumbnailURL {
+		h.logger.Infof("Course %s thumbnail changed: %s -> %s",
+			courseID, existingCourse.Course.ThumbnailUrl, req.ThumbnailURL)
+	}
+
 	// Format response
 	data := h.formatCourse(resp.Course)
 	h.sendSuccess(w, resp.Message, data)
+}
+
+// UpdateCourseWithThumbnail handles course update with thumbnail file upload
+func (h *CourseHandler) UpdateCourseWithThumbnail(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	courseID := vars["id"]
+
+	if courseID == "" {
+		h.sendError(w, http.StatusBadRequest, "Course ID is required")
+		return
+	}
+
+	// Parse multipart form with a 32MB limit
+	err := r.ParseMultipartForm(32 << 20)
+	if err != nil {
+		h.logger.Errorf("Failed to parse multipart form: %v", err)
+		h.sendError(w, http.StatusBadRequest, "Invalid multipart form")
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	defer cancel()
+
+	// Get existing course to preserve unchanged fields
+	getCourseReq := &coursepb.GetCourseRequest{Id: courseID}
+	existingCourseResp, err := h.courseClient.GetCourse(ctx, getCourseReq)
+	if err != nil {
+		h.handleGRPCError(w, err, "Failed to get existing course")
+		return
+	}
+	existingCourse := existingCourseResp.Course
+
+	// Extract course data from form (use existing values as defaults)
+	req := UpdateCourseRequest{
+		Title:        getFormValueOrDefault(r, "title", existingCourse.Title),
+		Description:  getFormValueOrDefault(r, "description", existingCourse.Description),
+		Category:     getFormValueOrDefault(r, "category", existingCourse.Category),
+		Level:        getFormValueOrDefault(r, "level", existingCourse.Level),
+		Currency:     getFormValueOrDefault(r, "currency", existingCourse.Currency),
+		Status:       getFormValueOrDefault(r, "status", existingCourse.Status),
+		ThumbnailURL: existingCourse.ThumbnailUrl, // Will be updated if new file uploaded
+	}
+
+	// Parse optional price field
+	if priceStr := r.FormValue("price"); priceStr != "" {
+		if price, err := strconv.ParseFloat(priceStr, 64); err == nil {
+			req.Price = price
+		}
+	} else {
+		req.Price = existingCourse.Price
+	}
+
+	// Parse tags if provided
+	if tagsStr := r.FormValue("tags"); tagsStr != "" {
+		req.Tags = strings.Split(tagsStr, ",")
+		// Trim whitespace from tags
+		for i, tag := range req.Tags {
+			req.Tags[i] = strings.TrimSpace(tag)
+		}
+	} else {
+		req.Tags = existingCourse.Tags
+	}
+
+	// Handle thumbnail upload if provided
+	var newThumbnailURL string
+	oldThumbnailURL := existingCourse.ThumbnailUrl
+
+	if file, fileHeader, err := r.FormFile("thumbnail"); err == nil {
+		defer file.Close()
+
+		h.logger.Infof("New thumbnail file uploaded for course %s: %s, size: %d bytes",
+			courseID, fileHeader.Filename, fileHeader.Size)
+
+		// Validate thumbnail file
+		if err := h.validateThumbnailFile(fileHeader); err != nil {
+			h.sendError(w, http.StatusBadRequest, fmt.Sprintf("Invalid thumbnail: %s", err.Error()))
+			return
+		}
+
+		// Upload new thumbnail to bucket service
+		uploadedURL, err := h.uploadThumbnailToBucket(ctx, file, fileHeader, r.Header.Get("Authorization"))
+		if err != nil {
+			h.logger.Errorf("Failed to upload thumbnail: %v", err)
+			h.sendError(w, http.StatusInternalServerError, "Failed to upload thumbnail")
+			return
+		}
+
+		newThumbnailURL = uploadedURL
+		req.ThumbnailURL = newThumbnailURL
+		h.logger.Infof("New thumbnail uploaded successfully for course %s: %s", courseID, newThumbnailURL)
+	}
+
+	// Call course service to update
+	grpcReq := &coursepb.UpdateCourseRequest{
+		Id:           courseID,
+		Title:        req.Title,
+		Description:  req.Description,
+		Category:     req.Category,
+		Level:        req.Level,
+		Price:        req.Price,
+		Currency:     req.Currency,
+		ThumbnailUrl: req.ThumbnailURL,
+		Status:       req.Status,
+		Tags:         req.Tags,
+	}
+
+	resp, err := h.courseClient.UpdateCourse(ctx, grpcReq)
+	if err != nil {
+		h.handleGRPCError(w, err, "Failed to update course")
+		return
+	}
+
+	// Log thumbnail change for S3 cleanup tracking
+	if oldThumbnailURL != req.ThumbnailURL {
+		h.logger.Infof("Course %s thumbnail updated: %s -> %s", courseID, oldThumbnailURL, req.ThumbnailURL)
+		// TODO: Here you could call bucket service to clean up old thumbnail
+		// This should be done asynchronously to avoid blocking the response
+	}
+
+	// Format response
+	data := h.formatCourse(resp.Course)
+	data["thumbnail_updated"] = newThumbnailURL != ""
+	data["old_thumbnail_url"] = oldThumbnailURL
+
+	h.sendSuccess(w, "Course updated successfully", data)
+}
+
+// Helper function to get form value or return default
+func getFormValueOrDefault(r *http.Request, key, defaultValue string) string {
+	if value := r.FormValue(key); value != "" {
+		return value
+	}
+	return defaultValue
 }
 
 func (h *CourseHandler) DeleteCourse(w http.ResponseWriter, r *http.Request) {

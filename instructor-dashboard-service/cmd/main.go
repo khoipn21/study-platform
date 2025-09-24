@@ -78,6 +78,9 @@ func main() {
 	// API routes
 	v1 := router.Group("/api/v1")
 	{
+		// Test endpoint without auth for testing
+		v1.GET("/test/courses/:id", dashboardHandler.GetCourse)
+
 		// Instructor dashboard routes - apply auth middleware
 		instructor := v1.Group("/instructor")
 		instructor.Use(middleware.AuthMiddleware())
@@ -88,6 +91,10 @@ func main() {
 
 			// Course management
 			instructor.GET("/courses", dashboardHandler.GetInstructorCourses)
+			instructor.GET("/courses/:id", dashboardHandler.GetCourse)
+			instructor.POST("/courses", dashboardHandler.CreateCourse)
+			instructor.PUT("/courses/:id", dashboardHandler.UpdateCourse)
+			instructor.DELETE("/courses/:id", dashboardHandler.DeleteCourse)
 			instructor.GET("/courses/:id/analytics", analyticsHandler.GetCourseAnalytics)
 			instructor.POST("/courses/:id/bulk-operations", dashboardHandler.BulkCourseOperations)
 

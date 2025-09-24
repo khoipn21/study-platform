@@ -43,8 +43,20 @@ type Course struct {
 	Tags            []string               `protobuf:"bytes,16,rep,name=tags,proto3" json:"tags,omitempty"`
 	CreatedAt       *timestamppb.Timestamp `protobuf:"bytes,17,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
 	UpdatedAt       *timestamppb.Timestamp `protobuf:"bytes,18,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
-	unknownFields   protoimpl.UnknownFields
-	sizeCache       protoimpl.SizeCache
+	// Additional fields for complete course information
+	DifficultyLevel        string            `protobuf:"bytes,19,opt,name=difficulty_level,json=difficultyLevel,proto3" json:"difficulty_level,omitempty"`
+	Language               string            `protobuf:"bytes,20,opt,name=language,proto3" json:"language,omitempty"`
+	LearningOutcomes       []string          `protobuf:"bytes,21,rep,name=learning_outcomes,json=learningOutcomes,proto3" json:"learning_outcomes,omitempty"`
+	Requirements           []string          `protobuf:"bytes,22,rep,name=requirements,proto3" json:"requirements,omitempty"`
+	EstimatedDurationHours int32             `protobuf:"varint,23,opt,name=estimated_duration_hours,json=estimatedDurationHours,proto3" json:"estimated_duration_hours,omitempty"`
+	AutoApproveEnrollment  bool              `protobuf:"varint,24,opt,name=auto_approve_enrollment,json=autoApproveEnrollment,proto3" json:"auto_approve_enrollment,omitempty"`
+	AllowPreviews          bool              `protobuf:"varint,25,opt,name=allow_previews,json=allowPreviews,proto3" json:"allow_previews,omitempty"`
+	HasCertificate         bool              `protobuf:"varint,26,opt,name=has_certificate,json=hasCertificate,proto3" json:"has_certificate,omitempty"`
+	MobileAccess           bool              `protobuf:"varint,27,opt,name=mobile_access,json=mobileAccess,proto3" json:"mobile_access,omitempty"`
+	Lectures               []*Lecture        `protobuf:"bytes,28,rep,name=lectures,proto3" json:"lectures,omitempty"`
+	Resources              []*CourseResource `protobuf:"bytes,29,rep,name=resources,proto3" json:"resources,omitempty"`
+	unknownFields          protoimpl.UnknownFields
+	sizeCache              protoimpl.SizeCache
 }
 
 func (x *Course) Reset() {
@@ -203,20 +215,98 @@ func (x *Course) GetUpdatedAt() *timestamppb.Timestamp {
 	return nil
 }
 
+func (x *Course) GetDifficultyLevel() string {
+	if x != nil {
+		return x.DifficultyLevel
+	}
+	return ""
+}
+
+func (x *Course) GetLanguage() string {
+	if x != nil {
+		return x.Language
+	}
+	return ""
+}
+
+func (x *Course) GetLearningOutcomes() []string {
+	if x != nil {
+		return x.LearningOutcomes
+	}
+	return nil
+}
+
+func (x *Course) GetRequirements() []string {
+	if x != nil {
+		return x.Requirements
+	}
+	return nil
+}
+
+func (x *Course) GetEstimatedDurationHours() int32 {
+	if x != nil {
+		return x.EstimatedDurationHours
+	}
+	return 0
+}
+
+func (x *Course) GetAutoApproveEnrollment() bool {
+	if x != nil {
+		return x.AutoApproveEnrollment
+	}
+	return false
+}
+
+func (x *Course) GetAllowPreviews() bool {
+	if x != nil {
+		return x.AllowPreviews
+	}
+	return false
+}
+
+func (x *Course) GetHasCertificate() bool {
+	if x != nil {
+		return x.HasCertificate
+	}
+	return false
+}
+
+func (x *Course) GetMobileAccess() bool {
+	if x != nil {
+		return x.MobileAccess
+	}
+	return false
+}
+
+func (x *Course) GetLectures() []*Lecture {
+	if x != nil {
+		return x.Lectures
+	}
+	return nil
+}
+
+func (x *Course) GetResources() []*CourseResource {
+	if x != nil {
+		return x.Resources
+	}
+	return nil
+}
+
 type Lecture struct {
 	state           protoimpl.MessageState `protogen:"open.v1"`
 	Id              string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
 	CourseId        string                 `protobuf:"bytes,2,opt,name=course_id,json=courseId,proto3" json:"course_id,omitempty"`
 	Title           string                 `protobuf:"bytes,3,opt,name=title,proto3" json:"title,omitempty"`
 	Description     string                 `protobuf:"bytes,4,opt,name=description,proto3" json:"description,omitempty"`
-	OrderNumber     int32                  `protobuf:"varint,5,opt,name=order_number,json=orderNumber,proto3" json:"order_number,omitempty"`
-	DurationMinutes int32                  `protobuf:"varint,6,opt,name=duration_minutes,json=durationMinutes,proto3" json:"duration_minutes,omitempty"`
-	VideoUrl        string                 `protobuf:"bytes,7,opt,name=video_url,json=videoUrl,proto3" json:"video_url,omitempty"`
-	VideoId         string                 `protobuf:"bytes,8,opt,name=video_id,json=videoId,proto3" json:"video_id,omitempty"`
-	Status          string                 `protobuf:"bytes,9,opt,name=status,proto3" json:"status,omitempty"` // draft, published
-	IsFree          bool                   `protobuf:"varint,10,opt,name=is_free,json=isFree,proto3" json:"is_free,omitempty"`
-	CreatedAt       *timestamppb.Timestamp `protobuf:"bytes,11,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
-	UpdatedAt       *timestamppb.Timestamp `protobuf:"bytes,12,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
+	Type            string                 `protobuf:"bytes,5,opt,name=type,proto3" json:"type,omitempty"` // video, document, quiz, etc.
+	OrderNumber     int32                  `protobuf:"varint,6,opt,name=order_number,json=orderNumber,proto3" json:"order_number,omitempty"`
+	DurationMinutes int32                  `protobuf:"varint,7,opt,name=duration_minutes,json=durationMinutes,proto3" json:"duration_minutes,omitempty"`
+	VideoUrl        string                 `protobuf:"bytes,8,opt,name=video_url,json=videoUrl,proto3" json:"video_url,omitempty"`
+	VideoId         string                 `protobuf:"bytes,9,opt,name=video_id,json=videoId,proto3" json:"video_id,omitempty"`
+	Status          string                 `protobuf:"bytes,10,opt,name=status,proto3" json:"status,omitempty"` // draft, published
+	IsFree          bool                   `protobuf:"varint,11,opt,name=is_free,json=isFree,proto3" json:"is_free,omitempty"`
+	CreatedAt       *timestamppb.Timestamp `protobuf:"bytes,12,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	UpdatedAt       *timestamppb.Timestamp `protobuf:"bytes,13,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
 	unknownFields   protoimpl.UnknownFields
 	sizeCache       protoimpl.SizeCache
 }
@@ -279,6 +369,13 @@ func (x *Lecture) GetDescription() string {
 	return ""
 }
 
+func (x *Lecture) GetType() string {
+	if x != nil {
+		return x.Type
+	}
+	return ""
+}
+
 func (x *Lecture) GetOrderNumber() int32 {
 	if x != nil {
 		return x.OrderNumber
@@ -335,6 +432,163 @@ func (x *Lecture) GetUpdatedAt() *timestamppb.Timestamp {
 	return nil
 }
 
+type CourseResource struct {
+	state        protoimpl.MessageState `protogen:"open.v1"`
+	Id           string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	CourseId     string                 `protobuf:"bytes,2,opt,name=course_id,json=courseId,proto3" json:"course_id,omitempty"`
+	FileId       string                 `protobuf:"bytes,3,opt,name=file_id,json=fileId,proto3" json:"file_id,omitempty"`
+	ResourceType string                 `protobuf:"bytes,4,opt,name=resource_type,json=resourceType,proto3" json:"resource_type,omitempty"`
+	DisplayOrder int32                  `protobuf:"varint,5,opt,name=display_order,json=displayOrder,proto3" json:"display_order,omitempty"`
+	IsRequired   bool                   `protobuf:"varint,6,opt,name=is_required,json=isRequired,proto3" json:"is_required,omitempty"`
+	CreatedAt    *timestamppb.Timestamp `protobuf:"bytes,7,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	UpdatedAt    *timestamppb.Timestamp `protobuf:"bytes,8,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
+	// File information
+	Filename      string                 `protobuf:"bytes,9,opt,name=filename,proto3" json:"filename,omitempty"`
+	OriginalName  string                 `protobuf:"bytes,10,opt,name=original_name,json=originalName,proto3" json:"original_name,omitempty"`
+	FileType      string                 `protobuf:"bytes,11,opt,name=file_type,json=fileType,proto3" json:"file_type,omitempty"`
+	FileSize      int64                  `protobuf:"varint,12,opt,name=file_size,json=fileSize,proto3" json:"file_size,omitempty"`
+	DownloadUrl   string                 `protobuf:"bytes,13,opt,name=download_url,json=downloadUrl,proto3" json:"download_url,omitempty"`
+	IsPublic      bool                   `protobuf:"varint,14,opt,name=is_public,json=isPublic,proto3" json:"is_public,omitempty"`
+	UploadedAt    *timestamppb.Timestamp `protobuf:"bytes,15,opt,name=uploaded_at,json=uploadedAt,proto3" json:"uploaded_at,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CourseResource) Reset() {
+	*x = CourseResource{}
+	mi := &file_proto_course_proto_msgTypes[2]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CourseResource) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CourseResource) ProtoMessage() {}
+
+func (x *CourseResource) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_course_proto_msgTypes[2]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CourseResource.ProtoReflect.Descriptor instead.
+func (*CourseResource) Descriptor() ([]byte, []int) {
+	return file_proto_course_proto_rawDescGZIP(), []int{2}
+}
+
+func (x *CourseResource) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *CourseResource) GetCourseId() string {
+	if x != nil {
+		return x.CourseId
+	}
+	return ""
+}
+
+func (x *CourseResource) GetFileId() string {
+	if x != nil {
+		return x.FileId
+	}
+	return ""
+}
+
+func (x *CourseResource) GetResourceType() string {
+	if x != nil {
+		return x.ResourceType
+	}
+	return ""
+}
+
+func (x *CourseResource) GetDisplayOrder() int32 {
+	if x != nil {
+		return x.DisplayOrder
+	}
+	return 0
+}
+
+func (x *CourseResource) GetIsRequired() bool {
+	if x != nil {
+		return x.IsRequired
+	}
+	return false
+}
+
+func (x *CourseResource) GetCreatedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.CreatedAt
+	}
+	return nil
+}
+
+func (x *CourseResource) GetUpdatedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.UpdatedAt
+	}
+	return nil
+}
+
+func (x *CourseResource) GetFilename() string {
+	if x != nil {
+		return x.Filename
+	}
+	return ""
+}
+
+func (x *CourseResource) GetOriginalName() string {
+	if x != nil {
+		return x.OriginalName
+	}
+	return ""
+}
+
+func (x *CourseResource) GetFileType() string {
+	if x != nil {
+		return x.FileType
+	}
+	return ""
+}
+
+func (x *CourseResource) GetFileSize() int64 {
+	if x != nil {
+		return x.FileSize
+	}
+	return 0
+}
+
+func (x *CourseResource) GetDownloadUrl() string {
+	if x != nil {
+		return x.DownloadUrl
+	}
+	return ""
+}
+
+func (x *CourseResource) GetIsPublic() bool {
+	if x != nil {
+		return x.IsPublic
+	}
+	return false
+}
+
+func (x *CourseResource) GetUploadedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.UploadedAt
+	}
+	return nil
+}
+
 type Enrollment struct {
 	state              protoimpl.MessageState `protogen:"open.v1"`
 	Id                 string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
@@ -351,7 +605,7 @@ type Enrollment struct {
 
 func (x *Enrollment) Reset() {
 	*x = Enrollment{}
-	mi := &file_proto_course_proto_msgTypes[2]
+	mi := &file_proto_course_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -363,7 +617,7 @@ func (x *Enrollment) String() string {
 func (*Enrollment) ProtoMessage() {}
 
 func (x *Enrollment) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_course_proto_msgTypes[2]
+	mi := &file_proto_course_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -376,7 +630,7 @@ func (x *Enrollment) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Enrollment.ProtoReflect.Descriptor instead.
 func (*Enrollment) Descriptor() ([]byte, []int) {
-	return file_proto_course_proto_rawDescGZIP(), []int{2}
+	return file_proto_course_proto_rawDescGZIP(), []int{3}
 }
 
 func (x *Enrollment) GetId() string {
@@ -454,7 +708,7 @@ type CreateCourseRequest struct {
 
 func (x *CreateCourseRequest) Reset() {
 	*x = CreateCourseRequest{}
-	mi := &file_proto_course_proto_msgTypes[3]
+	mi := &file_proto_course_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -466,7 +720,7 @@ func (x *CreateCourseRequest) String() string {
 func (*CreateCourseRequest) ProtoMessage() {}
 
 func (x *CreateCourseRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_course_proto_msgTypes[3]
+	mi := &file_proto_course_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -479,7 +733,7 @@ func (x *CreateCourseRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateCourseRequest.ProtoReflect.Descriptor instead.
 func (*CreateCourseRequest) Descriptor() ([]byte, []int) {
-	return file_proto_course_proto_rawDescGZIP(), []int{3}
+	return file_proto_course_proto_rawDescGZIP(), []int{4}
 }
 
 func (x *CreateCourseRequest) GetTitle() string {
@@ -562,7 +816,7 @@ type CreateCourseResponse struct {
 
 func (x *CreateCourseResponse) Reset() {
 	*x = CreateCourseResponse{}
-	mi := &file_proto_course_proto_msgTypes[4]
+	mi := &file_proto_course_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -574,7 +828,7 @@ func (x *CreateCourseResponse) String() string {
 func (*CreateCourseResponse) ProtoMessage() {}
 
 func (x *CreateCourseResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_course_proto_msgTypes[4]
+	mi := &file_proto_course_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -587,7 +841,7 @@ func (x *CreateCourseResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateCourseResponse.ProtoReflect.Descriptor instead.
 func (*CreateCourseResponse) Descriptor() ([]byte, []int) {
-	return file_proto_course_proto_rawDescGZIP(), []int{4}
+	return file_proto_course_proto_rawDescGZIP(), []int{5}
 }
 
 func (x *CreateCourseResponse) GetCourse() *Course {
@@ -613,7 +867,7 @@ type GetCourseRequest struct {
 
 func (x *GetCourseRequest) Reset() {
 	*x = GetCourseRequest{}
-	mi := &file_proto_course_proto_msgTypes[5]
+	mi := &file_proto_course_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -625,7 +879,7 @@ func (x *GetCourseRequest) String() string {
 func (*GetCourseRequest) ProtoMessage() {}
 
 func (x *GetCourseRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_course_proto_msgTypes[5]
+	mi := &file_proto_course_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -638,7 +892,7 @@ func (x *GetCourseRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetCourseRequest.ProtoReflect.Descriptor instead.
 func (*GetCourseRequest) Descriptor() ([]byte, []int) {
-	return file_proto_course_proto_rawDescGZIP(), []int{5}
+	return file_proto_course_proto_rawDescGZIP(), []int{6}
 }
 
 func (x *GetCourseRequest) GetId() string {
@@ -657,7 +911,7 @@ type GetCourseResponse struct {
 
 func (x *GetCourseResponse) Reset() {
 	*x = GetCourseResponse{}
-	mi := &file_proto_course_proto_msgTypes[6]
+	mi := &file_proto_course_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -669,7 +923,7 @@ func (x *GetCourseResponse) String() string {
 func (*GetCourseResponse) ProtoMessage() {}
 
 func (x *GetCourseResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_course_proto_msgTypes[6]
+	mi := &file_proto_course_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -682,7 +936,7 @@ func (x *GetCourseResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetCourseResponse.ProtoReflect.Descriptor instead.
 func (*GetCourseResponse) Descriptor() ([]byte, []int) {
-	return file_proto_course_proto_rawDescGZIP(), []int{6}
+	return file_proto_course_proto_rawDescGZIP(), []int{7}
 }
 
 func (x *GetCourseResponse) GetCourse() *Course {
@@ -710,7 +964,7 @@ type UpdateCourseRequest struct {
 
 func (x *UpdateCourseRequest) Reset() {
 	*x = UpdateCourseRequest{}
-	mi := &file_proto_course_proto_msgTypes[7]
+	mi := &file_proto_course_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -722,7 +976,7 @@ func (x *UpdateCourseRequest) String() string {
 func (*UpdateCourseRequest) ProtoMessage() {}
 
 func (x *UpdateCourseRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_course_proto_msgTypes[7]
+	mi := &file_proto_course_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -735,7 +989,7 @@ func (x *UpdateCourseRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateCourseRequest.ProtoReflect.Descriptor instead.
 func (*UpdateCourseRequest) Descriptor() ([]byte, []int) {
-	return file_proto_course_proto_rawDescGZIP(), []int{7}
+	return file_proto_course_proto_rawDescGZIP(), []int{8}
 }
 
 func (x *UpdateCourseRequest) GetId() string {
@@ -818,7 +1072,7 @@ type UpdateCourseResponse struct {
 
 func (x *UpdateCourseResponse) Reset() {
 	*x = UpdateCourseResponse{}
-	mi := &file_proto_course_proto_msgTypes[8]
+	mi := &file_proto_course_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -830,7 +1084,7 @@ func (x *UpdateCourseResponse) String() string {
 func (*UpdateCourseResponse) ProtoMessage() {}
 
 func (x *UpdateCourseResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_course_proto_msgTypes[8]
+	mi := &file_proto_course_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -843,7 +1097,7 @@ func (x *UpdateCourseResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateCourseResponse.ProtoReflect.Descriptor instead.
 func (*UpdateCourseResponse) Descriptor() ([]byte, []int) {
-	return file_proto_course_proto_rawDescGZIP(), []int{8}
+	return file_proto_course_proto_rawDescGZIP(), []int{9}
 }
 
 func (x *UpdateCourseResponse) GetCourse() *Course {
@@ -869,7 +1123,7 @@ type DeleteCourseRequest struct {
 
 func (x *DeleteCourseRequest) Reset() {
 	*x = DeleteCourseRequest{}
-	mi := &file_proto_course_proto_msgTypes[9]
+	mi := &file_proto_course_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -881,7 +1135,7 @@ func (x *DeleteCourseRequest) String() string {
 func (*DeleteCourseRequest) ProtoMessage() {}
 
 func (x *DeleteCourseRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_course_proto_msgTypes[9]
+	mi := &file_proto_course_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -894,7 +1148,7 @@ func (x *DeleteCourseRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteCourseRequest.ProtoReflect.Descriptor instead.
 func (*DeleteCourseRequest) Descriptor() ([]byte, []int) {
-	return file_proto_course_proto_rawDescGZIP(), []int{9}
+	return file_proto_course_proto_rawDescGZIP(), []int{10}
 }
 
 func (x *DeleteCourseRequest) GetId() string {
@@ -913,7 +1167,7 @@ type DeleteCourseResponse struct {
 
 func (x *DeleteCourseResponse) Reset() {
 	*x = DeleteCourseResponse{}
-	mi := &file_proto_course_proto_msgTypes[10]
+	mi := &file_proto_course_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -925,7 +1179,7 @@ func (x *DeleteCourseResponse) String() string {
 func (*DeleteCourseResponse) ProtoMessage() {}
 
 func (x *DeleteCourseResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_course_proto_msgTypes[10]
+	mi := &file_proto_course_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -938,7 +1192,7 @@ func (x *DeleteCourseResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteCourseResponse.ProtoReflect.Descriptor instead.
 func (*DeleteCourseResponse) Descriptor() ([]byte, []int) {
-	return file_proto_course_proto_rawDescGZIP(), []int{10}
+	return file_proto_course_proto_rawDescGZIP(), []int{11}
 }
 
 func (x *DeleteCourseResponse) GetMessage() string {
@@ -962,7 +1216,7 @@ type ListCoursesRequest struct {
 
 func (x *ListCoursesRequest) Reset() {
 	*x = ListCoursesRequest{}
-	mi := &file_proto_course_proto_msgTypes[11]
+	mi := &file_proto_course_proto_msgTypes[12]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -974,7 +1228,7 @@ func (x *ListCoursesRequest) String() string {
 func (*ListCoursesRequest) ProtoMessage() {}
 
 func (x *ListCoursesRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_course_proto_msgTypes[11]
+	mi := &file_proto_course_proto_msgTypes[12]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -987,7 +1241,7 @@ func (x *ListCoursesRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListCoursesRequest.ProtoReflect.Descriptor instead.
 func (*ListCoursesRequest) Descriptor() ([]byte, []int) {
-	return file_proto_course_proto_rawDescGZIP(), []int{11}
+	return file_proto_course_proto_rawDescGZIP(), []int{12}
 }
 
 func (x *ListCoursesRequest) GetPage() int32 {
@@ -1044,7 +1298,7 @@ type ListCoursesResponse struct {
 
 func (x *ListCoursesResponse) Reset() {
 	*x = ListCoursesResponse{}
-	mi := &file_proto_course_proto_msgTypes[12]
+	mi := &file_proto_course_proto_msgTypes[13]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1056,7 +1310,7 @@ func (x *ListCoursesResponse) String() string {
 func (*ListCoursesResponse) ProtoMessage() {}
 
 func (x *ListCoursesResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_course_proto_msgTypes[12]
+	mi := &file_proto_course_proto_msgTypes[13]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1069,7 +1323,7 @@ func (x *ListCoursesResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListCoursesResponse.ProtoReflect.Descriptor instead.
 func (*ListCoursesResponse) Descriptor() ([]byte, []int) {
-	return file_proto_course_proto_rawDescGZIP(), []int{12}
+	return file_proto_course_proto_rawDescGZIP(), []int{13}
 }
 
 func (x *ListCoursesResponse) GetCourses() []*Course {
@@ -1116,7 +1370,7 @@ type SearchCoursesRequest struct {
 
 func (x *SearchCoursesRequest) Reset() {
 	*x = SearchCoursesRequest{}
-	mi := &file_proto_course_proto_msgTypes[13]
+	mi := &file_proto_course_proto_msgTypes[14]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1128,7 +1382,7 @@ func (x *SearchCoursesRequest) String() string {
 func (*SearchCoursesRequest) ProtoMessage() {}
 
 func (x *SearchCoursesRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_course_proto_msgTypes[13]
+	mi := &file_proto_course_proto_msgTypes[14]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1141,7 +1395,7 @@ func (x *SearchCoursesRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SearchCoursesRequest.ProtoReflect.Descriptor instead.
 func (*SearchCoursesRequest) Descriptor() ([]byte, []int) {
-	return file_proto_course_proto_rawDescGZIP(), []int{13}
+	return file_proto_course_proto_rawDescGZIP(), []int{14}
 }
 
 func (x *SearchCoursesRequest) GetQuery() string {
@@ -1212,7 +1466,7 @@ type SearchCoursesResponse struct {
 
 func (x *SearchCoursesResponse) Reset() {
 	*x = SearchCoursesResponse{}
-	mi := &file_proto_course_proto_msgTypes[14]
+	mi := &file_proto_course_proto_msgTypes[15]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1224,7 +1478,7 @@ func (x *SearchCoursesResponse) String() string {
 func (*SearchCoursesResponse) ProtoMessage() {}
 
 func (x *SearchCoursesResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_course_proto_msgTypes[14]
+	mi := &file_proto_course_proto_msgTypes[15]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1237,7 +1491,7 @@ func (x *SearchCoursesResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SearchCoursesResponse.ProtoReflect.Descriptor instead.
 func (*SearchCoursesResponse) Descriptor() ([]byte, []int) {
-	return file_proto_course_proto_rawDescGZIP(), []int{14}
+	return file_proto_course_proto_rawDescGZIP(), []int{15}
 }
 
 func (x *SearchCoursesResponse) GetCourses() []*Course {
@@ -1285,7 +1539,7 @@ type CreateLectureRequest struct {
 
 func (x *CreateLectureRequest) Reset() {
 	*x = CreateLectureRequest{}
-	mi := &file_proto_course_proto_msgTypes[15]
+	mi := &file_proto_course_proto_msgTypes[16]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1297,7 +1551,7 @@ func (x *CreateLectureRequest) String() string {
 func (*CreateLectureRequest) ProtoMessage() {}
 
 func (x *CreateLectureRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_course_proto_msgTypes[15]
+	mi := &file_proto_course_proto_msgTypes[16]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1310,7 +1564,7 @@ func (x *CreateLectureRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateLectureRequest.ProtoReflect.Descriptor instead.
 func (*CreateLectureRequest) Descriptor() ([]byte, []int) {
-	return file_proto_course_proto_rawDescGZIP(), []int{15}
+	return file_proto_course_proto_rawDescGZIP(), []int{16}
 }
 
 func (x *CreateLectureRequest) GetCourseId() string {
@@ -1379,7 +1633,7 @@ type CreateLectureResponse struct {
 
 func (x *CreateLectureResponse) Reset() {
 	*x = CreateLectureResponse{}
-	mi := &file_proto_course_proto_msgTypes[16]
+	mi := &file_proto_course_proto_msgTypes[17]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1391,7 +1645,7 @@ func (x *CreateLectureResponse) String() string {
 func (*CreateLectureResponse) ProtoMessage() {}
 
 func (x *CreateLectureResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_course_proto_msgTypes[16]
+	mi := &file_proto_course_proto_msgTypes[17]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1404,7 +1658,7 @@ func (x *CreateLectureResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateLectureResponse.ProtoReflect.Descriptor instead.
 func (*CreateLectureResponse) Descriptor() ([]byte, []int) {
-	return file_proto_course_proto_rawDescGZIP(), []int{16}
+	return file_proto_course_proto_rawDescGZIP(), []int{17}
 }
 
 func (x *CreateLectureResponse) GetLecture() *Lecture {
@@ -1430,7 +1684,7 @@ type GetLectureRequest struct {
 
 func (x *GetLectureRequest) Reset() {
 	*x = GetLectureRequest{}
-	mi := &file_proto_course_proto_msgTypes[17]
+	mi := &file_proto_course_proto_msgTypes[18]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1442,7 +1696,7 @@ func (x *GetLectureRequest) String() string {
 func (*GetLectureRequest) ProtoMessage() {}
 
 func (x *GetLectureRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_course_proto_msgTypes[17]
+	mi := &file_proto_course_proto_msgTypes[18]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1455,7 +1709,7 @@ func (x *GetLectureRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetLectureRequest.ProtoReflect.Descriptor instead.
 func (*GetLectureRequest) Descriptor() ([]byte, []int) {
-	return file_proto_course_proto_rawDescGZIP(), []int{17}
+	return file_proto_course_proto_rawDescGZIP(), []int{18}
 }
 
 func (x *GetLectureRequest) GetId() string {
@@ -1474,7 +1728,7 @@ type GetLectureResponse struct {
 
 func (x *GetLectureResponse) Reset() {
 	*x = GetLectureResponse{}
-	mi := &file_proto_course_proto_msgTypes[18]
+	mi := &file_proto_course_proto_msgTypes[19]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1486,7 +1740,7 @@ func (x *GetLectureResponse) String() string {
 func (*GetLectureResponse) ProtoMessage() {}
 
 func (x *GetLectureResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_course_proto_msgTypes[18]
+	mi := &file_proto_course_proto_msgTypes[19]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1499,7 +1753,7 @@ func (x *GetLectureResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetLectureResponse.ProtoReflect.Descriptor instead.
 func (*GetLectureResponse) Descriptor() ([]byte, []int) {
-	return file_proto_course_proto_rawDescGZIP(), []int{18}
+	return file_proto_course_proto_rawDescGZIP(), []int{19}
 }
 
 func (x *GetLectureResponse) GetLecture() *Lecture {
@@ -1526,7 +1780,7 @@ type UpdateLectureRequest struct {
 
 func (x *UpdateLectureRequest) Reset() {
 	*x = UpdateLectureRequest{}
-	mi := &file_proto_course_proto_msgTypes[19]
+	mi := &file_proto_course_proto_msgTypes[20]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1538,7 +1792,7 @@ func (x *UpdateLectureRequest) String() string {
 func (*UpdateLectureRequest) ProtoMessage() {}
 
 func (x *UpdateLectureRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_course_proto_msgTypes[19]
+	mi := &file_proto_course_proto_msgTypes[20]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1551,7 +1805,7 @@ func (x *UpdateLectureRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateLectureRequest.ProtoReflect.Descriptor instead.
 func (*UpdateLectureRequest) Descriptor() ([]byte, []int) {
-	return file_proto_course_proto_rawDescGZIP(), []int{19}
+	return file_proto_course_proto_rawDescGZIP(), []int{20}
 }
 
 func (x *UpdateLectureRequest) GetId() string {
@@ -1627,7 +1881,7 @@ type UpdateLectureResponse struct {
 
 func (x *UpdateLectureResponse) Reset() {
 	*x = UpdateLectureResponse{}
-	mi := &file_proto_course_proto_msgTypes[20]
+	mi := &file_proto_course_proto_msgTypes[21]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1639,7 +1893,7 @@ func (x *UpdateLectureResponse) String() string {
 func (*UpdateLectureResponse) ProtoMessage() {}
 
 func (x *UpdateLectureResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_course_proto_msgTypes[20]
+	mi := &file_proto_course_proto_msgTypes[21]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1652,7 +1906,7 @@ func (x *UpdateLectureResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateLectureResponse.ProtoReflect.Descriptor instead.
 func (*UpdateLectureResponse) Descriptor() ([]byte, []int) {
-	return file_proto_course_proto_rawDescGZIP(), []int{20}
+	return file_proto_course_proto_rawDescGZIP(), []int{21}
 }
 
 func (x *UpdateLectureResponse) GetLecture() *Lecture {
@@ -1678,7 +1932,7 @@ type DeleteLectureRequest struct {
 
 func (x *DeleteLectureRequest) Reset() {
 	*x = DeleteLectureRequest{}
-	mi := &file_proto_course_proto_msgTypes[21]
+	mi := &file_proto_course_proto_msgTypes[22]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1690,7 +1944,7 @@ func (x *DeleteLectureRequest) String() string {
 func (*DeleteLectureRequest) ProtoMessage() {}
 
 func (x *DeleteLectureRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_course_proto_msgTypes[21]
+	mi := &file_proto_course_proto_msgTypes[22]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1703,7 +1957,7 @@ func (x *DeleteLectureRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteLectureRequest.ProtoReflect.Descriptor instead.
 func (*DeleteLectureRequest) Descriptor() ([]byte, []int) {
-	return file_proto_course_proto_rawDescGZIP(), []int{21}
+	return file_proto_course_proto_rawDescGZIP(), []int{22}
 }
 
 func (x *DeleteLectureRequest) GetId() string {
@@ -1722,7 +1976,7 @@ type DeleteLectureResponse struct {
 
 func (x *DeleteLectureResponse) Reset() {
 	*x = DeleteLectureResponse{}
-	mi := &file_proto_course_proto_msgTypes[22]
+	mi := &file_proto_course_proto_msgTypes[23]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1734,7 +1988,7 @@ func (x *DeleteLectureResponse) String() string {
 func (*DeleteLectureResponse) ProtoMessage() {}
 
 func (x *DeleteLectureResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_course_proto_msgTypes[22]
+	mi := &file_proto_course_proto_msgTypes[23]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1747,7 +2001,7 @@ func (x *DeleteLectureResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteLectureResponse.ProtoReflect.Descriptor instead.
 func (*DeleteLectureResponse) Descriptor() ([]byte, []int) {
-	return file_proto_course_proto_rawDescGZIP(), []int{22}
+	return file_proto_course_proto_rawDescGZIP(), []int{23}
 }
 
 func (x *DeleteLectureResponse) GetMessage() string {
@@ -1769,7 +2023,7 @@ type ListLecturesRequest struct {
 
 func (x *ListLecturesRequest) Reset() {
 	*x = ListLecturesRequest{}
-	mi := &file_proto_course_proto_msgTypes[23]
+	mi := &file_proto_course_proto_msgTypes[24]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1781,7 +2035,7 @@ func (x *ListLecturesRequest) String() string {
 func (*ListLecturesRequest) ProtoMessage() {}
 
 func (x *ListLecturesRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_course_proto_msgTypes[23]
+	mi := &file_proto_course_proto_msgTypes[24]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1794,7 +2048,7 @@ func (x *ListLecturesRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListLecturesRequest.ProtoReflect.Descriptor instead.
 func (*ListLecturesRequest) Descriptor() ([]byte, []int) {
-	return file_proto_course_proto_rawDescGZIP(), []int{23}
+	return file_proto_course_proto_rawDescGZIP(), []int{24}
 }
 
 func (x *ListLecturesRequest) GetCourseId() string {
@@ -1837,7 +2091,7 @@ type ListLecturesResponse struct {
 
 func (x *ListLecturesResponse) Reset() {
 	*x = ListLecturesResponse{}
-	mi := &file_proto_course_proto_msgTypes[24]
+	mi := &file_proto_course_proto_msgTypes[25]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1849,7 +2103,7 @@ func (x *ListLecturesResponse) String() string {
 func (*ListLecturesResponse) ProtoMessage() {}
 
 func (x *ListLecturesResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_course_proto_msgTypes[24]
+	mi := &file_proto_course_proto_msgTypes[25]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1862,7 +2116,7 @@ func (x *ListLecturesResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListLecturesResponse.ProtoReflect.Descriptor instead.
 func (*ListLecturesResponse) Descriptor() ([]byte, []int) {
-	return file_proto_course_proto_rawDescGZIP(), []int{24}
+	return file_proto_course_proto_rawDescGZIP(), []int{25}
 }
 
 func (x *ListLecturesResponse) GetLectures() []*Lecture {
@@ -1904,7 +2158,7 @@ type EnrollInCourseRequest struct {
 
 func (x *EnrollInCourseRequest) Reset() {
 	*x = EnrollInCourseRequest{}
-	mi := &file_proto_course_proto_msgTypes[25]
+	mi := &file_proto_course_proto_msgTypes[26]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1916,7 +2170,7 @@ func (x *EnrollInCourseRequest) String() string {
 func (*EnrollInCourseRequest) ProtoMessage() {}
 
 func (x *EnrollInCourseRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_course_proto_msgTypes[25]
+	mi := &file_proto_course_proto_msgTypes[26]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1929,7 +2183,7 @@ func (x *EnrollInCourseRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use EnrollInCourseRequest.ProtoReflect.Descriptor instead.
 func (*EnrollInCourseRequest) Descriptor() ([]byte, []int) {
-	return file_proto_course_proto_rawDescGZIP(), []int{25}
+	return file_proto_course_proto_rawDescGZIP(), []int{26}
 }
 
 func (x *EnrollInCourseRequest) GetUserId() string {
@@ -1956,7 +2210,7 @@ type EnrollInCourseResponse struct {
 
 func (x *EnrollInCourseResponse) Reset() {
 	*x = EnrollInCourseResponse{}
-	mi := &file_proto_course_proto_msgTypes[26]
+	mi := &file_proto_course_proto_msgTypes[27]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1968,7 +2222,7 @@ func (x *EnrollInCourseResponse) String() string {
 func (*EnrollInCourseResponse) ProtoMessage() {}
 
 func (x *EnrollInCourseResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_course_proto_msgTypes[26]
+	mi := &file_proto_course_proto_msgTypes[27]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1981,7 +2235,7 @@ func (x *EnrollInCourseResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use EnrollInCourseResponse.ProtoReflect.Descriptor instead.
 func (*EnrollInCourseResponse) Descriptor() ([]byte, []int) {
-	return file_proto_course_proto_rawDescGZIP(), []int{26}
+	return file_proto_course_proto_rawDescGZIP(), []int{27}
 }
 
 func (x *EnrollInCourseResponse) GetEnrollment() *Enrollment {
@@ -2008,7 +2262,7 @@ type GetEnrollmentRequest struct {
 
 func (x *GetEnrollmentRequest) Reset() {
 	*x = GetEnrollmentRequest{}
-	mi := &file_proto_course_proto_msgTypes[27]
+	mi := &file_proto_course_proto_msgTypes[28]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2020,7 +2274,7 @@ func (x *GetEnrollmentRequest) String() string {
 func (*GetEnrollmentRequest) ProtoMessage() {}
 
 func (x *GetEnrollmentRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_course_proto_msgTypes[27]
+	mi := &file_proto_course_proto_msgTypes[28]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2033,7 +2287,7 @@ func (x *GetEnrollmentRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetEnrollmentRequest.ProtoReflect.Descriptor instead.
 func (*GetEnrollmentRequest) Descriptor() ([]byte, []int) {
-	return file_proto_course_proto_rawDescGZIP(), []int{27}
+	return file_proto_course_proto_rawDescGZIP(), []int{28}
 }
 
 func (x *GetEnrollmentRequest) GetUserId() string {
@@ -2059,7 +2313,7 @@ type GetEnrollmentResponse struct {
 
 func (x *GetEnrollmentResponse) Reset() {
 	*x = GetEnrollmentResponse{}
-	mi := &file_proto_course_proto_msgTypes[28]
+	mi := &file_proto_course_proto_msgTypes[29]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2071,7 +2325,7 @@ func (x *GetEnrollmentResponse) String() string {
 func (*GetEnrollmentResponse) ProtoMessage() {}
 
 func (x *GetEnrollmentResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_course_proto_msgTypes[28]
+	mi := &file_proto_course_proto_msgTypes[29]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2084,7 +2338,7 @@ func (x *GetEnrollmentResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetEnrollmentResponse.ProtoReflect.Descriptor instead.
 func (*GetEnrollmentResponse) Descriptor() ([]byte, []int) {
-	return file_proto_course_proto_rawDescGZIP(), []int{28}
+	return file_proto_course_proto_rawDescGZIP(), []int{29}
 }
 
 func (x *GetEnrollmentResponse) GetEnrollment() *Enrollment {
@@ -2106,7 +2360,7 @@ type ListEnrollmentsRequest struct {
 
 func (x *ListEnrollmentsRequest) Reset() {
 	*x = ListEnrollmentsRequest{}
-	mi := &file_proto_course_proto_msgTypes[29]
+	mi := &file_proto_course_proto_msgTypes[30]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2118,7 +2372,7 @@ func (x *ListEnrollmentsRequest) String() string {
 func (*ListEnrollmentsRequest) ProtoMessage() {}
 
 func (x *ListEnrollmentsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_course_proto_msgTypes[29]
+	mi := &file_proto_course_proto_msgTypes[30]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2131,7 +2385,7 @@ func (x *ListEnrollmentsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListEnrollmentsRequest.ProtoReflect.Descriptor instead.
 func (*ListEnrollmentsRequest) Descriptor() ([]byte, []int) {
-	return file_proto_course_proto_rawDescGZIP(), []int{29}
+	return file_proto_course_proto_rawDescGZIP(), []int{30}
 }
 
 func (x *ListEnrollmentsRequest) GetUserId() string {
@@ -2174,7 +2428,7 @@ type ListEnrollmentsResponse struct {
 
 func (x *ListEnrollmentsResponse) Reset() {
 	*x = ListEnrollmentsResponse{}
-	mi := &file_proto_course_proto_msgTypes[30]
+	mi := &file_proto_course_proto_msgTypes[31]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2186,7 +2440,7 @@ func (x *ListEnrollmentsResponse) String() string {
 func (*ListEnrollmentsResponse) ProtoMessage() {}
 
 func (x *ListEnrollmentsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_course_proto_msgTypes[30]
+	mi := &file_proto_course_proto_msgTypes[31]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2199,7 +2453,7 @@ func (x *ListEnrollmentsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListEnrollmentsResponse.ProtoReflect.Descriptor instead.
 func (*ListEnrollmentsResponse) Descriptor() ([]byte, []int) {
-	return file_proto_course_proto_rawDescGZIP(), []int{30}
+	return file_proto_course_proto_rawDescGZIP(), []int{31}
 }
 
 func (x *ListEnrollmentsResponse) GetEnrollments() []*Enrollment {
@@ -2242,7 +2496,7 @@ type ValidateCourseAccessRequest struct {
 
 func (x *ValidateCourseAccessRequest) Reset() {
 	*x = ValidateCourseAccessRequest{}
-	mi := &file_proto_course_proto_msgTypes[31]
+	mi := &file_proto_course_proto_msgTypes[32]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2254,7 +2508,7 @@ func (x *ValidateCourseAccessRequest) String() string {
 func (*ValidateCourseAccessRequest) ProtoMessage() {}
 
 func (x *ValidateCourseAccessRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_course_proto_msgTypes[31]
+	mi := &file_proto_course_proto_msgTypes[32]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2267,7 +2521,7 @@ func (x *ValidateCourseAccessRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ValidateCourseAccessRequest.ProtoReflect.Descriptor instead.
 func (*ValidateCourseAccessRequest) Descriptor() ([]byte, []int) {
-	return file_proto_course_proto_rawDescGZIP(), []int{31}
+	return file_proto_course_proto_rawDescGZIP(), []int{32}
 }
 
 func (x *ValidateCourseAccessRequest) GetUserId() string {
@@ -2307,7 +2561,7 @@ type ValidateCourseAccessResponse struct {
 
 func (x *ValidateCourseAccessResponse) Reset() {
 	*x = ValidateCourseAccessResponse{}
-	mi := &file_proto_course_proto_msgTypes[32]
+	mi := &file_proto_course_proto_msgTypes[33]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2319,7 +2573,7 @@ func (x *ValidateCourseAccessResponse) String() string {
 func (*ValidateCourseAccessResponse) ProtoMessage() {}
 
 func (x *ValidateCourseAccessResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_course_proto_msgTypes[32]
+	mi := &file_proto_course_proto_msgTypes[33]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2332,7 +2586,7 @@ func (x *ValidateCourseAccessResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ValidateCourseAccessResponse.ProtoReflect.Descriptor instead.
 func (*ValidateCourseAccessResponse) Descriptor() ([]byte, []int) {
-	return file_proto_course_proto_rawDescGZIP(), []int{32}
+	return file_proto_course_proto_rawDescGZIP(), []int{33}
 }
 
 func (x *ValidateCourseAccessResponse) GetHasAccess() bool {
@@ -2403,7 +2657,7 @@ type ValidateLectureAccessRequest struct {
 
 func (x *ValidateLectureAccessRequest) Reset() {
 	*x = ValidateLectureAccessRequest{}
-	mi := &file_proto_course_proto_msgTypes[33]
+	mi := &file_proto_course_proto_msgTypes[34]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2415,7 +2669,7 @@ func (x *ValidateLectureAccessRequest) String() string {
 func (*ValidateLectureAccessRequest) ProtoMessage() {}
 
 func (x *ValidateLectureAccessRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_course_proto_msgTypes[33]
+	mi := &file_proto_course_proto_msgTypes[34]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2428,7 +2682,7 @@ func (x *ValidateLectureAccessRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ValidateLectureAccessRequest.ProtoReflect.Descriptor instead.
 func (*ValidateLectureAccessRequest) Descriptor() ([]byte, []int) {
-	return file_proto_course_proto_rawDescGZIP(), []int{33}
+	return file_proto_course_proto_rawDescGZIP(), []int{34}
 }
 
 func (x *ValidateLectureAccessRequest) GetUserId() string {
@@ -2478,7 +2732,7 @@ type ValidateLectureAccessResponse struct {
 
 func (x *ValidateLectureAccessResponse) Reset() {
 	*x = ValidateLectureAccessResponse{}
-	mi := &file_proto_course_proto_msgTypes[34]
+	mi := &file_proto_course_proto_msgTypes[35]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2490,7 +2744,7 @@ func (x *ValidateLectureAccessResponse) String() string {
 func (*ValidateLectureAccessResponse) ProtoMessage() {}
 
 func (x *ValidateLectureAccessResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_course_proto_msgTypes[34]
+	mi := &file_proto_course_proto_msgTypes[35]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2503,7 +2757,7 @@ func (x *ValidateLectureAccessResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ValidateLectureAccessResponse.ProtoReflect.Descriptor instead.
 func (*ValidateLectureAccessResponse) Descriptor() ([]byte, []int) {
-	return file_proto_course_proto_rawDescGZIP(), []int{34}
+	return file_proto_course_proto_rawDescGZIP(), []int{35}
 }
 
 func (x *ValidateLectureAccessResponse) GetHasAccess() bool {
@@ -2595,7 +2849,7 @@ type ValidateResourceAccessRequest struct {
 
 func (x *ValidateResourceAccessRequest) Reset() {
 	*x = ValidateResourceAccessRequest{}
-	mi := &file_proto_course_proto_msgTypes[35]
+	mi := &file_proto_course_proto_msgTypes[36]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2607,7 +2861,7 @@ func (x *ValidateResourceAccessRequest) String() string {
 func (*ValidateResourceAccessRequest) ProtoMessage() {}
 
 func (x *ValidateResourceAccessRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_course_proto_msgTypes[35]
+	mi := &file_proto_course_proto_msgTypes[36]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2620,7 +2874,7 @@ func (x *ValidateResourceAccessRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ValidateResourceAccessRequest.ProtoReflect.Descriptor instead.
 func (*ValidateResourceAccessRequest) Descriptor() ([]byte, []int) {
-	return file_proto_course_proto_rawDescGZIP(), []int{35}
+	return file_proto_course_proto_rawDescGZIP(), []int{36}
 }
 
 func (x *ValidateResourceAccessRequest) GetUserId() string {
@@ -2666,7 +2920,7 @@ type ValidateResourceAccessResponse struct {
 
 func (x *ValidateResourceAccessResponse) Reset() {
 	*x = ValidateResourceAccessResponse{}
-	mi := &file_proto_course_proto_msgTypes[36]
+	mi := &file_proto_course_proto_msgTypes[37]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2678,7 +2932,7 @@ func (x *ValidateResourceAccessResponse) String() string {
 func (*ValidateResourceAccessResponse) ProtoMessage() {}
 
 func (x *ValidateResourceAccessResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_course_proto_msgTypes[36]
+	mi := &file_proto_course_proto_msgTypes[37]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2691,7 +2945,7 @@ func (x *ValidateResourceAccessResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ValidateResourceAccessResponse.ProtoReflect.Descriptor instead.
 func (*ValidateResourceAccessResponse) Descriptor() ([]byte, []int) {
-	return file_proto_course_proto_rawDescGZIP(), []int{36}
+	return file_proto_course_proto_rawDescGZIP(), []int{37}
 }
 
 func (x *ValidateResourceAccessResponse) GetHasAccess() bool {
@@ -2753,7 +3007,7 @@ type BatchAccessValidationItem struct {
 
 func (x *BatchAccessValidationItem) Reset() {
 	*x = BatchAccessValidationItem{}
-	mi := &file_proto_course_proto_msgTypes[37]
+	mi := &file_proto_course_proto_msgTypes[38]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2765,7 +3019,7 @@ func (x *BatchAccessValidationItem) String() string {
 func (*BatchAccessValidationItem) ProtoMessage() {}
 
 func (x *BatchAccessValidationItem) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_course_proto_msgTypes[37]
+	mi := &file_proto_course_proto_msgTypes[38]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2778,7 +3032,7 @@ func (x *BatchAccessValidationItem) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use BatchAccessValidationItem.ProtoReflect.Descriptor instead.
 func (*BatchAccessValidationItem) Descriptor() ([]byte, []int) {
-	return file_proto_course_proto_rawDescGZIP(), []int{37}
+	return file_proto_course_proto_rawDescGZIP(), []int{38}
 }
 
 func (x *BatchAccessValidationItem) GetResourceId() string {
@@ -2806,7 +3060,7 @@ type BatchValidateAccessRequest struct {
 
 func (x *BatchValidateAccessRequest) Reset() {
 	*x = BatchValidateAccessRequest{}
-	mi := &file_proto_course_proto_msgTypes[38]
+	mi := &file_proto_course_proto_msgTypes[39]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2818,7 +3072,7 @@ func (x *BatchValidateAccessRequest) String() string {
 func (*BatchValidateAccessRequest) ProtoMessage() {}
 
 func (x *BatchValidateAccessRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_course_proto_msgTypes[38]
+	mi := &file_proto_course_proto_msgTypes[39]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2831,7 +3085,7 @@ func (x *BatchValidateAccessRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use BatchValidateAccessRequest.ProtoReflect.Descriptor instead.
 func (*BatchValidateAccessRequest) Descriptor() ([]byte, []int) {
-	return file_proto_course_proto_rawDescGZIP(), []int{38}
+	return file_proto_course_proto_rawDescGZIP(), []int{39}
 }
 
 func (x *BatchValidateAccessRequest) GetUserId() string {
@@ -2869,7 +3123,7 @@ type BatchAccessValidationResult struct {
 
 func (x *BatchAccessValidationResult) Reset() {
 	*x = BatchAccessValidationResult{}
-	mi := &file_proto_course_proto_msgTypes[39]
+	mi := &file_proto_course_proto_msgTypes[40]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2881,7 +3135,7 @@ func (x *BatchAccessValidationResult) String() string {
 func (*BatchAccessValidationResult) ProtoMessage() {}
 
 func (x *BatchAccessValidationResult) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_course_proto_msgTypes[39]
+	mi := &file_proto_course_proto_msgTypes[40]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2894,7 +3148,7 @@ func (x *BatchAccessValidationResult) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use BatchAccessValidationResult.ProtoReflect.Descriptor instead.
 func (*BatchAccessValidationResult) Descriptor() ([]byte, []int) {
-	return file_proto_course_proto_rawDescGZIP(), []int{39}
+	return file_proto_course_proto_rawDescGZIP(), []int{40}
 }
 
 func (x *BatchAccessValidationResult) GetResourceId() string {
@@ -2948,7 +3202,7 @@ type BatchValidateAccessResponse struct {
 
 func (x *BatchValidateAccessResponse) Reset() {
 	*x = BatchValidateAccessResponse{}
-	mi := &file_proto_course_proto_msgTypes[40]
+	mi := &file_proto_course_proto_msgTypes[41]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2960,7 +3214,7 @@ func (x *BatchValidateAccessResponse) String() string {
 func (*BatchValidateAccessResponse) ProtoMessage() {}
 
 func (x *BatchValidateAccessResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_course_proto_msgTypes[40]
+	mi := &file_proto_course_proto_msgTypes[41]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2973,7 +3227,7 @@ func (x *BatchValidateAccessResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use BatchValidateAccessResponse.ProtoReflect.Descriptor instead.
 func (*BatchValidateAccessResponse) Descriptor() ([]byte, []int) {
-	return file_proto_course_proto_rawDescGZIP(), []int{40}
+	return file_proto_course_proto_rawDescGZIP(), []int{41}
 }
 
 func (x *BatchValidateAccessResponse) GetResults() []*BatchAccessValidationResult {
@@ -2987,7 +3241,7 @@ var File_proto_course_proto protoreflect.FileDescriptor
 
 const file_proto_course_proto_rawDesc = "" +
 	"\n" +
-	"\x12proto/course.proto\x12\x06course\x1a\x1fgoogle/protobuf/timestamp.proto\"\xda\x04\n" +
+	"\x12proto/course.proto\x12\x06course\x1a\x1fgoogle/protobuf/timestamp.proto\"\xbc\b\n" +
 	"\x06Course\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x14\n" +
 	"\x05title\x18\x02 \x01(\tR\x05title\x12 \n" +
@@ -3009,23 +3263,56 @@ const file_proto_course_proto_rawDesc = "" +
 	"\n" +
 	"created_at\x18\x11 \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\x129\n" +
 	"\n" +
-	"updated_at\x18\x12 \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAt\"\x9b\x03\n" +
+	"updated_at\x18\x12 \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAt\x12)\n" +
+	"\x10difficulty_level\x18\x13 \x01(\tR\x0fdifficultyLevel\x12\x1a\n" +
+	"\blanguage\x18\x14 \x01(\tR\blanguage\x12+\n" +
+	"\x11learning_outcomes\x18\x15 \x03(\tR\x10learningOutcomes\x12\"\n" +
+	"\frequirements\x18\x16 \x03(\tR\frequirements\x128\n" +
+	"\x18estimated_duration_hours\x18\x17 \x01(\x05R\x16estimatedDurationHours\x126\n" +
+	"\x17auto_approve_enrollment\x18\x18 \x01(\bR\x15autoApproveEnrollment\x12%\n" +
+	"\x0eallow_previews\x18\x19 \x01(\bR\rallowPreviews\x12'\n" +
+	"\x0fhas_certificate\x18\x1a \x01(\bR\x0ehasCertificate\x12#\n" +
+	"\rmobile_access\x18\x1b \x01(\bR\fmobileAccess\x12+\n" +
+	"\blectures\x18\x1c \x03(\v2\x0f.course.LectureR\blectures\x124\n" +
+	"\tresources\x18\x1d \x03(\v2\x16.course.CourseResourceR\tresources\"\xaf\x03\n" +
 	"\aLecture\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1b\n" +
 	"\tcourse_id\x18\x02 \x01(\tR\bcourseId\x12\x14\n" +
 	"\x05title\x18\x03 \x01(\tR\x05title\x12 \n" +
-	"\vdescription\x18\x04 \x01(\tR\vdescription\x12!\n" +
-	"\forder_number\x18\x05 \x01(\x05R\vorderNumber\x12)\n" +
-	"\x10duration_minutes\x18\x06 \x01(\x05R\x0fdurationMinutes\x12\x1b\n" +
-	"\tvideo_url\x18\a \x01(\tR\bvideoUrl\x12\x19\n" +
-	"\bvideo_id\x18\b \x01(\tR\avideoId\x12\x16\n" +
-	"\x06status\x18\t \x01(\tR\x06status\x12\x17\n" +
-	"\ais_free\x18\n" +
-	" \x01(\bR\x06isFree\x129\n" +
+	"\vdescription\x18\x04 \x01(\tR\vdescription\x12\x12\n" +
+	"\x04type\x18\x05 \x01(\tR\x04type\x12!\n" +
+	"\forder_number\x18\x06 \x01(\x05R\vorderNumber\x12)\n" +
+	"\x10duration_minutes\x18\a \x01(\x05R\x0fdurationMinutes\x12\x1b\n" +
+	"\tvideo_url\x18\b \x01(\tR\bvideoUrl\x12\x19\n" +
+	"\bvideo_id\x18\t \x01(\tR\avideoId\x12\x16\n" +
+	"\x06status\x18\n" +
+	" \x01(\tR\x06status\x12\x17\n" +
+	"\ais_free\x18\v \x01(\bR\x06isFree\x129\n" +
 	"\n" +
-	"created_at\x18\v \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\x129\n" +
+	"created_at\x18\f \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\x129\n" +
 	"\n" +
-	"updated_at\x18\f \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAt\"\xd8\x02\n" +
+	"updated_at\x18\r \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAt\"\xaf\x04\n" +
+	"\x0eCourseResource\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1b\n" +
+	"\tcourse_id\x18\x02 \x01(\tR\bcourseId\x12\x17\n" +
+	"\afile_id\x18\x03 \x01(\tR\x06fileId\x12#\n" +
+	"\rresource_type\x18\x04 \x01(\tR\fresourceType\x12#\n" +
+	"\rdisplay_order\x18\x05 \x01(\x05R\fdisplayOrder\x12\x1f\n" +
+	"\vis_required\x18\x06 \x01(\bR\n" +
+	"isRequired\x129\n" +
+	"\n" +
+	"created_at\x18\a \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\x129\n" +
+	"\n" +
+	"updated_at\x18\b \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAt\x12\x1a\n" +
+	"\bfilename\x18\t \x01(\tR\bfilename\x12#\n" +
+	"\roriginal_name\x18\n" +
+	" \x01(\tR\foriginalName\x12\x1b\n" +
+	"\tfile_type\x18\v \x01(\tR\bfileType\x12\x1b\n" +
+	"\tfile_size\x18\f \x01(\x03R\bfileSize\x12!\n" +
+	"\fdownload_url\x18\r \x01(\tR\vdownloadUrl\x12\x1b\n" +
+	"\tis_public\x18\x0e \x01(\bR\bisPublic\x12;\n" +
+	"\vuploaded_at\x18\x0f \x01(\v2\x1a.google.protobuf.TimestampR\n" +
+	"uploadedAt\"\xd8\x02\n" +
 	"\n" +
 	"Enrollment\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x17\n" +
@@ -3282,114 +3569,120 @@ func file_proto_course_proto_rawDescGZIP() []byte {
 	return file_proto_course_proto_rawDescData
 }
 
-var file_proto_course_proto_msgTypes = make([]protoimpl.MessageInfo, 41)
+var file_proto_course_proto_msgTypes = make([]protoimpl.MessageInfo, 42)
 var file_proto_course_proto_goTypes = []any{
 	(*Course)(nil),                         // 0: course.Course
 	(*Lecture)(nil),                        // 1: course.Lecture
-	(*Enrollment)(nil),                     // 2: course.Enrollment
-	(*CreateCourseRequest)(nil),            // 3: course.CreateCourseRequest
-	(*CreateCourseResponse)(nil),           // 4: course.CreateCourseResponse
-	(*GetCourseRequest)(nil),               // 5: course.GetCourseRequest
-	(*GetCourseResponse)(nil),              // 6: course.GetCourseResponse
-	(*UpdateCourseRequest)(nil),            // 7: course.UpdateCourseRequest
-	(*UpdateCourseResponse)(nil),           // 8: course.UpdateCourseResponse
-	(*DeleteCourseRequest)(nil),            // 9: course.DeleteCourseRequest
-	(*DeleteCourseResponse)(nil),           // 10: course.DeleteCourseResponse
-	(*ListCoursesRequest)(nil),             // 11: course.ListCoursesRequest
-	(*ListCoursesResponse)(nil),            // 12: course.ListCoursesResponse
-	(*SearchCoursesRequest)(nil),           // 13: course.SearchCoursesRequest
-	(*SearchCoursesResponse)(nil),          // 14: course.SearchCoursesResponse
-	(*CreateLectureRequest)(nil),           // 15: course.CreateLectureRequest
-	(*CreateLectureResponse)(nil),          // 16: course.CreateLectureResponse
-	(*GetLectureRequest)(nil),              // 17: course.GetLectureRequest
-	(*GetLectureResponse)(nil),             // 18: course.GetLectureResponse
-	(*UpdateLectureRequest)(nil),           // 19: course.UpdateLectureRequest
-	(*UpdateLectureResponse)(nil),          // 20: course.UpdateLectureResponse
-	(*DeleteLectureRequest)(nil),           // 21: course.DeleteLectureRequest
-	(*DeleteLectureResponse)(nil),          // 22: course.DeleteLectureResponse
-	(*ListLecturesRequest)(nil),            // 23: course.ListLecturesRequest
-	(*ListLecturesResponse)(nil),           // 24: course.ListLecturesResponse
-	(*EnrollInCourseRequest)(nil),          // 25: course.EnrollInCourseRequest
-	(*EnrollInCourseResponse)(nil),         // 26: course.EnrollInCourseResponse
-	(*GetEnrollmentRequest)(nil),           // 27: course.GetEnrollmentRequest
-	(*GetEnrollmentResponse)(nil),          // 28: course.GetEnrollmentResponse
-	(*ListEnrollmentsRequest)(nil),         // 29: course.ListEnrollmentsRequest
-	(*ListEnrollmentsResponse)(nil),        // 30: course.ListEnrollmentsResponse
-	(*ValidateCourseAccessRequest)(nil),    // 31: course.ValidateCourseAccessRequest
-	(*ValidateCourseAccessResponse)(nil),   // 32: course.ValidateCourseAccessResponse
-	(*ValidateLectureAccessRequest)(nil),   // 33: course.ValidateLectureAccessRequest
-	(*ValidateLectureAccessResponse)(nil),  // 34: course.ValidateLectureAccessResponse
-	(*ValidateResourceAccessRequest)(nil),  // 35: course.ValidateResourceAccessRequest
-	(*ValidateResourceAccessResponse)(nil), // 36: course.ValidateResourceAccessResponse
-	(*BatchAccessValidationItem)(nil),      // 37: course.BatchAccessValidationItem
-	(*BatchValidateAccessRequest)(nil),     // 38: course.BatchValidateAccessRequest
-	(*BatchAccessValidationResult)(nil),    // 39: course.BatchAccessValidationResult
-	(*BatchValidateAccessResponse)(nil),    // 40: course.BatchValidateAccessResponse
-	(*timestamppb.Timestamp)(nil),          // 41: google.protobuf.Timestamp
+	(*CourseResource)(nil),                 // 2: course.CourseResource
+	(*Enrollment)(nil),                     // 3: course.Enrollment
+	(*CreateCourseRequest)(nil),            // 4: course.CreateCourseRequest
+	(*CreateCourseResponse)(nil),           // 5: course.CreateCourseResponse
+	(*GetCourseRequest)(nil),               // 6: course.GetCourseRequest
+	(*GetCourseResponse)(nil),              // 7: course.GetCourseResponse
+	(*UpdateCourseRequest)(nil),            // 8: course.UpdateCourseRequest
+	(*UpdateCourseResponse)(nil),           // 9: course.UpdateCourseResponse
+	(*DeleteCourseRequest)(nil),            // 10: course.DeleteCourseRequest
+	(*DeleteCourseResponse)(nil),           // 11: course.DeleteCourseResponse
+	(*ListCoursesRequest)(nil),             // 12: course.ListCoursesRequest
+	(*ListCoursesResponse)(nil),            // 13: course.ListCoursesResponse
+	(*SearchCoursesRequest)(nil),           // 14: course.SearchCoursesRequest
+	(*SearchCoursesResponse)(nil),          // 15: course.SearchCoursesResponse
+	(*CreateLectureRequest)(nil),           // 16: course.CreateLectureRequest
+	(*CreateLectureResponse)(nil),          // 17: course.CreateLectureResponse
+	(*GetLectureRequest)(nil),              // 18: course.GetLectureRequest
+	(*GetLectureResponse)(nil),             // 19: course.GetLectureResponse
+	(*UpdateLectureRequest)(nil),           // 20: course.UpdateLectureRequest
+	(*UpdateLectureResponse)(nil),          // 21: course.UpdateLectureResponse
+	(*DeleteLectureRequest)(nil),           // 22: course.DeleteLectureRequest
+	(*DeleteLectureResponse)(nil),          // 23: course.DeleteLectureResponse
+	(*ListLecturesRequest)(nil),            // 24: course.ListLecturesRequest
+	(*ListLecturesResponse)(nil),           // 25: course.ListLecturesResponse
+	(*EnrollInCourseRequest)(nil),          // 26: course.EnrollInCourseRequest
+	(*EnrollInCourseResponse)(nil),         // 27: course.EnrollInCourseResponse
+	(*GetEnrollmentRequest)(nil),           // 28: course.GetEnrollmentRequest
+	(*GetEnrollmentResponse)(nil),          // 29: course.GetEnrollmentResponse
+	(*ListEnrollmentsRequest)(nil),         // 30: course.ListEnrollmentsRequest
+	(*ListEnrollmentsResponse)(nil),        // 31: course.ListEnrollmentsResponse
+	(*ValidateCourseAccessRequest)(nil),    // 32: course.ValidateCourseAccessRequest
+	(*ValidateCourseAccessResponse)(nil),   // 33: course.ValidateCourseAccessResponse
+	(*ValidateLectureAccessRequest)(nil),   // 34: course.ValidateLectureAccessRequest
+	(*ValidateLectureAccessResponse)(nil),  // 35: course.ValidateLectureAccessResponse
+	(*ValidateResourceAccessRequest)(nil),  // 36: course.ValidateResourceAccessRequest
+	(*ValidateResourceAccessResponse)(nil), // 37: course.ValidateResourceAccessResponse
+	(*BatchAccessValidationItem)(nil),      // 38: course.BatchAccessValidationItem
+	(*BatchValidateAccessRequest)(nil),     // 39: course.BatchValidateAccessRequest
+	(*BatchAccessValidationResult)(nil),    // 40: course.BatchAccessValidationResult
+	(*BatchValidateAccessResponse)(nil),    // 41: course.BatchValidateAccessResponse
+	(*timestamppb.Timestamp)(nil),          // 42: google.protobuf.Timestamp
 }
 var file_proto_course_proto_depIdxs = []int32{
-	41, // 0: course.Course.created_at:type_name -> google.protobuf.Timestamp
-	41, // 1: course.Course.updated_at:type_name -> google.protobuf.Timestamp
-	41, // 2: course.Lecture.created_at:type_name -> google.protobuf.Timestamp
-	41, // 3: course.Lecture.updated_at:type_name -> google.protobuf.Timestamp
-	41, // 4: course.Enrollment.enrolled_at:type_name -> google.protobuf.Timestamp
-	41, // 5: course.Enrollment.completed_at:type_name -> google.protobuf.Timestamp
-	41, // 6: course.Enrollment.last_accessed:type_name -> google.protobuf.Timestamp
-	0,  // 7: course.CreateCourseResponse.course:type_name -> course.Course
-	0,  // 8: course.GetCourseResponse.course:type_name -> course.Course
-	0,  // 9: course.UpdateCourseResponse.course:type_name -> course.Course
-	0,  // 10: course.ListCoursesResponse.courses:type_name -> course.Course
-	0,  // 11: course.SearchCoursesResponse.courses:type_name -> course.Course
-	1,  // 12: course.CreateLectureResponse.lecture:type_name -> course.Lecture
-	1,  // 13: course.GetLectureResponse.lecture:type_name -> course.Lecture
-	1,  // 14: course.UpdateLectureResponse.lecture:type_name -> course.Lecture
-	1,  // 15: course.ListLecturesResponse.lectures:type_name -> course.Lecture
-	2,  // 16: course.EnrollInCourseResponse.enrollment:type_name -> course.Enrollment
-	2,  // 17: course.GetEnrollmentResponse.enrollment:type_name -> course.Enrollment
-	2,  // 18: course.ListEnrollmentsResponse.enrollments:type_name -> course.Enrollment
-	37, // 19: course.BatchValidateAccessRequest.items:type_name -> course.BatchAccessValidationItem
-	39, // 20: course.BatchValidateAccessResponse.results:type_name -> course.BatchAccessValidationResult
-	3,  // 21: course.CourseService.CreateCourse:input_type -> course.CreateCourseRequest
-	5,  // 22: course.CourseService.GetCourse:input_type -> course.GetCourseRequest
-	7,  // 23: course.CourseService.UpdateCourse:input_type -> course.UpdateCourseRequest
-	9,  // 24: course.CourseService.DeleteCourse:input_type -> course.DeleteCourseRequest
-	11, // 25: course.CourseService.ListCourses:input_type -> course.ListCoursesRequest
-	13, // 26: course.CourseService.SearchCourses:input_type -> course.SearchCoursesRequest
-	15, // 27: course.CourseService.CreateLecture:input_type -> course.CreateLectureRequest
-	17, // 28: course.CourseService.GetLecture:input_type -> course.GetLectureRequest
-	19, // 29: course.CourseService.UpdateLecture:input_type -> course.UpdateLectureRequest
-	21, // 30: course.CourseService.DeleteLecture:input_type -> course.DeleteLectureRequest
-	23, // 31: course.CourseService.ListLectures:input_type -> course.ListLecturesRequest
-	25, // 32: course.CourseService.EnrollInCourse:input_type -> course.EnrollInCourseRequest
-	27, // 33: course.CourseService.GetEnrollment:input_type -> course.GetEnrollmentRequest
-	29, // 34: course.CourseService.ListEnrollments:input_type -> course.ListEnrollmentsRequest
-	31, // 35: course.AccessValidationService.ValidateCourseAccess:input_type -> course.ValidateCourseAccessRequest
-	33, // 36: course.AccessValidationService.ValidateLectureAccess:input_type -> course.ValidateLectureAccessRequest
-	35, // 37: course.AccessValidationService.ValidateResourceAccess:input_type -> course.ValidateResourceAccessRequest
-	38, // 38: course.AccessValidationService.BatchValidateAccess:input_type -> course.BatchValidateAccessRequest
-	4,  // 39: course.CourseService.CreateCourse:output_type -> course.CreateCourseResponse
-	6,  // 40: course.CourseService.GetCourse:output_type -> course.GetCourseResponse
-	8,  // 41: course.CourseService.UpdateCourse:output_type -> course.UpdateCourseResponse
-	10, // 42: course.CourseService.DeleteCourse:output_type -> course.DeleteCourseResponse
-	12, // 43: course.CourseService.ListCourses:output_type -> course.ListCoursesResponse
-	14, // 44: course.CourseService.SearchCourses:output_type -> course.SearchCoursesResponse
-	16, // 45: course.CourseService.CreateLecture:output_type -> course.CreateLectureResponse
-	18, // 46: course.CourseService.GetLecture:output_type -> course.GetLectureResponse
-	20, // 47: course.CourseService.UpdateLecture:output_type -> course.UpdateLectureResponse
-	22, // 48: course.CourseService.DeleteLecture:output_type -> course.DeleteLectureResponse
-	24, // 49: course.CourseService.ListLectures:output_type -> course.ListLecturesResponse
-	26, // 50: course.CourseService.EnrollInCourse:output_type -> course.EnrollInCourseResponse
-	28, // 51: course.CourseService.GetEnrollment:output_type -> course.GetEnrollmentResponse
-	30, // 52: course.CourseService.ListEnrollments:output_type -> course.ListEnrollmentsResponse
-	32, // 53: course.AccessValidationService.ValidateCourseAccess:output_type -> course.ValidateCourseAccessResponse
-	34, // 54: course.AccessValidationService.ValidateLectureAccess:output_type -> course.ValidateLectureAccessResponse
-	36, // 55: course.AccessValidationService.ValidateResourceAccess:output_type -> course.ValidateResourceAccessResponse
-	40, // 56: course.AccessValidationService.BatchValidateAccess:output_type -> course.BatchValidateAccessResponse
-	39, // [39:57] is the sub-list for method output_type
-	21, // [21:39] is the sub-list for method input_type
-	21, // [21:21] is the sub-list for extension type_name
-	21, // [21:21] is the sub-list for extension extendee
-	0,  // [0:21] is the sub-list for field type_name
+	42, // 0: course.Course.created_at:type_name -> google.protobuf.Timestamp
+	42, // 1: course.Course.updated_at:type_name -> google.protobuf.Timestamp
+	1,  // 2: course.Course.lectures:type_name -> course.Lecture
+	2,  // 3: course.Course.resources:type_name -> course.CourseResource
+	42, // 4: course.Lecture.created_at:type_name -> google.protobuf.Timestamp
+	42, // 5: course.Lecture.updated_at:type_name -> google.protobuf.Timestamp
+	42, // 6: course.CourseResource.created_at:type_name -> google.protobuf.Timestamp
+	42, // 7: course.CourseResource.updated_at:type_name -> google.protobuf.Timestamp
+	42, // 8: course.CourseResource.uploaded_at:type_name -> google.protobuf.Timestamp
+	42, // 9: course.Enrollment.enrolled_at:type_name -> google.protobuf.Timestamp
+	42, // 10: course.Enrollment.completed_at:type_name -> google.protobuf.Timestamp
+	42, // 11: course.Enrollment.last_accessed:type_name -> google.protobuf.Timestamp
+	0,  // 12: course.CreateCourseResponse.course:type_name -> course.Course
+	0,  // 13: course.GetCourseResponse.course:type_name -> course.Course
+	0,  // 14: course.UpdateCourseResponse.course:type_name -> course.Course
+	0,  // 15: course.ListCoursesResponse.courses:type_name -> course.Course
+	0,  // 16: course.SearchCoursesResponse.courses:type_name -> course.Course
+	1,  // 17: course.CreateLectureResponse.lecture:type_name -> course.Lecture
+	1,  // 18: course.GetLectureResponse.lecture:type_name -> course.Lecture
+	1,  // 19: course.UpdateLectureResponse.lecture:type_name -> course.Lecture
+	1,  // 20: course.ListLecturesResponse.lectures:type_name -> course.Lecture
+	3,  // 21: course.EnrollInCourseResponse.enrollment:type_name -> course.Enrollment
+	3,  // 22: course.GetEnrollmentResponse.enrollment:type_name -> course.Enrollment
+	3,  // 23: course.ListEnrollmentsResponse.enrollments:type_name -> course.Enrollment
+	38, // 24: course.BatchValidateAccessRequest.items:type_name -> course.BatchAccessValidationItem
+	40, // 25: course.BatchValidateAccessResponse.results:type_name -> course.BatchAccessValidationResult
+	4,  // 26: course.CourseService.CreateCourse:input_type -> course.CreateCourseRequest
+	6,  // 27: course.CourseService.GetCourse:input_type -> course.GetCourseRequest
+	8,  // 28: course.CourseService.UpdateCourse:input_type -> course.UpdateCourseRequest
+	10, // 29: course.CourseService.DeleteCourse:input_type -> course.DeleteCourseRequest
+	12, // 30: course.CourseService.ListCourses:input_type -> course.ListCoursesRequest
+	14, // 31: course.CourseService.SearchCourses:input_type -> course.SearchCoursesRequest
+	16, // 32: course.CourseService.CreateLecture:input_type -> course.CreateLectureRequest
+	18, // 33: course.CourseService.GetLecture:input_type -> course.GetLectureRequest
+	20, // 34: course.CourseService.UpdateLecture:input_type -> course.UpdateLectureRequest
+	22, // 35: course.CourseService.DeleteLecture:input_type -> course.DeleteLectureRequest
+	24, // 36: course.CourseService.ListLectures:input_type -> course.ListLecturesRequest
+	26, // 37: course.CourseService.EnrollInCourse:input_type -> course.EnrollInCourseRequest
+	28, // 38: course.CourseService.GetEnrollment:input_type -> course.GetEnrollmentRequest
+	30, // 39: course.CourseService.ListEnrollments:input_type -> course.ListEnrollmentsRequest
+	32, // 40: course.AccessValidationService.ValidateCourseAccess:input_type -> course.ValidateCourseAccessRequest
+	34, // 41: course.AccessValidationService.ValidateLectureAccess:input_type -> course.ValidateLectureAccessRequest
+	36, // 42: course.AccessValidationService.ValidateResourceAccess:input_type -> course.ValidateResourceAccessRequest
+	39, // 43: course.AccessValidationService.BatchValidateAccess:input_type -> course.BatchValidateAccessRequest
+	5,  // 44: course.CourseService.CreateCourse:output_type -> course.CreateCourseResponse
+	7,  // 45: course.CourseService.GetCourse:output_type -> course.GetCourseResponse
+	9,  // 46: course.CourseService.UpdateCourse:output_type -> course.UpdateCourseResponse
+	11, // 47: course.CourseService.DeleteCourse:output_type -> course.DeleteCourseResponse
+	13, // 48: course.CourseService.ListCourses:output_type -> course.ListCoursesResponse
+	15, // 49: course.CourseService.SearchCourses:output_type -> course.SearchCoursesResponse
+	17, // 50: course.CourseService.CreateLecture:output_type -> course.CreateLectureResponse
+	19, // 51: course.CourseService.GetLecture:output_type -> course.GetLectureResponse
+	21, // 52: course.CourseService.UpdateLecture:output_type -> course.UpdateLectureResponse
+	23, // 53: course.CourseService.DeleteLecture:output_type -> course.DeleteLectureResponse
+	25, // 54: course.CourseService.ListLectures:output_type -> course.ListLecturesResponse
+	27, // 55: course.CourseService.EnrollInCourse:output_type -> course.EnrollInCourseResponse
+	29, // 56: course.CourseService.GetEnrollment:output_type -> course.GetEnrollmentResponse
+	31, // 57: course.CourseService.ListEnrollments:output_type -> course.ListEnrollmentsResponse
+	33, // 58: course.AccessValidationService.ValidateCourseAccess:output_type -> course.ValidateCourseAccessResponse
+	35, // 59: course.AccessValidationService.ValidateLectureAccess:output_type -> course.ValidateLectureAccessResponse
+	37, // 60: course.AccessValidationService.ValidateResourceAccess:output_type -> course.ValidateResourceAccessResponse
+	41, // 61: course.AccessValidationService.BatchValidateAccess:output_type -> course.BatchValidateAccessResponse
+	44, // [44:62] is the sub-list for method output_type
+	26, // [26:44] is the sub-list for method input_type
+	26, // [26:26] is the sub-list for extension type_name
+	26, // [26:26] is the sub-list for extension extendee
+	0,  // [0:26] is the sub-list for field type_name
 }
 
 func init() { file_proto_course_proto_init() }
@@ -3403,7 +3696,7 @@ func file_proto_course_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_proto_course_proto_rawDesc), len(file_proto_course_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   41,
+			NumMessages:   42,
 			NumExtensions: 0,
 			NumServices:   2,
 		},

@@ -401,6 +401,119 @@ func (h *DashboardHandler) UpdateNotificationSettings(c *gin.Context) {
 	})
 }
 
+// GetCourse handles GET /api/v1/instructor/courses/{id}
+func (h *DashboardHandler) GetCourse(c *gin.Context) {
+	instructorID, err := getInstructorIDFromContext(c)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid instructor ID"})
+		return
+	}
+
+	courseIDStr := c.Param("id")
+	courseID, err := uuid.Parse(courseIDStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid course ID"})
+		return
+	}
+
+	course, err := h.dashboardService.GetCourse(instructorID, courseID)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Course not found"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"data":    course,
+	})
+}
+
+// UpdateCourse handles PUT /api/v1/instructor/courses/{id}
+func (h *DashboardHandler) UpdateCourse(c *gin.Context) {
+	instructorID, err := getInstructorIDFromContext(c)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid instructor ID"})
+		return
+	}
+
+	courseIDStr := c.Param("id")
+	courseID, err := uuid.Parse(courseIDStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid course ID"})
+		return
+	}
+
+	var req model.UpdateCourseRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
+		return
+	}
+
+	course, err := h.dashboardService.UpdateCourse(instructorID, courseID, &req)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update course"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"data":    course,
+	})
+}
+
+// DeleteCourse handles DELETE /api/v1/instructor/courses/{id}
+func (h *DashboardHandler) DeleteCourse(c *gin.Context) {
+	instructorID, err := getInstructorIDFromContext(c)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid instructor ID"})
+		return
+	}
+
+	courseIDStr := c.Param("id")
+	courseID, err := uuid.Parse(courseIDStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid course ID"})
+		return
+	}
+
+	err = h.dashboardService.DeleteCourse(instructorID, courseID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete course"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"message": "Course deleted successfully",
+	})
+}
+
+// CreateCourse handles POST /api/v1/instructor/courses
+func (h *DashboardHandler) CreateCourse(c *gin.Context) {
+	instructorID, err := getInstructorIDFromContext(c)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid instructor ID"})
+		return
+	}
+
+	var req model.CreateCourseRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
+		return
+	}
+
+	course, err := h.dashboardService.CreateCourse(instructorID, &req)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create course"})
+		return
+	}
+
+	c.JSON(http.StatusCreated, gin.H{
+		"success": true,
+		"data":    course,
+	})
+}
+
 // Helper functions
 
 

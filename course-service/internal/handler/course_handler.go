@@ -80,16 +80,26 @@ func (h *CourseHandler) GetCourse(ctx context.Context, req *pb.GetCourseRequest)
 
 func (h *CourseHandler) UpdateCourse(ctx context.Context, req *pb.UpdateCourseRequest) (*pb.UpdateCourseResponse, error) {
 	h.logger.Info("Request received")
-	
+
 	courseID, err := uuid.Parse(req.Id)
 	if err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, "invalid course ID: %v", err)
 	}
-	
+
+	// Get existing course to preserve instructor ID and other fields not in update request
+	existingCourse, err := h.courseService.GetCourse(ctx, courseID)
+	if err != nil {
+		h.logger.Errorf("Handler error: %v", err)
+		return nil, status.Errorf(codes.Internal, "failed to get existing course: %v", err)
+	}
+
+	h.logger.Infof("DEBUG: Existing course InstructorID: %s", existingCourse.InstructorID.String())
+
 	course := &model.Course{
 		ID:           courseID,
 		Title:        req.Title,
 		Description:  req.Description,
+		InstructorID: existingCourse.InstructorID, // Preserve existing instructor ID
 		Category:     req.Category,
 		Level:        model.CourseLevel(req.Level),
 		Price:        req.Price,
@@ -98,7 +108,9 @@ func (h *CourseHandler) UpdateCourse(ctx context.Context, req *pb.UpdateCourseRe
 		Status:       model.CourseStatus(req.Status),
 		Tags:         req.Tags,
 	}
-	
+
+	h.logger.Infof("DEBUG: Course object being sent to service - InstructorID: %s", course.InstructorID.String())
+
 	err = h.courseService.UpdateCourse(ctx, course)
 	if err != nil {
 		h.logger.Errorf("Handler error: %v", err)
@@ -423,6 +435,18 @@ func (h *CourseHandler) ListEnrollments(ctx context.Context, req *pb.ListEnrollm
 
 // Helper methods to convert between models and protobuf messages
 func (h *CourseHandler) courseToProto(course *model.Course) *pb.Course {
+	// Convert lectures
+	lectures := make([]*pb.Lecture, len(course.Lectures))
+	for i, lecture := range course.Lectures {
+		lectures[i] = h.lectureToProto(&lecture)
+	}
+
+	// Convert resources
+	resources := make([]*pb.CourseResource, len(course.Resources))
+	for i, resource := range course.Resources {
+		resources[i] = h.courseResourceToProto(&resource)
+	}
+
 	return &pb.Course{
 		Id:              course.ID.String(),
 		Title:           course.Title,
@@ -442,6 +466,18 @@ func (h *CourseHandler) courseToProto(course *model.Course) *pb.Course {
 		Tags:            course.Tags,
 		CreatedAt:       timestamppb.New(course.CreatedAt),
 		UpdatedAt:       timestamppb.New(course.UpdatedAt),
+		// New fields
+		DifficultyLevel:         course.DifficultyLevel,
+		Language:               course.Language,
+		LearningOutcomes:       course.LearningOutcomes,
+		Requirements:           course.Requirements,
+		EstimatedDurationHours: course.EstimatedDurationHours,
+		AutoApproveEnrollment:  course.AutoApproveEnrollment,
+		AllowPreviews:          course.AllowPreviews,
+		HasCertificate:         course.HasCertificate,
+		MobileAccess:           course.MobileAccess,
+		Lectures:               lectures,
+		Resources:              resources,
 	}
 }
 
@@ -451,6 +487,7 @@ func (h *CourseHandler) lectureToProto(lecture *model.Lecture) *pb.Lecture {
 		CourseId:        lecture.CourseID.String(),
 		Title:           lecture.Title,
 		Description:     lecture.Description,
+		Type:            lecture.Type,
 		OrderNumber:     lecture.OrderNumber,
 		DurationMinutes: lecture.DurationMinutes,
 		VideoUrl:        lecture.VideoURL,
@@ -459,6 +496,26 @@ func (h *CourseHandler) lectureToProto(lecture *model.Lecture) *pb.Lecture {
 		IsFree:          lecture.IsFree,
 		CreatedAt:       timestamppb.New(lecture.CreatedAt),
 		UpdatedAt:       timestamppb.New(lecture.UpdatedAt),
+	}
+}
+
+func (h *CourseHandler) courseResourceToProto(resource *model.CourseResource) *pb.CourseResource {
+	return &pb.CourseResource{
+		Id:           resource.ID.String(),
+		CourseId:     resource.CourseID.String(),
+		FileId:       resource.FileID.String(),
+		ResourceType: resource.ResourceType,
+		DisplayOrder: resource.DisplayOrder,
+		IsRequired:   resource.IsRequired,
+		CreatedAt:    timestamppb.New(resource.CreatedAt),
+		UpdatedAt:    timestamppb.New(resource.UpdatedAt),
+		Filename:     resource.Filename,
+		OriginalName: resource.OriginalName,
+		FileType:     resource.FileType,
+		FileSize:     resource.FileSize,
+		DownloadUrl:  resource.DownloadURL,
+		IsPublic:     resource.IsPublic,
+		UploadedAt:   timestamppb.New(resource.UploadedAt),
 	}
 }
 
