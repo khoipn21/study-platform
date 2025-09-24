@@ -30,6 +30,13 @@ type Transaction struct {
 	LemonSqueezyOrderID    *string                `json:"lemon_squeezy_order_id,omitempty" db:"lemon_squeezy_order_id"`
 	LemonSqueezyCheckoutID *string                `json:"lemon_squeezy_checkout_id,omitempty" db:"lemon_squeezy_checkout_id"`
 	WebhookEventID         *string                `json:"webhook_event_id,omitempty" db:"webhook_event_id"`
+	// Stripe specific fields
+	StripePaymentIntentID  *string                `json:"stripe_payment_intent_id,omitempty" db:"stripe_payment_intent_id"`
+	StripeCustomerID       *string                `json:"stripe_customer_id,omitempty" db:"stripe_customer_id"`
+	StripeChargeID         *string                `json:"stripe_charge_id,omitempty" db:"stripe_charge_id"`
+	StripeSessionID        *string                `json:"stripe_session_id,omitempty" db:"stripe_session_id"`
+	StripeInvoiceID        *string                `json:"stripe_invoice_id,omitempty" db:"stripe_invoice_id"`
+	StripeSubscriptionID   *string                `json:"stripe_subscription_id,omitempty" db:"stripe_subscription_id"`
 	PaymentVerifiedAt      *time.Time             `json:"payment_verified_at,omitempty" db:"payment_verified_at"`
 	PaymentProvider        string                 `json:"payment_provider" db:"payment_provider"`
 	RefundedAt             *time.Time             `json:"refunded_at,omitempty" db:"refunded_at"`

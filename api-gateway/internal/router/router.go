@@ -9,23 +9,23 @@ import (
 )
 
 type Router struct {
-	authHandler              *handler.AuthHandler
-	courseHandler            *handler.CourseHandler
-	progressHandler          *handler.ProgressHandler
-	videoHandler             *handler.VideoHandler
-	bucketHandler            *handler.BucketHandler
-	chatbotHandler           *handler.ChatbotHandler
-	forumHandler             *handler.ForumHandler
-	paymentHandler           *handler.PaymentHandler
-	lemonSqueezyHandler      *handler.LemonSqueezyHandler
+	authHandler                *handler.AuthHandler
+	courseHandler              *handler.CourseHandler
+	progressHandler            *handler.ProgressHandler
+	videoHandler               *handler.VideoHandler
+	bucketHandler              *handler.BucketHandler
+	chatbotHandler             *handler.ChatbotHandler
+	forumHandler               *handler.ForumHandler
+	paymentHandler             *handler.PaymentHandler
+	lemonSqueezyHandler        *handler.LemonSqueezyHandler
 	instructorDashboardHandler *handler.InstructorDashboardHandler
-	studentDashboardHandler  *handler.StudentDashboardHandler
-	docsHandler              *handler.DocsHandler
-	authMiddleware           *middleware.AuthMiddleware
-	loggingMiddleware        *middleware.LoggingMiddleware
-	rateLimitMiddleware      *middleware.RateLimitMiddleware
-	circuitBreakerManager    *middleware.CircuitBreakerManager
-	securityMiddleware       *middleware.SecurityMiddleware
+	studentDashboardHandler    *handler.StudentDashboardHandler
+	docsHandler                *handler.DocsHandler
+	authMiddleware             *middleware.AuthMiddleware
+	loggingMiddleware          *middleware.LoggingMiddleware
+	rateLimitMiddleware        *middleware.RateLimitMiddleware
+	circuitBreakerManager      *middleware.CircuitBreakerManager
+	securityMiddleware         *middleware.SecurityMiddleware
 }
 
 func NewRouter(
@@ -48,28 +48,28 @@ func NewRouter(
 	securityMiddleware *middleware.SecurityMiddleware,
 ) *Router {
 	return &Router{
-		authHandler:              authHandler,
-		courseHandler:            courseHandler,
-		progressHandler:          progressHandler,
-		videoHandler:             videoHandler,
-		bucketHandler:            bucketHandler,
-		chatbotHandler:           chatbotHandler,
-		forumHandler:             forumHandler,
-		paymentHandler:           paymentHandler,
-		lemonSqueezyHandler:      lemonSqueezyHandler,
+		authHandler:                authHandler,
+		courseHandler:              courseHandler,
+		progressHandler:            progressHandler,
+		videoHandler:               videoHandler,
+		bucketHandler:              bucketHandler,
+		chatbotHandler:             chatbotHandler,
+		forumHandler:               forumHandler,
+		paymentHandler:             paymentHandler,
+		lemonSqueezyHandler:        lemonSqueezyHandler,
 		instructorDashboardHandler: instructorDashboardHandler,
-		studentDashboardHandler:  studentDashboardHandler,
-		docsHandler:              docsHandler,
-		authMiddleware:           authMiddleware,
-		loggingMiddleware:        loggingMiddleware,
-		rateLimitMiddleware:      rateLimitMiddleware,
-		circuitBreakerManager:    circuitBreakerManager,
-		securityMiddleware:       securityMiddleware,
+		studentDashboardHandler:    studentDashboardHandler,
+		docsHandler:                docsHandler,
+		authMiddleware:             authMiddleware,
+		loggingMiddleware:          loggingMiddleware,
+		rateLimitMiddleware:        rateLimitMiddleware,
+		circuitBreakerManager:      circuitBreakerManager,
+		securityMiddleware:         securityMiddleware,
 	}
 }
 
 func (rt *Router) SetupRoutes() *mux.Router {
-    r := mux.NewRouter()
+	r := mux.NewRouter()
 
 	// Add global OPTIONS middleware before any routing
 	r.Use(func(next http.Handler) http.Handler {
@@ -92,23 +92,23 @@ func (rt *Router) SetupRoutes() *mux.Router {
 	r.Use(rt.rateLimitMiddleware.RateLimit)
 	r.Use(rt.loggingMiddleware.LogRequest)
 
-    // CORS preflight requests are handled by individual subrouters with their own CORS middleware
+	// CORS preflight requests are handled by individual subrouters with their own CORS middleware
 
-    // API version prefix
-    api := r.PathPrefix("/api/v1").Subrouter()
+	// API version prefix
+	api := r.PathPrefix("/api/v1").Subrouter()
 
-    // Global OPTIONS handler for API routes to ensure CORS preflight works
-    api.Methods("OPTIONS").HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-        // Apply CORS headers manually for OPTIONS requests
-        w.Header().Set("Access-Control-Allow-Origin", "http://localhost:3000")
-        w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
-        w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Requested-With, Accept, Accept-Language")
-        w.Header().Set("Access-Control-Allow-Credentials", "true")
-        w.Header().Set("Access-Control-Max-Age", "86400")
-        w.WriteHeader(http.StatusNoContent)
-    })
+	// Global OPTIONS handler for API routes to ensure CORS preflight works
+	api.Methods("OPTIONS").HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Apply CORS headers manually for OPTIONS requests
+		w.Header().Set("Access-Control-Allow-Origin", "http://localhost:3000")
+		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
+		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Requested-With, Accept, Accept-Language")
+		w.Header().Set("Access-Control-Allow-Credentials", "true")
+		w.Header().Set("Access-Control-Max-Age", "86400")
+		w.WriteHeader(http.StatusNoContent)
+	})
 
-    // Note: CORS middleware will be applied to individual subrouters to avoid duplication
+	// Note: CORS middleware will be applied to individual subrouters to avoid duplication
 
 	// Create a general routes subrouter for non-specific endpoints
 	generalRoutes := api.PathPrefix("/").Subrouter()
@@ -181,7 +181,7 @@ func (rt *Router) SetupRoutes() *mux.Router {
 	// Progress routes (all require authentication)
 	progressRoutes := api.PathPrefix("/progress").Subrouter()
 	progressRoutes.Use(rt.authMiddleware.RequireAuth)
-	
+
 	// Progress tracking
 	progressRoutes.HandleFunc("/update", rt.progressHandler.UpdateProgress).Methods("POST")
 	progressRoutes.HandleFunc("/courses/{course_id}/lectures/{lecture_id}", rt.progressHandler.GetProgress).Methods("GET")
@@ -205,14 +205,14 @@ func (rt *Router) SetupRoutes() *mux.Router {
 	// File management routes (protected - require authentication)
 	protectedFileRoutes := api.PathPrefix("/files").Subrouter()
 	protectedFileRoutes.Use(rt.authMiddleware.RequireAuth)
-	
+
 	// File operations
 	protectedFileRoutes.HandleFunc("/upload", rt.bucketHandler.UploadFile).Methods("POST")
 	protectedFileRoutes.HandleFunc("", rt.bucketHandler.ListFiles).Methods("GET")
 	protectedFileRoutes.HandleFunc("/{fileId}", rt.bucketHandler.DownloadFile).Methods("GET")
 	protectedFileRoutes.HandleFunc("/{fileId}", rt.bucketHandler.DeleteFile).Methods("DELETE")
 	protectedFileRoutes.HandleFunc("/{fileId}/metadata", rt.bucketHandler.GetFileMetadata).Methods("GET")
-	
+
 	// Multipart upload operations
 	protectedFileRoutes.HandleFunc("/upload/start", rt.bucketHandler.StartMultipartUpload).Methods("POST")
 	protectedFileRoutes.HandleFunc("/upload/{sessionId}/complete", rt.bucketHandler.CompleteMultipartUpload).Methods("POST")
@@ -304,76 +304,77 @@ func (rt *Router) SetupRoutes() *mux.Router {
 	// Chatbot routes
 	chatRoutes := api.PathPrefix("/chat").Subrouter()
 	chatRoutes.Use(rt.authMiddleware.RequireAuth)
-	
+
 	// Chat session management
 	chatRoutes.HandleFunc("/sessions", rt.chatbotHandler.CreateSession).Methods("POST")
 	chatRoutes.HandleFunc("/sessions", rt.chatbotHandler.GetUserSessions).Methods("GET")
 	chatRoutes.HandleFunc("/sessions/{sessionId}", rt.chatbotHandler.GetSession).Methods("GET")
 	chatRoutes.HandleFunc("/sessions/{sessionId}", rt.chatbotHandler.UpdateSession).Methods("PUT")
 	chatRoutes.HandleFunc("/sessions/{sessionId}", rt.chatbotHandler.DeleteSession).Methods("DELETE")
-	
+
 	// Chat messaging
 	chatRoutes.HandleFunc("/message", rt.chatbotHandler.SendMessage).Methods("POST")
 	chatRoutes.HandleFunc("/sessions/{sessionId}/messages", rt.chatbotHandler.GetMessages).Methods("GET")
-	
+
 	// WebSocket endpoint for real-time chat
 	chatRoutes.HandleFunc("/ws", rt.chatbotHandler.HandleWebSocket).Methods("GET")
 
 	// Forum routes
 	forumRoutes := api.PathPrefix("/forum").Subrouter()
-	
+
 	// Public forum routes (can work without auth but benefit from it)
 	forumRoutes.HandleFunc("/topics", rt.forumHandler.ListTopics).Methods("GET")
 	forumRoutes.HandleFunc("/topics/{topicId}", rt.forumHandler.GetTopic).Methods("GET")
 	forumRoutes.HandleFunc("/topics/{topicId}/posts", rt.forumHandler.ListPosts).Methods("GET")
 	forumRoutes.HandleFunc("/posts/{postId}", rt.forumHandler.GetPost).Methods("GET")
 	forumRoutes.HandleFunc("/search", rt.forumHandler.SearchTopics).Methods("GET")
-	
+
 	// Course-specific forum routes
 	forumRoutes.HandleFunc("/courses/{courseId}/topics", rt.forumHandler.ListCourseTopics).Methods("GET")
 
 	// Protected forum routes (require authentication)
 	protectedForumRoutes := api.PathPrefix("/forum").Subrouter()
 	protectedForumRoutes.Use(rt.authMiddleware.RequireAuth)
-	
+
 	// Topic management
 	protectedForumRoutes.HandleFunc("/topics", rt.forumHandler.CreateTopic).Methods("POST")
 	protectedForumRoutes.HandleFunc("/topics/{topicId}", rt.forumHandler.UpdateTopic).Methods("PUT")
 	protectedForumRoutes.HandleFunc("/topics/{topicId}", rt.forumHandler.DeleteTopic).Methods("DELETE")
 	protectedForumRoutes.HandleFunc("/topics/{topicId}/sticky", rt.forumHandler.ToggleTopicSticky).Methods("PUT")
 	protectedForumRoutes.HandleFunc("/topics/{topicId}/lock", rt.forumHandler.ToggleTopicLock).Methods("PUT")
-	
+
 	// Post management
 	protectedForumRoutes.HandleFunc("/posts", rt.forumHandler.CreatePost).Methods("POST")
 	protectedForumRoutes.HandleFunc("/posts/{postId}", rt.forumHandler.UpdatePost).Methods("PUT")
 	protectedForumRoutes.HandleFunc("/posts/{postId}", rt.forumHandler.DeletePost).Methods("DELETE")
 	protectedForumRoutes.HandleFunc("/posts/{postId}/answer", rt.forumHandler.MarkPostAsAnswer).Methods("PUT")
 	protectedForumRoutes.HandleFunc("/posts/{postId}/pin", rt.forumHandler.TogglePostPin).Methods("PUT")
-	
+
 	// Voting
 	protectedForumRoutes.HandleFunc("/votes", rt.forumHandler.VotePost).Methods("POST")
 	protectedForumRoutes.HandleFunc("/posts/{postId}/vote", rt.forumHandler.RemoveVote).Methods("DELETE")
 
 	// Payment routes (all require authentication)
 	paymentRoutes := api.PathPrefix("/payments").Subrouter()
+	paymentRoutes.Use(middleware.CORSMiddleware)
 	paymentRoutes.Use(rt.authMiddleware.RequireAuth)
-	
+
 	// Payment methods
 	paymentRoutes.HandleFunc("/methods", rt.paymentHandler.CreatePaymentMethod).Methods("POST")
 	paymentRoutes.HandleFunc("/methods", rt.paymentHandler.GetPaymentMethods).Methods("GET")
 	paymentRoutes.HandleFunc("/methods/{methodId}", rt.paymentHandler.UpdatePaymentMethod).Methods("PUT")
 	paymentRoutes.HandleFunc("/methods/{methodId}", rt.paymentHandler.DeletePaymentMethod).Methods("DELETE")
 	paymentRoutes.HandleFunc("/methods/{methodId}/default", rt.paymentHandler.SetDefaultPaymentMethod).Methods("PUT")
-	
+
 	// Course purchase
 	paymentRoutes.HandleFunc("/purchase/course/{courseId}", rt.paymentHandler.PurchaseCourse).Methods("POST")
 	paymentRoutes.HandleFunc("/validate", rt.paymentHandler.ValidatePayment).Methods("POST")
-	
+
 	// Transactions
 	paymentRoutes.HandleFunc("/transactions", rt.paymentHandler.GetTransactions).Methods("GET")
 	paymentRoutes.HandleFunc("/transactions/{transactionId}", rt.paymentHandler.GetTransaction).Methods("GET")
 	paymentRoutes.HandleFunc("/transactions/{transactionId}/refund", rt.paymentHandler.RefundTransaction).Methods("POST")
-	
+
 	// Subscriptions
 	paymentRoutes.HandleFunc("/subscriptions", rt.paymentHandler.CreateSubscription).Methods("POST")
 	paymentRoutes.HandleFunc("/subscriptions", rt.paymentHandler.GetSubscriptions).Methods("GET")
@@ -385,6 +386,35 @@ func (rt *Router) SetupRoutes() *mux.Router {
 	paymentRoutes.HandleFunc("/lemonsqueezy/verify/{order_id}", rt.paymentHandler.VerifyLemonSqueezyPayment).Methods("POST")
 	paymentRoutes.HandleFunc("/lemonsqueezy/products", rt.paymentHandler.GetLemonSqueezyProducts).Methods("GET")
 	paymentRoutes.HandleFunc("/lemonsqueezy/variants", rt.paymentHandler.GetLemonSqueezyVariants).Methods("GET")
+
+	// Stripe routes (match frontend paths: /payments/stripe/*)
+	// Note: CORS handled by global middleware to avoid duplicates
+	stripeRoutes := api.PathPrefix("/payments/stripe").Subrouter()
+	stripeRoutes.Use(middleware.CORSMiddleware)
+
+	// Public Stripe routes (no auth required) - order matters!
+	stripeRoutes.HandleFunc("/config", rt.paymentHandler.GetStripeConfig).Methods("GET")
+
+	// Protected Stripe routes - use Handle() with middleware
+	stripeRoutes.Handle("/payment-intents", rt.authMiddleware.RequireAuth(http.HandlerFunc(rt.paymentHandler.CreateStripePaymentIntent))).Methods("POST")
+	stripeRoutes.Handle("/payment-intents/{payment_intent_id}", rt.authMiddleware.RequireAuth(http.HandlerFunc(rt.paymentHandler.GetStripePaymentIntent))).Methods("GET")
+	stripeRoutes.Handle("/payment-intents/confirm", rt.authMiddleware.RequireAuth(http.HandlerFunc(rt.paymentHandler.ConfirmStripePaymentIntent))).Methods("POST")
+	stripeRoutes.Handle("/transactions", rt.authMiddleware.RequireAuth(http.HandlerFunc(rt.paymentHandler.ListStripeTransactions))).Methods("GET")
+
+	// Additional frontend endpoints
+	stripeRoutes.Handle("/customers", rt.authMiddleware.RequireAuth(http.HandlerFunc(rt.paymentHandler.CreateStripePaymentIntent))).Methods("POST")
+	stripeRoutes.Handle("/customers/{customer_id}", rt.authMiddleware.RequireAuth(http.HandlerFunc(rt.paymentHandler.GetStripePaymentIntent))).Methods("GET", "PUT")
+	stripeRoutes.Handle("/products", rt.authMiddleware.RequireAuth(http.HandlerFunc(rt.paymentHandler.CreateStripePaymentIntent))).Methods("POST", "GET")
+	stripeRoutes.Handle("/products/{product_id}", rt.authMiddleware.RequireAuth(http.HandlerFunc(rt.paymentHandler.GetStripePaymentIntent))).Methods("GET")
+	stripeRoutes.Handle("/prices", rt.authMiddleware.RequireAuth(http.HandlerFunc(rt.paymentHandler.CreateStripePaymentIntent))).Methods("POST", "GET")
+	stripeRoutes.Handle("/prices/{price_id}", rt.authMiddleware.RequireAuth(http.HandlerFunc(rt.paymentHandler.GetStripePaymentIntent))).Methods("GET")
+	stripeRoutes.Handle("/subscriptions", rt.authMiddleware.RequireAuth(http.HandlerFunc(rt.paymentHandler.CreateStripePaymentIntent))).Methods("POST", "GET")
+	stripeRoutes.Handle("/subscriptions/{subscription_id}", rt.authMiddleware.RequireAuth(http.HandlerFunc(rt.paymentHandler.GetStripePaymentIntent))).Methods("GET", "PUT", "DELETE")
+	stripeRoutes.Handle("/purchase/course/{course_id}", rt.authMiddleware.RequireAuth(http.HandlerFunc(rt.paymentHandler.PurchaseCourse))).Methods("POST")
+	stripeRoutes.Handle("/webhooks/verify", rt.authMiddleware.RequireAuth(http.HandlerFunc(rt.paymentHandler.CreateStripePaymentIntent))).Methods("POST")
+
+	// Stripe webhook (no authentication required)
+	api.HandleFunc("/payments/stripe/webhook", rt.paymentHandler.HandleStripeWebhook).Methods("POST")
 
 	// Lemon Squeezy webhook (no authentication required)
 	api.HandleFunc("/lemonsqueezy/webhook", rt.paymentHandler.HandleLemonSqueezyWebhook).Methods("POST")
@@ -454,7 +484,7 @@ func (rt *Router) SetupRoutes() *mux.Router {
 func (rt *Router) healthCheck(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	
+
 	// Simple JSON encoding
 	jsonStr := `{"status":"healthy","service":"api-gateway","version":"1.0.0"}`
 	w.Write([]byte(jsonStr))
@@ -463,9 +493,9 @@ func (rt *Router) healthCheck(w http.ResponseWriter, r *http.Request) {
 func (rt *Router) circuitBreakerStatus(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	
+
 	status := rt.circuitBreakerManager.GetStatus()
-	
+
 	// Simple JSON encoding for circuit breaker status
 	jsonStr := `{"status":"healthy","circuit_breakers":{`
 	first := true
@@ -477,6 +507,6 @@ func (rt *Router) circuitBreakerStatus(w http.ResponseWriter, r *http.Request) {
 		first = false
 	}
 	jsonStr += `}}`
-	
+
 	w.Write([]byte(jsonStr))
 }

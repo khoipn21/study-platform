@@ -35,6 +35,14 @@ type PaymentConfig struct {
 	LemonSqueezyWebhookURL   string `json:"lemon_squeezy_webhook_url"`
 	LemonSqueezyBaseURL      string `json:"lemon_squeezy_base_url"`
 
+	// Stripe Configuration
+	StripeSecretKey      string `json:"stripe_secret_key"`
+	StripePublishableKey string `json:"stripe_publishable_key"`
+	StripeWebhookSecret  string `json:"stripe_webhook_secret"`
+	StripeSuccessURL     string `json:"stripe_success_url"`
+	StripeCancelURL      string `json:"stripe_cancel_url"`
+	StripeWebhookURL     string `json:"stripe_webhook_url"`
+
 	// General Payment Settings
 	Currency        string `json:"currency"`
 	PaymentProvider string `json:"payment_provider"`
@@ -66,6 +74,12 @@ func LoadConfig() *Config {
 			LemonSqueezyWebhookSecret: getEnv("LEMON_SQUEEZY_WEBHOOK_SECRET", ""),
 			LemonSqueezyWebhookURL:   getEnv("LEMON_SQUEEZY_WEBHOOK_URL", ""),
 			LemonSqueezyBaseURL:      getEnv("LEMON_SQUEEZY_BASE_URL", "https://api.lemonsqueezy.com/v1"),
+			StripeSecretKey:          getEnv("STRIPE_SECRET_KEY", ""),
+			StripePublishableKey:     getEnv("STRIPE_PUBLISHABLE_KEY", ""),
+			StripeWebhookSecret:      getEnv("STRIPE_WEBHOOK_SECRET", ""),
+			StripeSuccessURL:         getEnv("STRIPE_SUCCESS_URL", "http://localhost:3000/payment/success"),
+			StripeCancelURL:          getEnv("STRIPE_CANCEL_URL", "http://localhost:3000/payment/cancel"),
+			StripeWebhookURL:         getEnv("STRIPE_WEBHOOK_URL", "http://localhost:8080/api/v1/payments/stripe/webhook"),
 			Currency:                 getEnv("PAYMENT_CURRENCY", "VND"),
 			PaymentProvider:          getEnv("PAYMENT_PROVIDER", "lemonsqueezy"),
 		},

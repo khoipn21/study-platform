@@ -9,6 +9,7 @@ require (
 	github.com/jmoiron/sqlx v1.4.0
 	github.com/joho/godotenv v1.4.0
 	github.com/lib/pq v1.10.9
+	github.com/stripe/stripe-go/v82 v82.5.1
 	github.com/study-platform/pkg v0.0.0
 	google.golang.org/grpc v1.65.0
 	google.golang.org/protobuf v1.34.1

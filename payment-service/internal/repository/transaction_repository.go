@@ -298,6 +298,88 @@ func (r *TransactionRepository) GetPendingByCourseAndUser(ctx context.Context, c
 	return tx, nil
 }
 
+// GetByStripePaymentIntentID finds a transaction by Stripe payment intent ID
+func (r *TransactionRepository) GetByStripePaymentIntentID(paymentIntentID string) (*model.Transaction, error) {
+	tx := &model.Transaction{}
+	var customDataJSON []byte
+
+	query := `
+		SELECT id, user_id, course_id, payment_method_id, amount, currency, status,
+		       transaction_reference, lemon_squeezy_order_id, lemon_squeezy_checkout_id,
+		       webhook_event_id, stripe_payment_intent_id, stripe_customer_id,
+		       stripe_charge_id, stripe_session_id, stripe_invoice_id,
+		       stripe_subscription_id, payment_verified_at, payment_provider,
+		       custom_data, created_at, updated_at
+		FROM transactions WHERE stripe_payment_intent_id = $1`
+
+	err := r.db.QueryRow(query, paymentIntentID).Scan(
+		&tx.ID, &tx.UserID, &tx.CourseID, &tx.PaymentMethodID, &tx.Amount, &tx.Currency,
+		&tx.Status, &tx.TransactionReference, &tx.LemonSqueezyOrderID,
+		&tx.LemonSqueezyCheckoutID, &tx.WebhookEventID, &tx.StripePaymentIntentID,
+		&tx.StripeCustomerID, &tx.StripeChargeID, &tx.StripeSessionID,
+		&tx.StripeInvoiceID, &tx.StripeSubscriptionID, &tx.PaymentVerifiedAt,
+		&tx.PaymentProvider, &customDataJSON, &tx.CreatedAt, &tx.UpdatedAt,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	if customDataJSON != nil {
+		if err := json.Unmarshal(customDataJSON, &tx.CustomData); err != nil {
+			return nil, err
+		}
+	}
+
+	return tx, nil
+}
+
+// GetByStripeCustomerID finds transactions by Stripe customer ID
+func (r *TransactionRepository) GetByStripeCustomerID(customerID string) ([]*model.Transaction, error) {
+	query := `
+		SELECT id, user_id, course_id, payment_method_id, amount, currency, status,
+		       transaction_reference, lemon_squeezy_order_id, lemon_squeezy_checkout_id,
+		       webhook_event_id, stripe_payment_intent_id, stripe_customer_id,
+		       stripe_charge_id, stripe_session_id, stripe_invoice_id,
+		       stripe_subscription_id, payment_verified_at, payment_provider,
+		       custom_data, created_at, updated_at
+		FROM transactions WHERE stripe_customer_id = $1
+		ORDER BY created_at DESC`
+
+	rows, err := r.db.Query(query, customerID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var transactions []*model.Transaction
+	for rows.Next() {
+		tx := &model.Transaction{}
+		var customDataJSON []byte
+
+		err := rows.Scan(
+			&tx.ID, &tx.UserID, &tx.CourseID, &tx.PaymentMethodID, &tx.Amount, &tx.Currency,
+			&tx.Status, &tx.TransactionReference, &tx.LemonSqueezyOrderID,
+			&tx.LemonSqueezyCheckoutID, &tx.WebhookEventID, &tx.StripePaymentIntentID,
+			&tx.StripeCustomerID, &tx.StripeChargeID, &tx.StripeSessionID,
+			&tx.StripeInvoiceID, &tx.StripeSubscriptionID, &tx.PaymentVerifiedAt,
+			&tx.PaymentProvider, &customDataJSON, &tx.CreatedAt, &tx.UpdatedAt,
+		)
+		if err != nil {
+			return nil, err
+		}
+
+		if customDataJSON != nil {
+			if err := json.Unmarshal(customDataJSON, &tx.CustomData); err != nil {
+				return nil, err
+			}
+		}
+
+		transactions = append(transactions, tx)
+	}
+
+	return transactions, nil
+}
+
 // BeginTx starts a database transaction
 func (r *TransactionRepository) BeginTx(ctx context.Context) (*sql.Tx, error) {
 	return r.db.BeginTx(ctx, nil)

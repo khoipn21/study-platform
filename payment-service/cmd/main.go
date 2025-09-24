@@ -10,6 +10,7 @@ import (
 	"github.com/study-platform/payment-service/internal/lemonsqueezy"
 	"github.com/study-platform/payment-service/internal/repository"
 	"github.com/study-platform/payment-service/internal/service"
+	"github.com/study-platform/payment-service/internal/stripe"
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
@@ -40,6 +41,15 @@ func main() {
 	subscriptionRepo := repository.NewSubscriptionRepository(db.DB)
 	webhookEventRepo := repository.NewWebhookEventRepository(db)
 
+	// Initialize Stripe repositories
+	stripeCustomerRepo := repository.NewStripeCustomerRepository(db)
+	stripeProductRepo := repository.NewStripeProductRepository(db)
+	stripeWebhookRepo := repository.NewStripeWebhookRepository(db)
+
+	// Initialize other repositories needed for Stripe
+	courseRepo := repository.NewCourseRepository(db.DB)
+	enrollmentRepo := repository.NewEnrollmentRepository(db.DB)
+
 	// Initialize Progress service client
 	progressClient, err := service.NewProgressClient(cfg.Services.ProgressServiceURL)
 	if err != nil {
@@ -55,6 +65,30 @@ func main() {
 		WebhookSecret: cfg.Payment.LemonSqueezyWebhookSecret,
 	})
 
+	// Initialize Stripe client
+	var stripeClient *stripe.Client
+	var stripeService *service.StripeService
+	if cfg.Payment.StripeSecretKey != "" {
+		stripeClient, err = stripe.NewClient(cfg.Payment.StripeSecretKey)
+		if err != nil {
+			log.Printf("Warning: Failed to initialize Stripe client: %v", err)
+		} else {
+			stripeService = service.NewStripeService(
+				stripeClient,
+				cfg,
+				stripeCustomerRepo,
+				stripeProductRepo,
+				stripeWebhookRepo,
+				transactionRepo,
+				courseRepo,
+				enrollmentRepo,
+			)
+			log.Println("Stripe client initialized successfully")
+		}
+	} else {
+		log.Println("Stripe secret key not configured, Stripe payments disabled")
+	}
+
 	// Initialize services
 	paymentService := service.NewPaymentService(paymentMethodRepo, transactionRepo, subscriptionRepo, webhookEventRepo, cfg.Payment, progressClient)
 
@@ -69,8 +103,19 @@ func main() {
 		cfg.Payment.LemonSqueezyVariantID,
 	)
 
+	// Initialize Stripe handler if Stripe is configured
+	var stripeHandler *handler.StripeHandler
+	if stripeService != nil {
+		stripeHandler = handler.NewStripeHandler(
+			stripeService,
+			stripeWebhookRepo,
+			cfg,
+		)
+		log.Println("Stripe handler initialized successfully")
+	}
+
 	// Setup router
-	router := setupRouter(paymentHandler, lemonSqueezyHandler)
+	router := setupRouter(paymentHandler, lemonSqueezyHandler, stripeHandler)
 
 	// Start server
 	addr := fmt.Sprintf("%s:%s", cfg.Server.Host, cfg.Server.Port)
@@ -97,14 +142,14 @@ func connectDB(cfg config.DatabaseConfig) (*sqlx.DB, error) {
 	return db, nil
 }
 
-func setupRouter(paymentHandler *handler.PaymentHandler, lemonSqueezyHandler *handler.LemonSqueezyHandler) *gin.Engine {
+func setupRouter(paymentHandler *handler.PaymentHandler, lemonSqueezyHandler *handler.LemonSqueezyHandler, stripeHandler *handler.StripeHandler) *gin.Engine {
 	router := gin.Default()
 
-	// CORS middleware
+	// CORS middleware - specific origins to avoid conflicts with API Gateway
 	router.Use(cors.New(cors.Config{
-		AllowOrigins:     []string{"*"},
+		AllowOrigins:     []string{"http://localhost:3000", "http://127.0.0.1:3000"},
 		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
-		AllowHeaders:     []string{"*"},
+		AllowHeaders:     []string{"Content-Type", "Authorization", "X-Requested-With", "Accept", "Accept-Language", "X-User-ID", "X-User-Role"},
 		ExposeHeaders:    []string{"Content-Length"},
 		AllowCredentials: true,
 	}))
@@ -168,10 +213,33 @@ func setupRouter(paymentHandler *handler.PaymentHandler, lemonSqueezyHandler *ha
 		api.POST("/lemonsqueezy/verify/:order_id", lemonSqueezyHandler.VerifyPayment)
 		api.GET("/lemonsqueezy/products", lemonSqueezyHandler.GetProducts)
 		api.GET("/lemonsqueezy/variants", lemonSqueezyHandler.GetVariants)
+
+		// Stripe endpoints (if available)
+		if stripeHandler != nil {
+			stripe := api.Group("/stripe")
+			{
+				stripe.POST("/payment-intents", stripeHandler.CreatePaymentIntent)
+				stripe.GET("/payment-intents/:payment_intent_id", stripeHandler.GetPaymentIntent)
+				stripe.POST("/payment-intents/confirm", stripeHandler.ConfirmPaymentIntent)
+				stripe.GET("/transactions", stripeHandler.ListTransactions)
+				stripe.POST("/purchase/course/:courseId", stripeHandler.PurchaseCourse)
+			}
+		}
+	}
+
+	// Public endpoints (no auth required)
+	// Stripe config endpoint (public)
+	if stripeHandler != nil {
+		router.GET("/api/v1/stripe/config", stripeHandler.GetConfig)
 	}
 
 	// Webhooks (no auth required)
 	router.POST("/api/v1/payments/lemonsqueezy/webhook", lemonSqueezyHandler.HandleWebhook)
+
+	// Stripe webhook (no auth required)
+	if stripeHandler != nil {
+		router.POST("/api/v1/payments/stripe/webhook", stripeHandler.HandleWebhook)
+	}
 
 	return router
 }
