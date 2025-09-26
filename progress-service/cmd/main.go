@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"github.com/study-platform/progress-service/internal/handler"
-	"github.com/study-platform/progress-service/internal/middleware"
+	// "github.com/study-platform/progress-service/internal/middleware" // Temporarily disabled
 	"github.com/study-platform/progress-service/internal/repository"
 	"github.com/study-platform/progress-service/internal/service"
 	pb "github.com/study-platform/progress-service/proto"
@@ -48,15 +48,13 @@ func main() {
 	// Initialize repositories
 	progressRepo := repository.NewProgressRepository(db)
 
-	// Initialize payment client for middleware
-	paymentServiceURL := getEnv("PAYMENT_SERVICE_URL", "http://payment-service:8088")
-	paymentClient := middleware.NewHTTPPaymentClient(paymentServiceURL, log)
-
-	// Initialize middleware
-	paymentVerification := middleware.NewPaymentVerificationMiddleware(paymentClient, log)
+	// Initialize payment client for middleware - TEMPORARILY DISABLED
+	// paymentServiceURL := getEnv("PAYMENT_SERVICE_URL", "http://payment-service:8088")
+	// paymentClient := middleware.NewHTTPPaymentClient(paymentServiceURL, log)
+	// paymentVerification := middleware.NewPaymentVerificationMiddleware(paymentClient, log)
 
 	// Initialize services
-	progressService := service.NewProgressService(progressRepo, paymentVerification, log)
+	progressService := service.NewProgressService(progressRepo, nil, log) // Temporarily disable payment verification
 	enhancedEnrollmentService := service.NewEnhancedEnrollmentService(progressRepo, log)
 
 	// Initialize handlers

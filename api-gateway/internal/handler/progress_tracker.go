@@ -37,11 +37,11 @@ func (h *ProgressTrackingHandler) TrackProgress(w http.ResponseWriter, r *http.R
 
 	// Parse request body
 	var req struct {
-		LectureID        string  `json:"lectureId"`
-		CourseID         string  `json:"courseId"`
-		WatchTimeSeconds int32   `json:"watchTimeSeconds"`
-		ProgressPercent  float32 `json:"progressPercent"`
-		IsCompleted      bool    `json:"isCompleted"`
+		LectureID        string  `json:"lecture_id"`
+		CourseID         string  `json:"course_id"`
+		WatchTimeSeconds int32   `json:"watch_time_seconds"`
+		ProgressPercent  float32 `json:"progress_percentage"`
+		IsCompleted      bool    `json:"is_completed"`
 	}
 
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -51,7 +51,7 @@ func (h *ProgressTrackingHandler) TrackProgress(w http.ResponseWriter, r *http.R
 
 	// Validate required fields
 	if req.LectureID == "" || req.CourseID == "" {
-		h.sendError(w, http.StatusBadRequest, "lectureId and courseId are required")
+		h.sendError(w, http.StatusBadRequest, "lecture_id and course_id are required")
 		return
 	}
 
@@ -102,8 +102,8 @@ func (h *ProgressTrackingHandler) MarkLectureComplete(w http.ResponseWriter, r *
 
 	// Parse request body
 	var req struct {
-		LectureID string `json:"lectureId"`
-		CourseID  string `json:"courseId"`
+		LectureID string `json:"lecture_id"`
+		CourseID  string `json:"course_id"`
 	}
 
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -113,7 +113,7 @@ func (h *ProgressTrackingHandler) MarkLectureComplete(w http.ResponseWriter, r *
 
 	// Validate required fields
 	if req.LectureID == "" || req.CourseID == "" {
-		h.sendError(w, http.StatusBadRequest, "lectureId and courseId are required")
+		h.sendError(w, http.StatusBadRequest, "lecture_id and course_id are required")
 		return
 	}
 
