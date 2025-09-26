@@ -390,3 +390,13 @@ func (nis *NetworkIntelligenceService) calculateStabilityScore(metrics *model.Ne
 
 	return score
 }
+
+// GetCachedNetworkMetrics retrieves cached network metrics for a session
+func (nis *NetworkIntelligenceService) GetCachedNetworkMetrics(ctx context.Context, sessionID string) (*model.NetworkMetrics, error) {
+	return nis.redisClient.GetCachedNetworkMetrics(ctx, sessionID)
+}
+
+// GetCachedQualityRecommendation retrieves cached quality recommendation for a session
+func (nis *NetworkIntelligenceService) GetCachedQualityRecommendation(ctx context.Context, sessionID string) (string, error) {
+	return nis.redisClient.GetCachedQualityRecommendation(ctx, sessionID)
+}

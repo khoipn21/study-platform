@@ -55,6 +55,7 @@ func main() {
 	healthHandler := handler.NewHealthHandler()
 	videoHandler := handler.NewVideoHandler(videoService)
 	wsHandler := handler.NewWebSocketHandler(hub, wsAuthMiddleware)
+	networkAnalyticsHandler := handler.NewNetworkAnalyticsHandler(networkService, videoService)
 
 	// Initialize Gin router
 	router := gin.New()
@@ -101,6 +102,16 @@ func main() {
 			videos.POST("/ws/broadcast", middleware.AuthMiddleware(cfg.JWTSecret), wsHandler.BroadcastMessage)
 			videos.POST("/ws/session/:session_id/send", middleware.AuthMiddleware(cfg.JWTSecret), wsHandler.SendToSession)
 			videos.GET("/ws/session/:session_id", middleware.AuthMiddleware(cfg.JWTSecret), wsHandler.GetSessionInfo)
+
+			// Network analytics endpoints
+			videos.GET("/sessions/:session_id/network-status", middleware.AuthMiddleware(cfg.JWTSecret), networkAnalyticsHandler.GetNetworkStatus)
+			videos.GET("/sessions/:session_id/quality-recommendation", middleware.AuthMiddleware(cfg.JWTSecret), networkAnalyticsHandler.GetQualityRecommendation)
+			videos.GET("/sessions/:session_id/network-pattern", middleware.AuthMiddleware(cfg.JWTSecret), networkAnalyticsHandler.GetNetworkPattern)
+			videos.POST("/sessions/:session_id/network-diagnostics", middleware.AuthMiddleware(cfg.JWTSecret), networkAnalyticsHandler.PostNetworkDiagnostics)
+			videos.GET("/sessions/:session_id/analytics", middleware.AuthMiddleware(cfg.JWTSecret), networkAnalyticsHandler.GetSessionAnalytics)
+			videos.POST("/sessions/:session_id/bandwidth-estimate", middleware.AuthMiddleware(cfg.JWTSecret), networkAnalyticsHandler.UpdateBandwidthEstimate)
+			videos.GET("/sessions/:session_id/network-history", middleware.AuthMiddleware(cfg.JWTSecret), networkAnalyticsHandler.GetNetworkMetricsHistory)
+			videos.GET("/network/active-sessions", middleware.AuthMiddleware(cfg.JWTSecret), networkAnalyticsHandler.GetActiveNetworkSessions)
 		}
 	}
 
