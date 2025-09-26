@@ -3,12 +3,14 @@ package main
 import (
 	"context"
 	"net"
+	"net/http"
 	"os"
 	"os/signal"
 	"strconv"
 	"syscall"
 	"time"
 
+	"github.com/gin-gonic/gin"
 	"github.com/study-platform/course-service/internal/handler"
 	"github.com/study-platform/course-service/internal/repository"
 	"github.com/study-platform/course-service/internal/service"
@@ -49,13 +51,16 @@ func main() {
 	lectureRepo := repository.NewLectureRepository(db)
 	enrollmentRepo := repository.NewEnrollmentRepository(db)
 	courseResourceRepo := repository.NewCourseResourceRepository(db.GetSqlxDB(), log)
+	notesRepo := repository.NewNotesRepository(db.GetSqlxDB())
 
 	// Initialize services
 	courseService := service.NewCourseService(courseRepo, lectureRepo, enrollmentRepo, courseResourceRepo, log)
+	notesService := service.NewNotesService(notesRepo, log)
 
 	// Initialize handlers
 	courseHandler := handler.NewCourseHandler(courseService, log)
 	accessValidationHandler := handler.NewAccessValidationHandler(courseService, log)
+	notesHandler := handler.NewNotesHandler(notesService, log)
 
 	// Create gRPC server
 	grpcServer := grpc.NewServer()
@@ -65,20 +70,58 @@ func main() {
 	// Enable reflection for development
 	reflection.Register(grpcServer)
 
-	// Start server
-	port := getEnv("GRPC_PORT", "8082")
-	listener, err := net.Listen("tcp", ":"+port)
+	// Setup HTTP server for notes API
+	gin.SetMode(gin.ReleaseMode)
+	httpRouter := gin.New()
+	httpRouter.Use(gin.Recovery())
+	httpRouter.Use(func(c *gin.Context) {
+		// Add user authentication middleware
+		userID := c.GetHeader("X-User-ID")
+		if userID != "" {
+			c.Set("user_id", userID)
+		}
+		c.Next()
+	})
+
+	// Notes routes
+	httpRouter.POST("/courses/:course_id/lectures/:lecture_id/notes", notesHandler.CreateNote)
+	httpRouter.GET("/courses/:course_id/lectures/:lecture_id/notes", notesHandler.GetNotesByLecture)
+	httpRouter.GET("/courses/:course_id/notes", notesHandler.GetNotesByCourse)
+	httpRouter.GET("/notes/:note_id", notesHandler.GetNote)
+	httpRouter.PUT("/notes/:note_id", notesHandler.UpdateNote)
+	httpRouter.DELETE("/notes/:note_id", notesHandler.DeleteNote)
+
+	// Start gRPC server
+	grpcPort := getEnv("GRPC_PORT", "8082")
+	listener, err := net.Listen("tcp", ":"+grpcPort)
 	if err != nil {
-		log.Errorf("Failed to listen on port %s: %v", port, err)
+		log.Errorf("Failed to listen on gRPC port %s: %v", grpcPort, err)
 		os.Exit(1)
 	}
 
-	log.Infof("Course Service listening on port %s", port)
+	log.Infof("Course Service gRPC listening on port %s", grpcPort)
 
-	// Start server in a goroutine
+	// Start gRPC server in a goroutine
 	go func() {
 		if err := grpcServer.Serve(listener); err != nil {
 			log.Errorf("Failed to serve gRPC server: %v", err)
+			os.Exit(1)
+		}
+	}()
+
+	// Start HTTP server for notes API
+	httpPort := getEnv("HTTP_PORT", "8092")
+	httpServer := &http.Server{
+		Addr:    ":" + httpPort,
+		Handler: httpRouter,
+	}
+
+	log.Infof("Course Service HTTP listening on port %s", httpPort)
+
+	// Start HTTP server in a goroutine
+	go func() {
+		if err := httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			log.Errorf("Failed to serve HTTP server: %v", err)
 			os.Exit(1)
 		}
 	}()
@@ -96,6 +139,9 @@ func main() {
 
 	done := make(chan bool)
 	go func() {
+		// Shutdown HTTP server
+		httpServer.Shutdown(ctx)
+		// Shutdown gRPC server
 		grpcServer.GracefulStop()
 		done <- true
 	}()

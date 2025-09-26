@@ -109,6 +109,7 @@ func main() {
 	// Initialize new course access handlers
 	courseAccessHandler := handler.NewCourseAccessHandler(courseConn, log)
 	progressTrackingHandler := handler.NewProgressTrackingHandler(progressConn, log)
+	notesHandler := handler.NewNotesHandler("http://course-service:8092", log)
 
 	// Initialize middleware
 	authMiddleware := middleware.NewAuthMiddlewareWithCourse(authConn, courseConn, log)
@@ -146,6 +147,7 @@ func main() {
 		docsHandler,
 		courseAccessHandler,
 		progressTrackingHandler,
+		notesHandler,
 		authMiddleware,
 		loggingMiddleware,
 		rateLimitMiddleware,

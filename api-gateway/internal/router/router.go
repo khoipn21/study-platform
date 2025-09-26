@@ -23,6 +23,7 @@ type Router struct {
 	docsHandler                *handler.DocsHandler
 	courseAccessHandler        *handler.CourseAccessHandler
 	progressTrackingHandler    *handler.ProgressTrackingHandler
+	notesHandler               *handler.NotesHandler
 	authMiddleware             *middleware.AuthMiddleware
 	loggingMiddleware          *middleware.LoggingMiddleware
 	rateLimitMiddleware        *middleware.RateLimitMiddleware
@@ -45,6 +46,7 @@ func NewRouter(
 	docsHandler *handler.DocsHandler,
 	courseAccessHandler *handler.CourseAccessHandler,
 	progressTrackingHandler *handler.ProgressTrackingHandler,
+	notesHandler *handler.NotesHandler,
 	authMiddleware *middleware.AuthMiddleware,
 	loggingMiddleware *middleware.LoggingMiddleware,
 	rateLimitMiddleware *middleware.RateLimitMiddleware,
@@ -66,6 +68,7 @@ func NewRouter(
 		docsHandler:                docsHandler,
 		courseAccessHandler:        courseAccessHandler,
 		progressTrackingHandler:    progressTrackingHandler,
+		notesHandler:               notesHandler,
 		authMiddleware:             authMiddleware,
 		loggingMiddleware:          loggingMiddleware,
 		rateLimitMiddleware:        rateLimitMiddleware,
@@ -183,6 +186,19 @@ func (rt *Router) SetupRoutes() *mux.Router {
 	protectedCourseRoutes.HandleFunc("/{id}", rt.courseHandler.DeleteCourse).Methods("DELETE")
 	protectedCourseRoutes.HandleFunc("/{course_id}/lectures", rt.courseHandler.CreateLecture).Methods("POST")
 	protectedCourseRoutes.HandleFunc("/{course_id}/enroll", rt.courseHandler.EnrollInCourse).Methods("POST")
+
+	// Notes routes (all require authentication)
+	notesRoutes := api.PathPrefix("/notes").Subrouter()
+	notesRoutes.Use(middleware.CORSMiddleware)
+	notesRoutes.Use(rt.authMiddleware.RequireAuth)
+
+	// Notes CRUD operations
+	notesRoutes.HandleFunc("/courses/{course_id}/lectures/{lecture_id}", rt.notesHandler.GetNotesByLecture).Methods("GET")
+	notesRoutes.HandleFunc("/courses/{course_id}/lectures/{lecture_id}", rt.notesHandler.CreateNote).Methods("POST")
+	notesRoutes.HandleFunc("/courses/{course_id}", rt.notesHandler.GetNotesByCourse).Methods("GET")
+	notesRoutes.HandleFunc("/{note_id}", rt.notesHandler.GetNote).Methods("GET")
+	notesRoutes.HandleFunc("/{note_id}", rt.notesHandler.UpdateNote).Methods("PUT")
+	notesRoutes.HandleFunc("/{note_id}", rt.notesHandler.DeleteNote).Methods("DELETE")
 
 	// Progress routes (all require authentication)
 	progressRoutes := api.PathPrefix("/progress").Subrouter()
