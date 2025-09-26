@@ -96,7 +96,7 @@ func main() {
 	authHandler := handler.NewAuthHandler(authConn, log)
 	courseHandler := handler.NewCourseHandler(courseConn, bucketServiceURL, log)
 	progressHandler := handler.NewProgressHandler(progressConn, log)
-	videoHandler := handler.NewVideoHandler()
+	videoHandler := handler.NewVideoHandlerWithCourse(courseConn, log)
 	bucketHandler := handler.NewBucketHandler(bucketServiceURL, log)
 	chatbotHandler := handler.NewChatbotHandler(chatbotServiceURL)
 	forumHandler := handler.NewForumHandler(forumServiceURL)
@@ -106,8 +106,12 @@ func main() {
 	studentDashboardHandler := handler.NewStudentDashboardHandler()
 	docsHandler := handler.NewDocsHandler()
 
+	// Initialize new course access handlers
+	courseAccessHandler := handler.NewCourseAccessHandler(courseConn, log)
+	progressTrackingHandler := handler.NewProgressTrackingHandler(progressConn, log)
+
 	// Initialize middleware
-	authMiddleware := middleware.NewAuthMiddleware(authConn, log)
+	authMiddleware := middleware.NewAuthMiddlewareWithCourse(authConn, courseConn, log)
 	loggingMiddleware := middleware.NewLoggingMiddleware(log)
 	
 	// Security Configuration
@@ -140,6 +144,8 @@ func main() {
 		instructorDashboardHandler,
 		studentDashboardHandler,
 		docsHandler,
+		courseAccessHandler,
+		progressTrackingHandler,
 		authMiddleware,
 		loggingMiddleware,
 		rateLimitMiddleware,

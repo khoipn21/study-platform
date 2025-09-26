@@ -21,6 +21,8 @@ type Router struct {
 	instructorDashboardHandler *handler.InstructorDashboardHandler
 	studentDashboardHandler    *handler.StudentDashboardHandler
 	docsHandler                *handler.DocsHandler
+	courseAccessHandler        *handler.CourseAccessHandler
+	progressTrackingHandler    *handler.ProgressTrackingHandler
 	authMiddleware             *middleware.AuthMiddleware
 	loggingMiddleware          *middleware.LoggingMiddleware
 	rateLimitMiddleware        *middleware.RateLimitMiddleware
@@ -41,6 +43,8 @@ func NewRouter(
 	instructorDashboardHandler *handler.InstructorDashboardHandler,
 	studentDashboardHandler *handler.StudentDashboardHandler,
 	docsHandler *handler.DocsHandler,
+	courseAccessHandler *handler.CourseAccessHandler,
+	progressTrackingHandler *handler.ProgressTrackingHandler,
 	authMiddleware *middleware.AuthMiddleware,
 	loggingMiddleware *middleware.LoggingMiddleware,
 	rateLimitMiddleware *middleware.RateLimitMiddleware,
@@ -60,6 +64,8 @@ func NewRouter(
 		instructorDashboardHandler: instructorDashboardHandler,
 		studentDashboardHandler:    studentDashboardHandler,
 		docsHandler:                docsHandler,
+		courseAccessHandler:        courseAccessHandler,
+		progressTrackingHandler:    progressTrackingHandler,
 		authMiddleware:             authMiddleware,
 		loggingMiddleware:          loggingMiddleware,
 		rateLimitMiddleware:        rateLimitMiddleware,
@@ -201,6 +207,40 @@ func (rt *Router) SetupRoutes() *mux.Router {
 	analyticsRoutes := api.PathPrefix("/analytics").Subrouter()
 	analyticsRoutes.Use(rt.authMiddleware.RequireAuth)
 	analyticsRoutes.HandleFunc("/user", rt.progressHandler.GetUserAnalytics).Methods("GET")
+
+	// Course Access Control Routes (new endpoints for enrollment verification)
+	courseAccessRoutes := api.PathPrefix("/courses").Subrouter()
+	courseAccessRoutes.Use(middleware.CORSMiddleware)
+	courseAccessRoutes.Use(rt.authMiddleware.RequireAuth)
+
+	// Course access endpoints
+	courseAccessRoutes.HandleFunc("/{courseId}/access", rt.courseAccessHandler.CheckCourseAccess).Methods("GET")
+	courseAccessRoutes.HandleFunc("/{courseId}/lectures/enrolled", rt.courseAccessHandler.GetEnrolledCourseLectures).Methods("GET")
+
+	// My enrolled courses endpoint
+	myCoursesRoutes := api.PathPrefix("/enrollments").Subrouter()
+	myCoursesRoutes.Use(middleware.CORSMiddleware)
+	myCoursesRoutes.Use(rt.authMiddleware.RequireAuth)
+	myCoursesRoutes.HandleFunc("/my-courses", rt.courseAccessHandler.GetMyEnrolledCourses).Methods("GET")
+
+	// Lecture Access and Video Streaming Routes
+	lectureRoutes := api.PathPrefix("/lectures").Subrouter()
+	lectureRoutes.Use(middleware.CORSMiddleware)
+	lectureRoutes.Use(rt.authMiddleware.RequireAuth)
+
+	// Video streaming with enrollment verification
+	lectureRoutes.HandleFunc("/{lectureId}/stream", rt.videoHandler.GetLectureStreamURL).Methods("GET")
+
+	// Progress Tracking Routes (enhanced)
+	progressTrackingRoutes := api.PathPrefix("/progress").Subrouter()
+	progressTrackingRoutes.Use(middleware.CORSMiddleware)
+	progressTrackingRoutes.Use(rt.authMiddleware.RequireAuth)
+
+	// Progress tracking endpoints
+	progressTrackingRoutes.HandleFunc("/track", rt.progressTrackingHandler.TrackProgress).Methods("POST")
+	progressTrackingRoutes.HandleFunc("/complete", rt.progressTrackingHandler.MarkLectureComplete).Methods("POST")
+	progressTrackingRoutes.HandleFunc("/courses/{courseId}/user", rt.progressTrackingHandler.GetUserProgress).Methods("GET")
+	progressTrackingRoutes.HandleFunc("/lectures/{courseId}/{lectureId}", rt.progressTrackingHandler.GetLectureProgress).Methods("GET")
 
 	// File management routes (protected - require authentication)
 	protectedFileRoutes := api.PathPrefix("/files").Subrouter()

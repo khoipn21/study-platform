@@ -8,19 +8,30 @@ import (
 	"time"
 
 	authpb "github.com/study-platform/auth-service/proto"
+	coursepb "github.com/study-platform/course-service/proto"
 	"github.com/study-platform/pkg/logger"
+	"github.com/gorilla/mux"
 	"google.golang.org/grpc"
 )
 
 type AuthMiddleware struct {
-	authClient authpb.AuthServiceClient
-	logger     logger.Logger
+	authClient   authpb.AuthServiceClient
+	courseClient coursepb.CourseServiceClient
+	logger       logger.Logger
 }
 
 func NewAuthMiddleware(authConn *grpc.ClientConn, logger logger.Logger) *AuthMiddleware {
 	return &AuthMiddleware{
 		authClient: authpb.NewAuthServiceClient(authConn),
 		logger:     logger,
+	}
+}
+
+func NewAuthMiddlewareWithCourse(authConn *grpc.ClientConn, courseConn *grpc.ClientConn, logger logger.Logger) *AuthMiddleware {
+	return &AuthMiddleware{
+		authClient:   authpb.NewAuthServiceClient(authConn),
+		courseClient: coursepb.NewCourseServiceClient(courseConn),
+		logger:       logger,
 	}
 }
 
@@ -190,11 +201,154 @@ func (am *AuthMiddleware) RequireAdmin(next http.Handler) http.Handler {
 	return am.RequireRole("admin")(next)
 }
 
+// RequireCourseAccess is a middleware that checks if user has access to a specific course
+func (am *AuthMiddleware) RequireCourseAccess(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Get user ID from context (must be authenticated first)
+		userID, ok := r.Context().Value("user_id").(string)
+		if !ok {
+			am.sendError(w, http.StatusUnauthorized, "User not authenticated")
+			return
+		}
+
+		// Get course ID from URL path variables
+		vars := mux.Vars(r)
+		courseID := vars["courseId"]
+		if courseID == "" {
+			courseID = vars["course_id"] // Try alternative param name
+		}
+		if courseID == "" {
+			am.sendError(w, http.StatusBadRequest, "Course ID is required")
+			return
+		}
+
+		// Check if course client is available
+		if am.courseClient == nil {
+			am.logger.Errorf("Course client not initialized")
+			am.sendError(w, http.StatusInternalServerError, "Course service unavailable")
+			return
+		}
+
+		// Check enrollment
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+
+		enrollmentReq := &coursepb.GetEnrollmentRequest{
+			UserId:   userID,
+			CourseId: courseID,
+		}
+
+		enrollment, err := am.courseClient.GetEnrollment(ctx, enrollmentReq)
+		if err != nil {
+			am.logger.Errorf("Failed to check enrollment: %v", err)
+			am.sendError(w, http.StatusForbidden, "Access denied: Not enrolled in this course")
+			return
+		}
+
+		// Check if enrollment is active
+		if enrollment.Enrollment.Status != "active" {
+			am.sendError(w, http.StatusForbidden, "Access denied: Enrollment is not active")
+			return
+		}
+
+		// Add course access info to context
+		ctx = context.WithValue(r.Context(), "course_id", courseID)
+		ctx = context.WithValue(ctx, "enrollment_status", enrollment.Enrollment.Status)
+		r = r.WithContext(ctx)
+
+		next.ServeHTTP(w, r)
+	})
+}
+
+// RequireLectureAccess is a middleware that checks if user has access to a specific lecture
+func (am *AuthMiddleware) RequireLectureAccess(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Get user ID from context (must be authenticated first)
+		userID, ok := r.Context().Value("user_id").(string)
+		if !ok {
+			am.sendError(w, http.StatusUnauthorized, "User not authenticated")
+			return
+		}
+
+		// Get lecture ID from URL path variables
+		vars := mux.Vars(r)
+		lectureID := vars["lectureId"]
+		if lectureID == "" {
+			lectureID = vars["lecture_id"] // Try alternative param name
+		}
+		if lectureID == "" {
+			am.sendError(w, http.StatusBadRequest, "Lecture ID is required")
+			return
+		}
+
+		// Check if course client is available
+		if am.courseClient == nil {
+			am.logger.Errorf("Course client not initialized")
+			am.sendError(w, http.StatusInternalServerError, "Course service unavailable")
+			return
+		}
+
+		// Get lecture details to find the course ID
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+
+		lectureReq := &coursepb.GetLectureRequest{
+			Id: lectureID,
+		}
+
+		lecture, err := am.courseClient.GetLecture(ctx, lectureReq)
+		if err != nil {
+			am.logger.Errorf("Failed to get lecture: %v", err)
+			am.sendError(w, http.StatusNotFound, "Lecture not found")
+			return
+		}
+
+		// Check if lecture is free (public access)
+		if lecture.Lecture.IsFree {
+			// Add lecture access info to context
+			ctx = context.WithValue(r.Context(), "lecture_id", lectureID)
+			ctx = context.WithValue(ctx, "course_id", lecture.Lecture.CourseId)
+			ctx = context.WithValue(ctx, "is_free_lecture", true)
+			r = r.WithContext(ctx)
+			next.ServeHTTP(w, r)
+			return
+		}
+
+		// Check enrollment for paid lectures
+		enrollmentReq := &coursepb.GetEnrollmentRequest{
+			UserId:   userID,
+			CourseId: lecture.Lecture.CourseId,
+		}
+
+		enrollment, err := am.courseClient.GetEnrollment(ctx, enrollmentReq)
+		if err != nil {
+			am.logger.Errorf("Failed to check enrollment: %v", err)
+			am.sendError(w, http.StatusForbidden, "Access denied: Not enrolled in this course")
+			return
+		}
+
+		// Check if enrollment is active
+		if enrollment.Enrollment.Status != "active" {
+			am.sendError(w, http.StatusForbidden, "Access denied: Enrollment is not active")
+			return
+		}
+
+		// Add lecture access info to context
+		ctx = context.WithValue(r.Context(), "lecture_id", lectureID)
+		ctx = context.WithValue(ctx, "course_id", lecture.Lecture.CourseId)
+		ctx = context.WithValue(ctx, "is_free_lecture", false)
+		ctx = context.WithValue(ctx, "enrollment_status", enrollment.Enrollment.Status)
+		r = r.WithContext(ctx)
+
+		next.ServeHTTP(w, r)
+	})
+}
+
 // sendError sends an error response
 func (am *AuthMiddleware) sendError(w http.ResponseWriter, statusCode int, message string) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(statusCode)
-	
+
 	// Simple JSON encoding without using json.NewEncoder to avoid import
 	jsonStr := `{"success":false,"message":"` + message + `","error":"` + message + `"}`
 	w.Write([]byte(jsonStr))

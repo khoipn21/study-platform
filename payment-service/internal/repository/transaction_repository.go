@@ -27,13 +27,17 @@ func (r *TransactionRepository) Create(ctx context.Context, tx *model.Transactio
 		INSERT INTO transactions (
 			id, user_id, course_id, payment_method_id, amount, currency, status,
 			transaction_reference, lemon_squeezy_order_id, lemon_squeezy_checkout_id,
-			webhook_event_id, payment_verified_at, payment_provider, custom_data, created_at, updated_at
-		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)`
+			webhook_event_id, stripe_payment_intent_id, stripe_customer_id,
+			stripe_charge_id, stripe_session_id, stripe_invoice_id, stripe_subscription_id,
+			payment_verified_at, payment_provider, custom_data, created_at, updated_at
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22)`
 
 	_, err = r.db.ExecContext(ctx, query,
 		tx.ID, tx.UserID, tx.CourseID, tx.PaymentMethodID, tx.Amount, tx.Currency,
 		tx.Status, tx.TransactionReference, tx.LemonSqueezyOrderID,
-		tx.LemonSqueezyCheckoutID, tx.WebhookEventID, tx.PaymentVerifiedAt,
+		tx.LemonSqueezyCheckoutID, tx.WebhookEventID, tx.StripePaymentIntentID,
+		tx.StripeCustomerID, tx.StripeChargeID, tx.StripeSessionID,
+		tx.StripeInvoiceID, tx.StripeSubscriptionID, tx.PaymentVerifiedAt,
 		tx.PaymentProvider, customDataJSON, tx.CreatedAt, tx.UpdatedAt)
 	return err
 }
@@ -119,13 +123,17 @@ func (r *TransactionRepository) Update(tx *model.Transaction) error {
 		UPDATE transactions
 		SET course_id = $2, payment_method_id = $3, amount = $4, currency = $5, status = $6,
 		    transaction_reference = $7, lemon_squeezy_order_id = $8, lemon_squeezy_checkout_id = $9,
-		    webhook_event_id = $10, custom_data = $11, updated_at = $12
+		    webhook_event_id = $10, stripe_payment_intent_id = $11, stripe_customer_id = $12,
+		    stripe_charge_id = $13, stripe_session_id = $14, stripe_invoice_id = $15,
+		    stripe_subscription_id = $16, payment_verified_at = $17, custom_data = $18, updated_at = $19
 		WHERE id = $1`
 
 	result, err := r.db.Exec(query,
 		tx.ID, tx.CourseID, tx.PaymentMethodID, tx.Amount, tx.Currency, tx.Status,
 		tx.TransactionReference, tx.LemonSqueezyOrderID, tx.LemonSqueezyCheckoutID,
-		tx.WebhookEventID, customDataJSON, tx.UpdatedAt)
+		tx.WebhookEventID, tx.StripePaymentIntentID, tx.StripeCustomerID,
+		tx.StripeChargeID, tx.StripeSessionID, tx.StripeInvoiceID, tx.StripeSubscriptionID,
+		tx.PaymentVerifiedAt, customDataJSON, tx.UpdatedAt)
 	if err != nil {
 		return err
 	}
@@ -396,13 +404,17 @@ func (r *TransactionRepository) CreateWithTx(ctx context.Context, dbTx *sql.Tx, 
 		INSERT INTO transactions (
 			id, user_id, course_id, payment_method_id, amount, currency, status,
 			transaction_reference, lemon_squeezy_order_id, lemon_squeezy_checkout_id,
-			webhook_event_id, payment_verified_at, payment_provider, custom_data, created_at, updated_at
-		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)`
+			webhook_event_id, stripe_payment_intent_id, stripe_customer_id,
+			stripe_charge_id, stripe_session_id, stripe_invoice_id, stripe_subscription_id,
+			payment_verified_at, payment_provider, custom_data, created_at, updated_at
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22)`
 
 	_, err = dbTx.ExecContext(ctx, query,
 		tx.ID, tx.UserID, tx.CourseID, tx.PaymentMethodID, tx.Amount, tx.Currency,
 		tx.Status, tx.TransactionReference, tx.LemonSqueezyOrderID,
-		tx.LemonSqueezyCheckoutID, tx.WebhookEventID, tx.PaymentVerifiedAt,
+		tx.LemonSqueezyCheckoutID, tx.WebhookEventID, tx.StripePaymentIntentID,
+		tx.StripeCustomerID, tx.StripeChargeID, tx.StripeSessionID,
+		tx.StripeInvoiceID, tx.StripeSubscriptionID, tx.PaymentVerifiedAt,
 		tx.PaymentProvider, customDataJSON, tx.CreatedAt, tx.UpdatedAt)
 	return err
 }

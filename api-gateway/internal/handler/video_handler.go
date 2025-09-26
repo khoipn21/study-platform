@@ -2,20 +2,27 @@ package handler
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"io"
 	"net/http"
 	"net/url"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/gorilla/mux"
 	"github.com/gorilla/websocket"
+	coursepb "github.com/study-platform/course-service/proto"
+	"github.com/study-platform/pkg/logger"
+	"google.golang.org/grpc"
 )
 
 type VideoHandler struct {
 	videoServiceURL string
 	upgrader        websocket.Upgrader
+	courseClient    coursepb.CourseServiceClient
+	logger          logger.Logger
 }
 
 func NewVideoHandler() *VideoHandler {
@@ -34,6 +41,116 @@ func NewVideoHandler() *VideoHandler {
 			ReadBufferSize:  1024,
 			WriteBufferSize: 1024,
 		},
+	}
+}
+
+func NewVideoHandlerWithCourse(courseConn *grpc.ClientConn, logger logger.Logger) *VideoHandler {
+	videoServiceURL := os.Getenv("VIDEO_SERVICE_URL")
+	if videoServiceURL == "" {
+		videoServiceURL = "http://localhost:8084"
+	}
+
+	return &VideoHandler{
+		videoServiceURL: videoServiceURL,
+		courseClient:    coursepb.NewCourseServiceClient(courseConn),
+		logger:          logger,
+		upgrader: websocket.Upgrader{
+			CheckOrigin: func(r *http.Request) bool {
+				// Allow all origins for development - in production, implement proper CORS
+				return true
+			},
+			ReadBufferSize:  1024,
+			WriteBufferSize: 1024,
+		},
+	}
+}
+
+// GetLectureStreamURL returns video streaming URL for enrolled students
+func (vh *VideoHandler) GetLectureStreamURL(w http.ResponseWriter, r *http.Request) {
+	if vh.courseClient == nil || vh.logger == nil {
+		http.Error(w, "Course service not available", http.StatusInternalServerError)
+		return
+	}
+
+	vh.logger.Info("GetLectureStreamURL request received")
+
+	// Get user ID from context (set by auth middleware)
+	userID, ok := r.Context().Value("user_id").(string)
+	if !ok {
+		http.Error(w, "User not authenticated", http.StatusUnauthorized)
+		return
+	}
+
+	// Get lecture ID from URL path
+	vars := mux.Vars(r)
+	lectureID := vars["lectureId"]
+	if lectureID == "" {
+		lectureID = vars["lecture_id"] // Try alternative param name
+	}
+	if lectureID == "" {
+		http.Error(w, "Lecture ID is required", http.StatusBadRequest)
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	// Get lecture details first
+	lectureReq := &coursepb.GetLectureRequest{
+		Id: lectureID,
+	}
+
+	lecture, err := vh.courseClient.GetLecture(ctx, lectureReq)
+	if err != nil {
+		vh.logger.Errorf("Failed to get lecture: %v", err)
+		http.Error(w, "Lecture not found", http.StatusNotFound)
+		return
+	}
+
+	// Check if lecture is free (public access)
+	if !lecture.Lecture.IsFree {
+		// Check enrollment for paid lectures
+		enrollmentReq := &coursepb.GetEnrollmentRequest{
+			UserId:   userID,
+			CourseId: lecture.Lecture.CourseId,
+		}
+
+		enrollment, err := vh.courseClient.GetEnrollment(ctx, enrollmentReq)
+		if err != nil {
+			vh.logger.Errorf("Failed to check enrollment: %v", err)
+			http.Error(w, "Access denied: Not enrolled in this course", http.StatusForbidden)
+			return
+		}
+
+		// Check if enrollment is active
+		if enrollment.Enrollment.Status != "active" {
+			http.Error(w, "Access denied: Enrollment is not active", http.StatusForbidden)
+			return
+		}
+	}
+
+	// If we get here, user has access to the lecture
+	// Proxy the request to get the video streaming URL
+	if lecture.Lecture.VideoId != "" {
+		// Use video ID if available
+		path := fmt.Sprintf("/api/videos/%s", lecture.Lecture.VideoId)
+		vh.proxyRequest(w, r, "GET", path, false)
+	} else if lecture.Lecture.VideoUrl != "" {
+		// Return the video URL directly (for external videos)
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+
+		response := fmt.Sprintf(`{
+			"success": true,
+			"lectureId": "%s",
+			"videoUrl": "%s",
+			"streamingUrl": "%s",
+			"message": "Access granted"
+		}`, lectureID, lecture.Lecture.VideoUrl, lecture.Lecture.VideoUrl)
+
+		w.Write([]byte(response))
+	} else {
+		http.Error(w, "No video available for this lecture", http.StatusNotFound)
 	}
 }
 
