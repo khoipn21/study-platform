@@ -438,7 +438,23 @@ func (r *CourseRepository) UpdateRating(ctx context.Context, courseID uuid.UUID,
 		SET rating = $2, rating_count = $3, updated_at = $4
 		WHERE id = $1
 	`
-	
+
 	_, err := r.db.ExecContext(ctx, query, courseID, rating, ratingCount, time.Now())
 	return err
+}
+
+// GetInstructorName fetches the instructor's username from the users table
+func (r *CourseRepository) GetInstructorName(ctx context.Context, instructorID uuid.UUID) (string, error) {
+	query := `SELECT username FROM users WHERE id = $1`
+
+	var username string
+	err := r.db.QueryRowContext(ctx, query, instructorID).Scan(&username)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return "", fmt.Errorf("instructor not found")
+		}
+		return "", fmt.Errorf("failed to query instructor: %w", err)
+	}
+
+	return username, nil
 }

@@ -12,11 +12,13 @@ import (
 )
 
 type CourseService struct {
-	courseRepo         *repository.CourseRepository
-	lectureRepo        *repository.LectureRepository
-	enrollmentRepo     *repository.EnrollmentRepository
-	courseResourceRepo *repository.CourseResourceRepository
-	logger             logger.Logger
+	courseRepo             *repository.CourseRepository
+	lectureRepo            *repository.LectureRepository
+	enrollmentRepo         *repository.EnrollmentRepository
+	courseResourceRepo     *repository.CourseResourceRepository
+	lectureResourceRepo    *repository.LectureResourceRepository
+	lectureResourceService *LectureResourceService
+	logger                 logger.Logger
 }
 
 func NewCourseService(
@@ -24,26 +26,40 @@ func NewCourseService(
 	lectureRepo *repository.LectureRepository,
 	enrollmentRepo *repository.EnrollmentRepository,
 	courseResourceRepo *repository.CourseResourceRepository,
+	lectureResourceRepo *repository.LectureResourceRepository,
+	lectureResourceService *LectureResourceService,
 	logger logger.Logger,
 ) *CourseService {
 	return &CourseService{
-		courseRepo:         courseRepo,
-		lectureRepo:        lectureRepo,
-		enrollmentRepo:     enrollmentRepo,
-		courseResourceRepo: courseResourceRepo,
-		logger:             logger,
+		courseRepo:             courseRepo,
+		lectureRepo:            lectureRepo,
+		enrollmentRepo:         enrollmentRepo,
+		courseResourceRepo:     courseResourceRepo,
+		lectureResourceRepo:    lectureResourceRepo,
+		lectureResourceService: lectureResourceService,
+		logger:                 logger,
 	}
 }
 
 func (s *CourseService) CreateCourse(ctx context.Context, course *model.Course) error {
 	s.logger.Infof("Creating new course: %s (instructor: %s)", course.Title, course.InstructorID.String())
-	
+
 	// Validate course data
 	if err := s.validateCourse(course); err != nil {
 		s.logger.Errorf("Course validation failed: %v", err)
 		return err
 	}
-	
+
+	// Resolve instructor name from instructor_id
+	instructorName, err := s.courseRepo.GetInstructorName(ctx, course.InstructorID)
+	if err != nil {
+		s.logger.Errorf("Failed to resolve instructor name for ID %s: %v", course.InstructorID.String(), err)
+		// Don't fail the course creation, just log the error and use empty string
+		instructorName = ""
+	}
+	course.InstructorName = instructorName
+	s.logger.Infof("Resolved instructor name: %s", instructorName)
+
 	// Set default values
 	if course.Status == "" {
 		course.Status = model.CourseStatusDraft
@@ -73,7 +89,7 @@ func (s *CourseService) CreateCourse(ctx context.Context, course *model.Course) 
 	course.HasCertificate = false
 	course.MobileAccess = true
 	
-	err := s.courseRepo.Create(ctx, course)
+	err = s.courseRepo.Create(ctx, course)
 	if err != nil {
 		s.logger.Errorf("Failed to create course: %v", err)
 		return fmt.Errorf("failed to create course: %w", err)
@@ -342,19 +358,44 @@ func (s *CourseService) DeleteLecture(ctx context.Context, id uuid.UUID) error {
 }
 
 func (s *CourseService) ListLectures(ctx context.Context, filters model.LectureFilters) (*model.LectureSearchResult, error) {
+	s.logger.Infof("DEBUG: ListLectures called with course_id=%s, page=%d, page_size=%d", filters.CourseID, filters.Page, filters.PageSize)
+
 	if filters.Page <= 0 {
 		filters.Page = 1
 	}
 	if filters.PageSize <= 0 {
 		filters.PageSize = 50
 	}
-	
+
 	result, err := s.lectureRepo.List(ctx, filters)
 	if err != nil {
 		s.logger.Errorf("Failed to list lectures: %v", err)
 		return nil, fmt.Errorf("failed to list lectures: %w", err)
 	}
-	
+
+	s.logger.Infof("DEBUG: Found %d lectures for course %s", len(result.Lectures), filters.CourseID)
+
+	// Populate lectures with their resources
+	if len(result.Lectures) > 0 {
+		s.logger.Infof("DEBUG: Calling PopulateLecturesWithResources for %d lectures", len(result.Lectures))
+
+		// Create slice of pointers to lectures
+		lecturePointers := make([]*model.Lecture, len(result.Lectures))
+		for i := range result.Lectures {
+			lecturePointers[i] = &result.Lectures[i]
+		}
+
+		err = s.lectureResourceService.PopulateLecturesWithResources(ctx, lecturePointers)
+		if err != nil {
+			s.logger.Errorf("Failed to populate lecture resources: %v", err)
+			// Don't fail the entire request, just log the error
+		} else {
+			s.logger.Infof("DEBUG: Successfully populated lectures with resources")
+		}
+	} else {
+		s.logger.Infof("DEBUG: No lectures found to populate with resources")
+	}
+
 	return result, nil
 }
 

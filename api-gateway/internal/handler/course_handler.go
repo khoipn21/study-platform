@@ -8,6 +8,7 @@ import (
 	"io"
 	"mime/multipart"
 	"net/http"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -80,15 +81,29 @@ type UpdateCourseRequest struct {
 }
 
 type CreateLectureRequest struct {
-	ID              string `json:"id"`
-	Title           string `json:"title"`
-	Description     string `json:"description"`
-	Type            string `json:"type"`
-	OrderNumber     int32  `json:"order_number"`
-	DurationMinutes int32  `json:"duration_minutes"`
-	VideoURL        string `json:"video_url"`
-	VideoID         string `json:"video_id"`
-	IsFree          bool   `json:"is_free"`
+	ID              string                         `json:"id"`
+	Title           string                         `json:"title"`
+	Description     string                         `json:"description"`
+	Type            string                         `json:"type"`
+	OrderNumber     int32                          `json:"order_number"`
+	DurationMinutes int32                          `json:"duration_minutes"`
+	VideoURL        string                         `json:"video_url"`
+	VideoID         string                         `json:"video_id"`
+	IsFree          bool                           `json:"is_free"`
+	Resources       []CreateLectureResourceRequest `json:"resources"`
+}
+
+type CreateLectureResourceRequest struct {
+	FileID       string `json:"file_id,omitempty"`
+	Filename     string `json:"filename,omitempty"`
+	OriginalName string `json:"original_name,omitempty"`
+	FileType     string `json:"file_type,omitempty"`
+	FileSize     int64  `json:"file_size,omitempty"`
+	ResourceType string `json:"resource_type,omitempty"`
+	IsRequired   bool   `json:"is_required,omitempty"`
+	IsPublic     bool   `json:"is_public,omitempty"`
+	DownloadURL  string `json:"download_url,omitempty"` // Add this field to capture the URL
+	UploadedAt   string `json:"uploaded_at,omitempty"`  // Add this field as well
 }
 
 type UpdateLectureRequest struct {
@@ -106,17 +121,39 @@ func (h *CourseHandler) CreateCourse(w http.ResponseWriter, r *http.Request) {
 	h.logger.Infof("========== COURSE HANDLER CreateCourse CALLED ==========")
 	fmt.Printf("========== COURSE HANDLER CreateCourse CALLED ==========\n")
 
+	// Read the raw body first for debugging
+	bodyBytes, err := io.ReadAll(r.Body)
+	if err != nil {
+		h.logger.Errorf("Failed to read request body: %v", err)
+		h.sendError(w, http.StatusBadRequest, "Could not read request body")
+		return
+	}
+
+	h.logger.Infof("DEBUG: Raw request body: %s", string(bodyBytes))
+
 	var req CreateCourseRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+	if err := json.Unmarshal(bodyBytes, &req); err != nil {
 		h.logger.Errorf("Failed to decode request body: %v", err)
 		h.sendError(w, http.StatusBadRequest, "Invalid request body")
 		return
 	}
 	h.logger.Infof("Decoded request - Title: %s, Lectures count: %d", req.Title, len(req.Lectures))
 
+	// TEMP DEBUG: Try to see if the lectures array is populated correctly
+	lecturesJson, _ := json.Marshal(req.Lectures)
+	h.logger.Infof("TEMP DEBUG: Lectures JSON: %s", string(lecturesJson))
+
 	// Debug: Write lecture information to a debug file
 	if len(req.Lectures) > 0 {
 		h.logger.Infof("First lecture title: %s", req.Lectures[0].Title)
+		h.logger.Infof("CRITICAL PARSE DEBUG: First lecture has %d resources", len(req.Lectures[0].Resources))
+		fmt.Printf("CRITICAL PARSE DEBUG: First lecture has %d resources\n", len(req.Lectures[0].Resources))
+		if len(req.Lectures[0].Resources) > 0 {
+			for i, res := range req.Lectures[0].Resources {
+				h.logger.Infof("PARSE DEBUG: Resource %d - Filename: %s, FileID: %s, DownloadURL: %s", i+1, res.Filename, res.FileID, res.DownloadURL)
+				fmt.Printf("PARSE DEBUG: Resource %d - Filename: %s, FileID: %s, DownloadURL: %s\n", i+1, res.Filename, res.FileID, res.DownloadURL)
+			}
+		}
 	} else {
 		h.logger.Infof("NO LECTURES FOUND IN REQUEST")
 	}
@@ -160,6 +197,17 @@ func (h *CourseHandler) CreateCourse(w http.ResponseWriter, r *http.Request) {
 	var createdLectures []*coursepb.Lecture
 	for i, lecture := range req.Lectures {
 		h.logger.Infof("Creating lecture %d: %s", i+1, lecture.Title)
+		h.logger.Infof("CRITICAL DEBUG: Lecture %d has %d resources", i+1, len(lecture.Resources))
+		fmt.Printf("CRITICAL DEBUG: Lecture %d has %d resources\n", i+1, len(lecture.Resources))
+		if len(lecture.Resources) > 0 {
+			for j, res := range lecture.Resources {
+				h.logger.Infof("DEBUG: Resource %d - Filename: %s, FileID: %s, DownloadURL: %s", j+1, res.Filename, res.FileID, res.DownloadURL)
+				fmt.Printf("DEBUG: Resource %d - Filename: %s, FileID: %s, DownloadURL: %s\n", j+1, res.Filename, res.FileID, res.DownloadURL)
+			}
+		} else {
+			h.logger.Infof("CRITICAL: NO RESOURCES FOUND FOR LECTURE %s", lecture.Title)
+			fmt.Printf("CRITICAL: NO RESOURCES FOUND FOR LECTURE %s\n", lecture.Title)
+		}
 		lectureReq := &coursepb.CreateLectureRequest{
 			CourseId:        courseID,
 			Title:           lecture.Title,
@@ -179,6 +227,19 @@ func (h *CourseHandler) CreateCourse(w http.ResponseWriter, r *http.Request) {
 		}
 		createdLectures = append(createdLectures, lectureResp.Lecture)
 		h.logger.Infof("Lecture created: %s (%s)", lectureResp.Lecture.Title, lectureResp.Lecture.Id)
+
+		// Create resources for this lecture if any exist
+		h.logger.Infof("DEBUG: Checking resources for lecture '%s' - resources count: %d", lecture.Title, len(lecture.Resources))
+		if len(lecture.Resources) > 0 {
+			h.logger.Infof("Creating %d resources for lecture: %s", len(lecture.Resources), lecture.Title)
+			err = h.createLectureResources(ctx, lectureResp.Lecture.Id, lecture.Resources)
+			if err != nil {
+				h.logger.Errorf("Failed to create resources for lecture '%s': %v", lecture.Title, err)
+				// Don't fail the entire course creation, just log the error
+			}
+		} else {
+			h.logger.Infof("DEBUG: No resources found for lecture '%s'", lecture.Title)
+		}
 	}
 
 	// Create Lemon Squeezy product if course has a price
@@ -667,6 +728,8 @@ func (h *CourseHandler) ListLectures(w http.ResponseWriter, r *http.Request) {
 		pageSize = 10
 	}
 
+	h.logger.Infof("DEBUG: API Gateway ListLectures called for course_id=%s, page=%d, page_size=%d", courseID, page, pageSize)
+
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
@@ -678,16 +741,29 @@ func (h *CourseHandler) ListLectures(w http.ResponseWriter, r *http.Request) {
 		PageSize: int32(pageSize),
 	}
 
+	h.logger.Infof("DEBUG: Calling course service gRPC ListLectures")
 	resp, err := h.courseClient.ListLectures(ctx, grpcReq)
 	if err != nil {
 		h.handleGRPCError(w, err, "Failed to list lectures")
 		return
 	}
 
+	h.logger.Infof("DEBUG: Received gRPC response with %d lectures", len(resp.Lectures))
+
 	// Format response
 	var lectures []map[string]interface{}
-	for _, lecture := range resp.Lectures {
-		lectures = append(lectures, h.formatLecture(lecture))
+	for i, lecture := range resp.Lectures {
+		h.logger.Infof("DEBUG: Processing lecture %d (%s) with %d resources", i, lecture.Id, len(lecture.Resources))
+		if len(lecture.Resources) > 0 {
+			for j, res := range lecture.Resources {
+				h.logger.Infof("DEBUG: Resource %d - ID: %s, Filename: %s, Type: %s", j, res.Id, res.Filename, res.FileType)
+			}
+		} else {
+			h.logger.Infof("DEBUG: No resources found for lecture %s", lecture.Id)
+		}
+		formattedLecture := h.formatLecture(lecture)
+		lectures = append(lectures, formattedLecture)
+		h.logger.Infof("DEBUG: Formatted lecture %d has %d resources", i, len(formattedLecture["resources"].([]map[string]interface{})))
 	}
 
 	data := map[string]interface{}{
@@ -698,6 +774,7 @@ func (h *CourseHandler) ListLectures(w http.ResponseWriter, r *http.Request) {
 		"total_pages": (resp.TotalCount + resp.PageSize - 1) / resp.PageSize,
 	}
 
+	h.logger.Infof("DEBUG: Final response data contains %d lectures", len(lectures))
 	h.sendSuccess(w, "Lectures retrieved successfully", data)
 }
 
@@ -762,6 +839,12 @@ func (h *CourseHandler) formatCourse(course *coursepb.Course) map[string]interfa
 }
 
 func (h *CourseHandler) formatLecture(lecture *coursepb.Lecture) map[string]interface{} {
+	// Format resources
+	var resources []map[string]interface{}
+	for _, resource := range lecture.Resources {
+		resources = append(resources, h.formatLectureResource(resource))
+	}
+
 	return map[string]interface{}{
 		"id":               lecture.Id,
 		"course_id":        lecture.CourseId,
@@ -775,6 +858,27 @@ func (h *CourseHandler) formatLecture(lecture *coursepb.Lecture) map[string]inte
 		"is_free":          lecture.IsFree,
 		"created_at":       lecture.CreatedAt.AsTime(),
 		"updated_at":       lecture.UpdatedAt.AsTime(),
+		"resources":        resources,
+	}
+}
+
+func (h *CourseHandler) formatLectureResource(resource *coursepb.LectureResource) map[string]interface{} {
+	return map[string]interface{}{
+		"id":            resource.Id,
+		"lecture_id":    resource.LectureId,
+		"file_id":       resource.FileId,
+		"resource_type": resource.ResourceType,
+		"display_order": resource.DisplayOrder,
+		"is_required":   resource.IsRequired,
+		"filename":      resource.Filename,
+		"original_name": resource.OriginalName,
+		"file_type":     resource.FileType,
+		"file_size":     resource.FileSize,
+		"download_url":  resource.DownloadUrl,
+		"is_public":     resource.IsPublic,
+		"created_at":    resource.CreatedAt.AsTime(),
+		"updated_at":    resource.UpdatedAt.AsTime(),
+		"uploaded_at":   resource.UploadedAt.AsTime(),
 	}
 }
 
@@ -1127,4 +1231,226 @@ func (h *CourseHandler) validateThumbnailFile(fileHeader *multipart.FileHeader) 
 	}
 
 	return nil
+}
+
+// createLectureResources creates resources for a lecture by calling the course service HTTP API
+func (h *CourseHandler) createLectureResources(ctx context.Context, lectureID string, resources []CreateLectureResourceRequest) error {
+	h.logger.Infof("Creating %d resources for lecture: %s", len(resources), lectureID)
+
+	for i, resource := range resources {
+		// Extract file ID from download URL if not provided
+		fileID := resource.FileID
+		if fileID == "" && resource.DownloadURL != "" {
+			fileID = h.extractFileIDFromURL(resource.DownloadURL)
+		}
+
+		// Infer resource type if not provided
+		resourceType := resource.ResourceType
+		if resourceType == "" {
+			resourceType = h.inferResourceTypeFromFilename(resource.Filename)
+		}
+
+		h.logger.Infof("Creating resource %d: %s (file_id: %s, type: %s)", i+1, resource.Filename, fileID, resourceType)
+
+		// Validate that we have a file ID
+		if fileID == "" {
+			h.logger.Errorf("Cannot create resource %s: missing file_id", resource.Filename)
+			continue
+		}
+
+		// Create the resource payload
+		resourcePayload := map[string]interface{}{
+			"file_id":       fileID,
+			"resource_type": resourceType,
+			"display_order": i + 1, // Use sequential order
+			"is_required":   resource.IsRequired,
+		}
+
+		payloadBytes, err := json.Marshal(resourcePayload)
+		if err != nil {
+			h.logger.Errorf("Failed to marshal resource payload: %v", err)
+			continue // Skip this resource but continue with others
+		}
+
+		// Call the course service HTTP API to create the lecture resource
+		courseServiceURL := "http://course-service:8092"
+		apiURL := fmt.Sprintf("%s/lectures/%s/resources", courseServiceURL, lectureID)
+
+		req, err := http.NewRequestWithContext(ctx, "POST", apiURL, bytes.NewBuffer(payloadBytes))
+		if err != nil {
+			h.logger.Errorf("Failed to create HTTP request: %v", err)
+			continue
+		}
+
+		req.Header.Set("Content-Type", "application/json")
+
+		client := &http.Client{Timeout: 10 * time.Second}
+		resp, err := client.Do(req)
+		if err != nil {
+			h.logger.Errorf("Failed to create lecture resource: %v", err)
+			continue
+		}
+		defer resp.Body.Close()
+
+		if resp.StatusCode == http.StatusOK || resp.StatusCode == http.StatusCreated {
+			h.logger.Infof("Successfully created resource for lecture %s: %s", lectureID, resource.Filename)
+		} else {
+			responseBody, _ := io.ReadAll(resp.Body)
+			h.logger.Errorf("Failed to create lecture resource, status: %d, response: %s", resp.StatusCode, string(responseBody))
+		}
+	}
+
+	return nil
+}
+
+// extractFileIDFromURL extracts the file ID from a download URL
+// Expected URL format: https://bucket.com/path/to/file-id.extension
+func (h *CourseHandler) extractFileIDFromURL(downloadURL string) string {
+	if downloadURL == "" {
+		return ""
+	}
+
+	// Extract filename from URL
+	parts := strings.Split(downloadURL, "/")
+	if len(parts) == 0 {
+		return ""
+	}
+
+	filename := parts[len(parts)-1]
+
+	// Remove extension to get file ID
+	fileID := strings.TrimSuffix(filename, filepath.Ext(filename))
+
+	h.logger.Infof("Extracted file ID '%s' from URL '%s'", fileID, downloadURL)
+	return fileID
+}
+
+// inferResourceTypeFromFilename infers resource type from file extension
+func (h *CourseHandler) inferResourceTypeFromFilename(filename string) string {
+	ext := strings.ToLower(filepath.Ext(filename))
+
+	switch ext {
+	case ".pdf":
+		return "pdf"
+	case ".doc", ".docx":
+		return "document"
+	case ".ppt", ".pptx":
+		return "slides"
+	case ".jpg", ".jpeg", ".png", ".gif", ".webp":
+		return "image"
+	case ".mp4", ".avi", ".mov", ".mkv":
+		return "video"
+	case ".mp3", ".wav", ".aac":
+		return "audio"
+	case ".zip", ".rar", ".tar", ".gz":
+		return "archive"
+	case ".js", ".py", ".go", ".java", ".cpp", ".c", ".html", ".css":
+		return "code"
+	default:
+		return "document" // Default fallback
+	}
+}
+
+// GetLectureResourceDownloadURL proxies the request to course service for generating signed download URLs
+func (h *CourseHandler) GetLectureResourceDownloadURL(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	resourceID := vars["resource_id"]
+
+	// Get user ID from context
+	userID, ok := r.Context().Value("user_id").(string)
+	if !ok {
+		http.Error(w, "User not authenticated", http.StatusUnauthorized)
+		return
+	}
+
+	// Prepare request to course service
+	courseServiceURL := "http://course-service:8092"
+	apiURL := fmt.Sprintf("%s/lecture-resources/%s/download-url", courseServiceURL, resourceID)
+
+	// Create HTTP request
+	req, err := http.NewRequest("GET", apiURL, nil)
+	if err != nil {
+		h.logger.Errorf("Failed to create request to course service: %v", err)
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		return
+	}
+
+	// Add user ID to context for course service
+	req.Header.Set("X-User-ID", userID)
+	req.Header.Set("Content-Type", "application/json")
+
+	// Forward the request
+	client := &http.Client{Timeout: 10 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		h.logger.Errorf("Failed to call course service: %v", err)
+		http.Error(w, "Failed to generate download URL", http.StatusInternalServerError)
+		return
+	}
+	defer resp.Body.Close()
+
+	// Copy response headers
+	for key, values := range resp.Header {
+		for _, value := range values {
+			w.Header().Add(key, value)
+		}
+	}
+
+	// Copy status code
+	w.WriteHeader(resp.StatusCode)
+
+	// Copy response body
+	io.Copy(w, resp.Body)
+}
+
+// GetLectureResourcePreviewURL proxies the request to course service for generating signed preview URLs
+func (h *CourseHandler) GetLectureResourcePreviewURL(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	resourceID := vars["resource_id"]
+
+	// Get user ID from context
+	userID, ok := r.Context().Value("user_id").(string)
+	if !ok {
+		http.Error(w, "User not authenticated", http.StatusUnauthorized)
+		return
+	}
+
+	// Prepare request to course service
+	courseServiceURL := "http://course-service:8092"
+	apiURL := fmt.Sprintf("%s/lecture-resources/%s/preview-url", courseServiceURL, resourceID)
+
+	// Create HTTP request
+	req, err := http.NewRequest("GET", apiURL, nil)
+	if err != nil {
+		h.logger.Errorf("Failed to create request to course service: %v", err)
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		return
+	}
+
+	// Add user ID to context for course service
+	req.Header.Set("X-User-ID", userID)
+	req.Header.Set("Content-Type", "application/json")
+
+	// Forward the request
+	client := &http.Client{Timeout: 10 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		h.logger.Errorf("Failed to call course service: %v", err)
+		http.Error(w, "Failed to generate preview URL", http.StatusInternalServerError)
+		return
+	}
+	defer resp.Body.Close()
+
+	// Copy response headers
+	for key, values := range resp.Header {
+		for _, value := range values {
+			w.Header().Add(key, value)
+		}
+	}
+
+	// Copy status code
+	w.WriteHeader(resp.StatusCode)
+
+	// Copy response body
+	io.Copy(w, resp.Body)
 }

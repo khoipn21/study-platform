@@ -84,11 +84,31 @@ message Lecture {
     bool is_free = 11;
     google.protobuf.Timestamp created_at = 12;
     google.protobuf.Timestamp updated_at = 13;
+    repeated LectureResource resources = 14;
 }
 
 message CourseResource {
     string id = 1;
     string course_id = 2;
+    string file_id = 3;
+    string resource_type = 4;
+    int32 display_order = 5;
+    bool is_required = 6;
+    google.protobuf.Timestamp created_at = 7;
+    google.protobuf.Timestamp updated_at = 8;
+    // File information
+    string filename = 9;
+    string original_name = 10;
+    string file_type = 11;
+    int64 file_size = 12;
+    string download_url = 13;
+    bool is_public = 14;
+    google.protobuf.Timestamp uploaded_at = 15;
+}
+
+message LectureResource {
+    string id = 1;
+    string lecture_id = 2;
     string file_id = 3;
     string resource_type = 4;
     int32 display_order = 5;

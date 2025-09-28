@@ -322,26 +322,31 @@ func (h *CourseHandler) DeleteLecture(ctx context.Context, req *pb.DeleteLecture
 }
 
 func (h *CourseHandler) ListLectures(ctx context.Context, req *pb.ListLecturesRequest) (*pb.ListLecturesResponse, error) {
-	h.logger.Info("Request received")
-	
+	h.logger.Infof("DEBUG: ListLectures gRPC handler called with course_id=%s", req.CourseId)
+
 	filters := model.LectureFilters{
 		CourseID: req.CourseId,
 		Status:   req.Status,
 		Page:     req.Page,
 		PageSize: req.PageSize,
 	}
-	
+
 	result, err := h.courseService.ListLectures(ctx, filters)
 	if err != nil {
 		h.logger.Errorf("Handler error: %v", err)
 		return nil, status.Errorf(codes.Internal, "failed to list lectures: %v", err)
 	}
-	
+
+	h.logger.Infof("DEBUG: Converting %d lectures to protobuf", len(result.Lectures))
+
 	lectures := make([]*pb.Lecture, len(result.Lectures))
 	for i, lecture := range result.Lectures {
+		h.logger.Infof("DEBUG: Converting lecture %d (%s) with %d resources", i, lecture.ID, len(lecture.Resources))
 		lectures[i] = h.lectureToProto(&lecture)
 	}
-	
+
+	h.logger.Infof("DEBUG: Returning gRPC response with %d lectures", len(lectures))
+
 	return &pb.ListLecturesResponse{
 		Lectures:   lectures,
 		TotalCount: result.TotalCount,
@@ -482,6 +487,12 @@ func (h *CourseHandler) courseToProto(course *model.Course) *pb.Course {
 }
 
 func (h *CourseHandler) lectureToProto(lecture *model.Lecture) *pb.Lecture {
+	// Convert resources
+	resources := make([]*pb.LectureResource, len(lecture.Resources))
+	for i, resource := range lecture.Resources {
+		resources[i] = h.lectureResourceToProto(&resource)
+	}
+
 	return &pb.Lecture{
 		Id:              lecture.ID.String(),
 		CourseId:        lecture.CourseID.String(),
@@ -496,6 +507,7 @@ func (h *CourseHandler) lectureToProto(lecture *model.Lecture) *pb.Lecture {
 		IsFree:          lecture.IsFree,
 		CreatedAt:       timestamppb.New(lecture.CreatedAt),
 		UpdatedAt:       timestamppb.New(lecture.UpdatedAt),
+		Resources:       resources,
 	}
 }
 
@@ -503,6 +515,26 @@ func (h *CourseHandler) courseResourceToProto(resource *model.CourseResource) *p
 	return &pb.CourseResource{
 		Id:           resource.ID.String(),
 		CourseId:     resource.CourseID.String(),
+		FileId:       resource.FileID.String(),
+		ResourceType: resource.ResourceType,
+		DisplayOrder: resource.DisplayOrder,
+		IsRequired:   resource.IsRequired,
+		CreatedAt:    timestamppb.New(resource.CreatedAt),
+		UpdatedAt:    timestamppb.New(resource.UpdatedAt),
+		Filename:     resource.Filename,
+		OriginalName: resource.OriginalName,
+		FileType:     resource.FileType,
+		FileSize:     resource.FileSize,
+		DownloadUrl:  resource.DownloadURL,
+		IsPublic:     resource.IsPublic,
+		UploadedAt:   timestamppb.New(resource.UploadedAt),
+	}
+}
+
+func (h *CourseHandler) lectureResourceToProto(resource *model.LectureResource) *pb.LectureResource {
+	return &pb.LectureResource{
+		Id:           resource.ID.String(),
+		LectureId:    resource.LectureID.String(),
 		FileId:       resource.FileID.String(),
 		ResourceType: resource.ResourceType,
 		DisplayOrder: resource.DisplayOrder,

@@ -264,6 +264,64 @@ func (h *FileHandler) GetFile(c *gin.Context) {
 	c.Redirect(http.StatusTemporaryRedirect, url)
 }
 
+// GetPresignedURL returns a presigned URL as JSON instead of redirecting
+func (h *FileHandler) GetPresignedURL(c *gin.Context) {
+	type PresignedRequest struct {
+		BucketName string `json:"bucket_name" binding:"required"`
+		ObjectKey  string `json:"object_key" binding:"required"`
+		ExpiresIn  int    `json:"expires_in"` // seconds, defaults to config value
+		Operation  string `json:"operation"`  // GetObject, PutObject, defaults to GetObject
+	}
+
+	var req PresignedRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body", "details": err.Error()})
+		return
+	}
+
+	// Default expiration from config
+	expiresIn := req.ExpiresIn
+	if expiresIn <= 0 {
+		expiresIn = h.config.Upload.PresignedURLExpiration
+	}
+	expires := time.Duration(expiresIn) * time.Second
+
+	// Default operation
+	operation := req.Operation
+	if operation == "" {
+		operation = "GetObject"
+	}
+
+	var url string
+	var err error
+
+	switch operation {
+	case "GetObject":
+		url, err = h.s3Service.GetPresignedURL(c.Request.Context(), req.BucketName, req.ObjectKey, expires)
+	case "PutObject":
+		// For PutObject, we'd need content type, but for now just support GetObject
+		c.JSON(http.StatusBadRequest, gin.H{"error": "PutObject operation not yet supported in this endpoint"})
+		return
+	default:
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Unsupported operation. Use 'GetObject'"})
+		return
+	}
+
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate presigned URL", "details": err.Error()})
+		return
+	}
+
+	expiresAt := time.Now().Add(expires)
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"data": gin.H{
+			"url":        url,
+			"expires_at": expiresAt.Format(time.RFC3339),
+		},
+	})
+}
+
 func (h *FileHandler) GetFileMetadata(c *gin.Context) {
 	fileIDStr := c.Param("fileId")
 	fileID, err := uuid.Parse(fileIDStr)

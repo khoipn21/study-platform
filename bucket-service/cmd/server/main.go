@@ -197,6 +197,9 @@ func setupRouter(cfg *config.Config, fileHandler *handler.FileHandler, healthHan
 			files.GET("", fileHandler.ListFiles)
 		}
 
+		// Presigned URL endpoint (requires authentication)
+		api.POST("/presigned-url", authMiddleware.RequireAuth(), fileHandler.GetPresignedURL)
+
 		// Public file routes (no auth required)
 		api.GET("/files/public/:fileId", fileHandler.GetPublicFile)
 	}

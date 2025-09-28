@@ -187,6 +187,13 @@ func (rt *Router) SetupRoutes() *mux.Router {
 	protectedCourseRoutes.HandleFunc("/{course_id}/lectures", rt.courseHandler.CreateLecture).Methods("POST")
 	protectedCourseRoutes.HandleFunc("/{course_id}/enroll", rt.courseHandler.EnrollInCourse).Methods("POST")
 
+	// Lecture Resource signed URL routes (require authentication)
+	lectureResourceRoutes := api.PathPrefix("/lecture-resources").Subrouter()
+	lectureResourceRoutes.Use(middleware.CORSMiddleware)
+	lectureResourceRoutes.Use(rt.authMiddleware.RequireAuth)
+	lectureResourceRoutes.HandleFunc("/{resource_id}/download-url", rt.courseHandler.GetLectureResourceDownloadURL).Methods("GET")
+	lectureResourceRoutes.HandleFunc("/{resource_id}/preview-url", rt.courseHandler.GetLectureResourcePreviewURL).Methods("GET")
+
 	// Notes routes (all require authentication)
 	notesRoutes := api.PathPrefix("/notes").Subrouter()
 	notesRoutes.Use(middleware.CORSMiddleware)

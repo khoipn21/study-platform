@@ -51,15 +51,18 @@ func main() {
 	lectureRepo := repository.NewLectureRepository(db)
 	enrollmentRepo := repository.NewEnrollmentRepository(db)
 	courseResourceRepo := repository.NewCourseResourceRepository(db.GetSqlxDB(), log)
+	lectureResourceRepo := repository.NewLectureResourceRepository(db.GetSqlxDB(), log)
 	notesRepo := repository.NewNotesRepository(db.GetSqlxDB())
 
 	// Initialize services
-	courseService := service.NewCourseService(courseRepo, lectureRepo, enrollmentRepo, courseResourceRepo, log)
+	lectureResourceService := service.NewLectureResourceService(lectureRepo, lectureResourceRepo, enrollmentRepo, log)
+	courseService := service.NewCourseService(courseRepo, lectureRepo, enrollmentRepo, courseResourceRepo, lectureResourceRepo, lectureResourceService, log)
 	notesService := service.NewNotesService(notesRepo, log)
 
 	// Initialize handlers
 	courseHandler := handler.NewCourseHandler(courseService, log)
 	accessValidationHandler := handler.NewAccessValidationHandler(courseService, log)
+	lectureResourceHandler := handler.NewLectureResourceHandler(lectureResourceService, log)
 	notesHandler := handler.NewNotesHandler(notesService, log)
 
 	// Create gRPC server
@@ -90,6 +93,48 @@ func main() {
 	httpRouter.GET("/notes/:note_id", notesHandler.GetNote)
 	httpRouter.PUT("/notes/:note_id", notesHandler.UpdateNote)
 	httpRouter.DELETE("/notes/:note_id", notesHandler.DeleteNote)
+
+	// Test endpoint to verify routes are working
+	httpRouter.GET("/test", func(c *gin.Context) {
+		c.JSON(200, gin.H{"message": "Course service HTTP routes are working!"})
+	})
+
+	// Simple new test endpoint
+	httpRouter.GET("/new-test", func(c *gin.Context) {
+		c.JSON(200, gin.H{"message": "New test endpoint works!"})
+	})
+
+	// New signed URL endpoints for lecture resources - moved up to avoid conflicts
+	httpRouter.GET("/lecture-resources/:resource_id/download-url", lectureResourceHandler.GetResourceDownloadURL)
+	httpRouter.GET("/lecture-resources/:resource_id/preview-url", lectureResourceHandler.GetResourcePreviewURL)
+
+	// Test endpoint to verify route pattern works
+	httpRouter.GET("/lecture-resources/:resource_id/test", func(c *gin.Context) {
+		resourceID := c.Param("resource_id")
+		c.JSON(200, gin.H{
+			"message": "Test endpoint works",
+			"resource_id": resourceID,
+			"path": c.Request.URL.Path,
+		})
+	})
+
+	// Simple test endpoint without parameters
+	httpRouter.GET("/lecture-resources-simple", func(c *gin.Context) {
+		c.JSON(200, gin.H{
+			"message": "Simple test endpoint works",
+		})
+	})
+
+	// Lecture Resource routes
+	httpRouter.POST("/lectures/:lecture_id/resources", lectureResourceHandler.CreateLectureResource)
+	httpRouter.GET("/lectures/:lecture_id/resources", lectureResourceHandler.GetLectureResources)
+	httpRouter.POST("/lectures/:lecture_id/resources/bulk", lectureResourceHandler.BulkCreateResources)
+	httpRouter.PUT("/lectures/:lecture_id/resources/reorder", lectureResourceHandler.ReorderResources)
+	httpRouter.GET("/lectures/:lecture_id/with-resources", lectureResourceHandler.GetLectureWithResources)
+	httpRouter.GET("/courses/:course_id/resources", lectureResourceHandler.GetCourseResources)
+	httpRouter.GET("/resources/:resource_id", lectureResourceHandler.GetResource)
+	httpRouter.PUT("/resources/:resource_id", lectureResourceHandler.UpdateResource)
+	httpRouter.DELETE("/resources/:resource_id", lectureResourceHandler.DeleteResource)
 
 	// Start gRPC server
 	grpcPort := getEnv("GRPC_PORT", "8082")
