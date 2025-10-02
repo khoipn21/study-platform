@@ -155,8 +155,13 @@ func (h *ForumHandler) ListCourseTopics(w http.ResponseWriter, r *http.Request) 
 
 func (h *ForumHandler) proxyRequest(w http.ResponseWriter, r *http.Request, path, method string) {
 	// Get user info from context (set by auth middleware)
-	userID := r.Header.Get("X-User-ID")
-	userRole := r.Header.Get("X-User-Role")
+	var userID, userRole string
+	if uid, ok := r.Context().Value("user_id").(string); ok {
+		userID = uid
+	}
+	if role, ok := r.Context().Value("user_role").(string); ok {
+		userRole = role
+	}
 
 	// Create target URL
 	targetURL := h.forumServiceURL + path
@@ -218,4 +223,43 @@ func (h *ForumHandler) proxyRequest(w http.ResponseWriter, r *http.Request, path
 		return
 	}
 	w.Write(responseBody)
+}
+
+// Approval handlers
+func (h *ForumHandler) ApproveTopic(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	topicID := vars["topicId"]
+	path := fmt.Sprintf("/api/v1/topics/%s/approve", topicID)
+	h.proxyRequest(w, r, path, "PUT")
+}
+
+func (h *ForumHandler) ApprovePost(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	postID := vars["postId"]
+	path := fmt.Sprintf("/api/v1/posts/%s/approve", postID)
+	h.proxyRequest(w, r, path, "PUT")
+}
+
+func (h *ForumHandler) GetPendingTopics(w http.ResponseWriter, r *http.Request) {
+	queryParams := r.URL.Query().Encode()
+	path := "/api/v1/pending/topics"
+	if queryParams != "" {
+		path += "?" + queryParams
+	}
+	h.proxyRequest(w, r, path, "GET")
+}
+
+// Pin management handlers
+func (h *ForumHandler) SetTopicPinOrder(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	topicID := vars["topicId"]
+	path := fmt.Sprintf("/api/v1/topics/%s/pin-order", topicID)
+	h.proxyRequest(w, r, path, "PUT")
+}
+
+func (h *ForumHandler) SetPostPinOrder(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	postID := vars["postId"]
+	path := fmt.Sprintf("/api/v1/posts/%s/pin-order", postID)
+	h.proxyRequest(w, r, path, "PUT")
 }

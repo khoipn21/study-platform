@@ -167,6 +167,15 @@ func setupRouter(forumHandler *handler.ForumHandler) *gin.Engine {
 			// Voting
 			authenticated.POST("/votes", forumHandler.VotePost)
 			authenticated.DELETE("/posts/:postId/vote", forumHandler.RemoveVote)
+
+			// Approval management (instructors/admins only)
+			authenticated.PUT("/topics/:topicId/approve", forumHandler.ApproveTopic)
+			authenticated.PUT("/posts/:postId/approve", forumHandler.ApprovePost)
+			authenticated.GET("/pending/topics", forumHandler.GetPendingTopics)
+
+			// Pin management (instructors/admins only)
+			authenticated.PUT("/topics/:topicId/pin-order", forumHandler.SetTopicPinOrder)
+			authenticated.PUT("/posts/:postId/pin-order", forumHandler.SetPostPinOrder)
 		}
 	}
 

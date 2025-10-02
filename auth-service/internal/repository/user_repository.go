@@ -176,18 +176,65 @@ func (r *UserRepository) GetByProviderID(provider model.OAuthProvider, providerI
 		FROM users
 		WHERE provider = $1 AND provider_id = $2
 	`
-	
+
 	user := &model.User{}
 	err := r.db.QueryRow(query, provider, providerID).Scan(
 		&user.ID, &user.Username, &user.Email, &user.PasswordHash, &user.Role, &user.Provider, &user.ProviderID, &user.AvatarURL, &user.IsEmailVerified, &user.CreatedAt, &user.UpdatedAt,
 	)
-	
+
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, fmt.Errorf("user not found")
 		}
 		return nil, fmt.Errorf("failed to get user: %w", err)
 	}
-	
+
 	return user, nil
+}
+
+func (r *UserRepository) SearchUsers(query string, limit, offset int) ([]*model.User, int, error) {
+	// First get the total count
+	var total int
+	countQuery := `
+		SELECT COUNT(*) FROM users
+		WHERE username ILIKE $1 OR email ILIKE $1
+	`
+	err := r.db.QueryRow(countQuery, "%"+query+"%").Scan(&total)
+	if err != nil {
+		return nil, 0, fmt.Errorf("failed to get user count: %w", err)
+	}
+
+	// If no query provided, return empty result
+	if query == "" {
+		return []*model.User{}, 0, nil
+	}
+
+	// Get the users
+	searchQuery := `
+		SELECT id, username, email, password_hash, role, provider, provider_id, avatar_url, is_email_verified, created_at, updated_at
+		FROM users
+		WHERE username ILIKE $1 OR email ILIKE $1
+		ORDER BY username ASC
+		LIMIT $2 OFFSET $3
+	`
+
+	rows, err := r.db.Query(searchQuery, "%"+query+"%", limit, offset)
+	if err != nil {
+		return nil, 0, fmt.Errorf("failed to search users: %w", err)
+	}
+	defer rows.Close()
+
+	users := []*model.User{}
+	for rows.Next() {
+		user := &model.User{}
+		err := rows.Scan(
+			&user.ID, &user.Username, &user.Email, &user.PasswordHash, &user.Role, &user.Provider, &user.ProviderID, &user.AvatarURL, &user.IsEmailVerified, &user.CreatedAt, &user.UpdatedAt,
+		)
+		if err != nil {
+			return nil, 0, fmt.Errorf("failed to scan user: %w", err)
+		}
+		users = append(users, user)
+	}
+
+	return users, total, nil
 }

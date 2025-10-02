@@ -155,6 +155,25 @@ func (s *AuthService) GetUserByID(userID uuid.UUID) (*model.User, error) {
 	return user, nil
 }
 
+func (s *AuthService) SearchUsers(query string, limit, offset int) ([]*model.User, int, error) {
+	if limit <= 0 {
+		limit = 10 // Default limit
+	}
+	if limit > 100 {
+		limit = 100 // Max limit
+	}
+	if offset < 0 {
+		offset = 0
+	}
+
+	users, total, err := s.userRepo.SearchUsers(query, limit, offset)
+	if err != nil {
+		return nil, 0, fmt.Errorf("failed to search users: %w", err)
+	}
+
+	return users, total, nil
+}
+
 func (s *AuthService) generateToken(user *model.User) (string, error) {
 	claims := &Claims{
 		UserID: user.ID.String(),
