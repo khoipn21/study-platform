@@ -5,7 +5,6 @@ import (
 	"net"
 	"os"
 	"os/signal"
-	"strconv"
 	"syscall"
 
 	"google.golang.org/grpc"
@@ -31,7 +30,7 @@ func main() {
 
 	dbConfig := database.Config{
 		Host:     getEnv("DB_HOST", "postgres"),
-		Port:     getEnvAsInt("DB_PORT", 5432),
+		Port:     5432,
 		User:     getEnv("DB_USER", "admin"),
 		Password: getEnv("DB_PASSWORD", "password"),
 		DBName:   getEnv("DB_NAME", "studyplatform"),
@@ -107,15 +106,6 @@ func main() {
 func getEnv(key, defaultValue string) string {
 	if value := os.Getenv(key); value != "" {
 		return value
-	}
-	return defaultValue
-}
-
-func getEnvAsInt(key string, defaultValue int) int {
-	if value := os.Getenv(key); value != "" {
-		if intValue, err := strconv.Atoi(value); err == nil {
-			return intValue
-		}
 	}
 	return defaultValue
 }

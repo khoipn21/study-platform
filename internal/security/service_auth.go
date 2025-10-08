@@ -1,7 +1,6 @@
 package security
 
 import (
-	"context"
 	"crypto/rand"
 	"crypto/subtle"
 	"crypto/tls"
@@ -20,10 +19,10 @@ import (
 
 // ServiceAuthConfig holds service authentication configuration
 type ServiceAuthConfig struct {
-	ServiceName     string
-	SharedSecret    string
-	TLSConfig       *tls.Config
-	TokenDuration   time.Duration
+	ServiceName    string
+	SharedSecret   string
+	TLSConfig      *tls.Config
+	TokenDuration  time.Duration
 	AllowedServices []string
 }
 
@@ -56,7 +55,7 @@ func NewServiceAuthenticator(config ServiceAuthConfig) *ServiceAuthenticator {
 // GenerateServiceToken generates a JWT token for service-to-service communication
 func (sa *ServiceAuthenticator) GenerateServiceToken(targetService string, permissions []string) (string, error) {
 	now := time.Now()
-
+	
 	claims := ServiceClaims{
 		ServiceName: sa.config.ServiceName,
 		Permissions: permissions,
@@ -188,10 +187,10 @@ func (sa *ServiceAuthenticator) HTTPServiceAuthMiddleware(next http.Handler) htt
 
 // HTTPServiceAuthClient adds service authentication to outgoing HTTP requests
 type HTTPServiceAuthClient struct {
-	authenticator *ServiceAuthenticator
-	targetService string
-	permissions   []string
-	client        *http.Client
+	authenticator  *ServiceAuthenticator
+	targetService  string
+	permissions    []string
+	client         *http.Client
 }
 
 // NewHTTPServiceAuthClient creates a new authenticated HTTP client
@@ -445,7 +444,7 @@ func CreateServiceWhitelist() map[string][]string {
 	return map[string][]string{
 		"api-gateway": {
 			"auth-service",
-			"course-service",
+			"course-service", 
 			"progress-service",
 			"video-service",
 			"bucket-service",
@@ -462,7 +461,7 @@ func CreateServiceWhitelist() map[string][]string {
 		},
 		"progress-service": {
 			"api-gateway",
-			"course-service",  // For course validation
+			"course-service", // For course validation
 			"payment-service", // For enrollment activation
 		},
 		"video-service": {
