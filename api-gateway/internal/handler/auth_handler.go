@@ -4,8 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
-	"strconv"
-	"strings"
 	"time"
 
 	"github.com/gorilla/mux"
@@ -320,89 +318,6 @@ func (h *AuthHandler) sendError(w http.ResponseWriter, statusCode int, message s
 	json.NewEncoder(w).Encode(response)
 }
 
-func (h *AuthHandler) SearchUsers(w http.ResponseWriter, r *http.Request) {
-	// Get query parameters
-	query := r.URL.Query().Get("q")
-	limitStr := r.URL.Query().Get("limit")
-	offsetStr := r.URL.Query().Get("offset")
-
-	// Parse limit and offset with defaults
-	limit := 10
-	if limitStr != "" {
-		if l, err := strconv.Atoi(limitStr); err == nil && l > 0 {
-			limit = l
-			if limit > 100 {
-				limit = 100 // Max limit
-			}
-		}
-	}
-
-	offset := 0
-	if offsetStr != "" {
-		if o, err := strconv.Atoi(offsetStr); err == nil && o >= 0 {
-			offset = o
-		}
-	}
-
-	// Mock user data for now - this would normally come from the database
-	// This provides the structure the frontend expects for mention functionality
-	mockUsers := []map[string]interface{}{
-		{
-			"id":       "550e8400-e29b-41d4-a716-446655440001",
-			"username": "admin",
-			"email":    "admin@studyplatform.com",
-			"role":     "admin",
-		},
-		{
-			"id":       "550e8400-e29b-41d4-a716-446655440002",
-			"username": "john",
-			"email":    "john@studyplatform.com",
-			"role":     "instructor",
-		},
-		{
-			"id":       "550e8400-e29b-41d4-a716-446655440003",
-			"username": "alice",
-			"email":    "alice@example.com",
-			"role":     "student",
-		},
-	}
-
-	// Filter mock users based on query
-	users := []map[string]interface{}{}
-	if query != "" {
-		for _, user := range mockUsers {
-			if strings.Contains(strings.ToLower(user["username"].(string)), strings.ToLower(query)) ||
-			   strings.Contains(strings.ToLower(user["email"].(string)), strings.ToLower(query)) {
-				users = append(users, user)
-			}
-		}
-	} else {
-		users = mockUsers
-	}
-
-	// Apply pagination
-	total := len(users)
-	if offset >= total {
-		users = []map[string]interface{}{}
-	} else {
-		end := offset + limit
-		if end > total {
-			end = total
-		}
-		users = users[offset:end]
-	}
-
-	// Format response
-	data := map[string]interface{}{
-		"users": users,
-		"total": total,
-		"limit": limit,
-		"offset": offset,
-	}
-
-	h.sendSuccess(w, "Users retrieved successfully", data)
-}
-
 func (h *AuthHandler) handleGRPCError(w http.ResponseWriter, err error, defaultMessage string) {
 	if grpcErr, ok := status.FromError(err); ok {
 		switch grpcErr.Code() {
@@ -422,6 +337,6 @@ func (h *AuthHandler) handleGRPCError(w http.ResponseWriter, err error, defaultM
 	} else {
 		h.sendError(w, http.StatusInternalServerError, defaultMessage)
 	}
-
+	
 	h.logger.Errorf("gRPC error: %v", err)
 }

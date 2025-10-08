@@ -9,11 +9,6 @@ import (
 
 // getInstructorIDFromContext extracts instructor ID from authenticated context
 func getInstructorIDFromContext(c *gin.Context) (uuid.UUID, error) {
-	// Try to get user_id from headers first (set by API gateway)
-	if userIDStr := c.GetHeader("X-User-ID"); userIDStr != "" {
-		return uuid.Parse(userIDStr)
-	}
-
 	// Get instructor ID from context (set by auth middleware)
 	instructorIDStr, exists := c.Get("instructor_id")
 	if !exists {

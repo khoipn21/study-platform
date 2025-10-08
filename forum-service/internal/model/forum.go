@@ -16,8 +16,6 @@ type Topic struct {
 	Tags          []string   `json:"tags" db:"tags"`
 	IsSticky      bool       `json:"is_sticky" db:"is_sticky"`
 	IsLocked      bool       `json:"is_locked" db:"is_locked"`
-	Status        string     `json:"status" db:"status"` // pending, approved, rejected
-	PinOrder      *int       `json:"pin_order,omitempty" db:"pin_order"`
 	ViewCount     int        `json:"view_count" db:"view_count"`
 	PostCount     int        `json:"post_count" db:"post_count"`
 	LastPostAt    *time.Time `json:"last_post_at,omitempty" db:"last_post_at"`
@@ -39,8 +37,6 @@ type Post struct {
 	DownVotes   int        `json:"down_votes" db:"down_votes"`
 	IsAnswer    bool       `json:"is_answer" db:"is_answer"`
 	IsPinned    bool       `json:"is_pinned" db:"is_pinned"`
-	Status      string     `json:"status" db:"status"` // pending, approved, rejected
-	PinOrder    *int       `json:"pin_order,omitempty" db:"pin_order"`
 	CreatedAt   time.Time  `json:"created_at" db:"created_at"`
 	UpdatedAt   time.Time  `json:"updated_at" db:"updated_at"`
 	DeletedAt   *time.Time `json:"deleted_at,omitempty" db:"deleted_at"`
@@ -52,34 +48,6 @@ type Vote struct {
 	UserID   uuid.UUID `json:"user_id" db:"user_id"`
 	VoteType VoteType  `json:"vote_type" db:"vote_type"`
 	VotedAt  time.Time `json:"voted_at" db:"voted_at"`
-}
-
-type Mention struct {
-	ID               uuid.UUID `json:"id" db:"id"`
-	PostID           uuid.UUID `json:"post_id" db:"post_id"`
-	MentionedUserID  uuid.UUID `json:"mentioned_user_id" db:"mentioned_user_id"`
-	MentionerUserID  uuid.UUID `json:"mentioner_user_id" db:"mentioner_user_id"`
-	IsRead           bool      `json:"is_read" db:"is_read"`
-	CreatedAt        time.Time `json:"created_at" db:"created_at"`
-}
-
-type Notification struct {
-	ID            uuid.UUID  `json:"id" db:"id"`
-	UserID        uuid.UUID  `json:"user_id" db:"user_id"`
-	Type          string     `json:"type" db:"type"` // mention, topic_approved, post_approved, topic_reply
-	Title         string     `json:"title" db:"title"`
-	Message       string     `json:"message" db:"message"`
-	ReferenceID   *uuid.UUID `json:"reference_id,omitempty" db:"reference_id"`
-	ReferenceType *string    `json:"reference_type,omitempty" db:"reference_type"`
-	IsRead        bool       `json:"is_read" db:"is_read"`
-	CreatedAt     time.Time  `json:"created_at" db:"created_at"`
-}
-
-type TopicSubscription struct {
-	ID           uuid.UUID `json:"id" db:"id"`
-	UserID       uuid.UUID `json:"user_id" db:"user_id"`
-	TopicID      uuid.UUID `json:"topic_id" db:"topic_id"`
-	SubscribedAt time.Time `json:"subscribed_at" db:"subscribed_at"`
 }
 
 type VoteType string
@@ -148,66 +116,20 @@ type VoteRequest struct {
 	VoteType VoteType  `json:"vote_type" binding:"required,oneof=up down"`
 }
 
-// Moderation/Approval requests
-type ApprovalRequest struct {
-	ID     uuid.UUID `json:"id" binding:"required"`
-	Status string    `json:"status" binding:"required,oneof=approved rejected"`
-	Reason string    `json:"reason,omitempty"`
-}
-
-type PinRequest struct {
-	ID       uuid.UUID `json:"id" binding:"required"`
-	PinOrder *int      `json:"pin_order,omitempty"` // nil to unpin, number to set order
-}
-
-type MentionUserRequest struct {
-	Username string `json:"username" binding:"required"`
-}
-
 type TopicResponse struct {
-	ID            string     `json:"id"`
-	CourseID      *string    `json:"course_id,omitempty"`
-	CreatedByID   string     `json:"created_by_id"`
-	Title         string     `json:"title"`
-	Description   string     `json:"description"`
-	Category      string     `json:"category"`
-	Tags          []string   `json:"tags"`
-	IsSticky      bool       `json:"is_sticky"`
-	IsLocked      bool       `json:"is_locked"`
-	Status        string     `json:"status"`
-	PinOrder      *int       `json:"pin_order,omitempty"`
-	ViewCount     int        `json:"view_count"`
-	PostCount     int        `json:"post_count"`
-	LastPostAt    *string    `json:"last_post_at,omitempty"`
-	LastPostByID  *string    `json:"last_post_by_id,omitempty"`
-	CreatedAt     string     `json:"created_at"`
-	UpdatedAt     string     `json:"updated_at"`
-	CreatedBy     *UserInfo  `json:"created_by,omitempty"`
-	LastPostBy    *UserInfo  `json:"last_post_by,omitempty"`
-	UserVote      *VoteType  `json:"user_vote,omitempty"`
-	IsSubscribed  bool       `json:"is_subscribed"`
+	*Topic
+	CreatedBy    *UserInfo `json:"created_by,omitempty"`
+	LastPostBy   *UserInfo `json:"last_post_by,omitempty"`
+	UserVote     *VoteType `json:"user_vote,omitempty"`
+	IsSubscribed bool      `json:"is_subscribed"`
 }
 
 type PostResponse struct {
-	ID          string          `json:"id"`
-	TopicID     string          `json:"topic_id"`
-	AuthorID    string          `json:"author_id"`
-	ParentID    *string         `json:"parent_id,omitempty"`
-	Content     string          `json:"content"`
-	IsEdited    bool            `json:"is_edited"`
-	EditedAt    *string         `json:"edited_at,omitempty"`
-	UpVotes     int             `json:"up_votes"`
-	DownVotes   int             `json:"down_votes"`
-	IsAnswer    bool            `json:"is_answer"`
-	IsPinned    bool            `json:"is_pinned"`
-	Status      string          `json:"status"`
-	PinOrder    *int            `json:"pin_order,omitempty"`
-	CreatedAt   string          `json:"created_at"`
-	UpdatedAt   string          `json:"updated_at"`
-	Author      *UserInfo       `json:"author,omitempty"`
-	Children    []*PostResponse `json:"children,omitempty"`
-	UserVote    *VoteType       `json:"user_vote,omitempty"`
-	VoteTotal   int             `json:"vote_total"`
+	*Post
+	Author     *UserInfo      `json:"author,omitempty"`
+	Children   []*PostResponse `json:"children,omitempty"`
+	UserVote   *VoteType      `json:"user_vote,omitempty"`
+	VoteTotal  int            `json:"vote_total"`
 }
 
 type UserInfo struct {
@@ -234,23 +156,21 @@ type SearchFilters struct {
 }
 
 type ListTopicsOptions struct {
-	CourseID    *uuid.UUID `json:"course_id,omitempty"`
-	Category    string     `json:"category,omitempty"`
-	Tags        []string   `json:"tags,omitempty"`
-	Search      string     `json:"search,omitempty"`
-	SortBy      string     `json:"sort_by,omitempty"` // created_at, updated_at, post_count, view_count
-	SortOrder   string     `json:"sort_order,omitempty"` // asc, desc
-	Page        int        `json:"page,omitempty"`
-	Limit       int        `json:"limit,omitempty"`
-	ShowPending bool       `json:"show_pending,omitempty"` // Show pending topics (for instructors/admins)
+	CourseID  *uuid.UUID `json:"course_id,omitempty"`
+	Category  string     `json:"category,omitempty"`
+	Tags      []string   `json:"tags,omitempty"`
+	Search    string     `json:"search,omitempty"`
+	SortBy    string     `json:"sort_by,omitempty"` // created_at, updated_at, post_count, view_count
+	SortOrder string     `json:"sort_order,omitempty"` // asc, desc
+	Page      int        `json:"page,omitempty"`
+	Limit     int        `json:"limit,omitempty"`
 }
 
 type ListPostsOptions struct {
-	TopicID     uuid.UUID  `json:"topic_id"`
-	ParentID    *uuid.UUID `json:"parent_id,omitempty"`
-	SortBy      string     `json:"sort_by,omitempty"` // created_at, votes, is_answer
-	SortOrder   string     `json:"sort_order,omitempty"` // asc, desc
-	Page        int        `json:"page,omitempty"`
-	Limit       int        `json:"limit,omitempty"`
-	ShowPending bool       `json:"show_pending,omitempty"` // Show pending posts (for instructors/admins)
+	TopicID   uuid.UUID `json:"topic_id"`
+	ParentID  *uuid.UUID `json:"parent_id,omitempty"`
+	SortBy    string    `json:"sort_by,omitempty"` // created_at, votes, is_answer
+	SortOrder string    `json:"sort_order,omitempty"` // asc, desc
+	Page      int       `json:"page,omitempty"`
+	Limit     int       `json:"limit,omitempty"`
 }

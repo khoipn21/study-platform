@@ -25,8 +25,8 @@ func NewForumRepository(db *sql.DB) *ForumRepository {
 // Topic operations
 func (r *ForumRepository) CreateTopic(ctx context.Context, topic *model.Topic) error {
 	query := `
-		INSERT INTO forum_topics (id, course_id, created_by_id, title, description, category, tags, is_sticky, is_locked, status, pin_order, created_at, updated_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)`
+		INSERT INTO forum_topics (id, course_id, created_by_id, title, description, category, tags, is_sticky, is_locked, created_at, updated_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`
 
 	_, err := r.db.ExecContext(ctx, query,
 		topic.ID,
@@ -38,8 +38,6 @@ func (r *ForumRepository) CreateTopic(ctx context.Context, topic *model.Topic) e
 		pq.Array(topic.Tags),
 		topic.IsSticky,
 		topic.IsLocked,
-		topic.Status,
-		topic.PinOrder,
 		topic.CreatedAt,
 		topic.UpdatedAt,
 	)
@@ -50,13 +48,12 @@ func (r *ForumRepository) CreateTopic(ctx context.Context, topic *model.Topic) e
 func (r *ForumRepository) GetTopicByID(ctx context.Context, topicID uuid.UUID) (*model.Topic, error) {
 	query := `
 		SELECT id, course_id, created_by_id, title, description, category, tags, is_sticky, is_locked, 
-		       status, pin_order, view_count, post_count, last_post_at, last_post_by_id, created_at, updated_at
+		       view_count, post_count, last_post_at, last_post_by_id, created_at, updated_at
 		FROM forum_topics
 		WHERE id = $1 AND deleted_at IS NULL`
 
 	topic := &model.Topic{}
 	var courseID sql.NullString
-	var pinOrder sql.NullInt32
 	var lastPostAt sql.NullTime
 	var lastPostByID sql.NullString
 
@@ -70,8 +67,6 @@ func (r *ForumRepository) GetTopicByID(ctx context.Context, topicID uuid.UUID) (
 		pq.Array(&topic.Tags),
 		&topic.IsSticky,
 		&topic.IsLocked,
-		&topic.Status,
-		&pinOrder,
 		&topic.ViewCount,
 		&topic.PostCount,
 		&lastPostAt,
@@ -89,11 +84,6 @@ func (r *ForumRepository) GetTopicByID(ctx context.Context, topicID uuid.UUID) (
 		if err == nil {
 			topic.CourseID = &courseUUID
 		}
-	}
-
-	if pinOrder.Valid {
-		pinOrderInt := int(pinOrder.Int32)
-		topic.PinOrder = &pinOrderInt
 	}
 
 	if lastPostAt.Valid {
@@ -125,15 +115,6 @@ func (r *ForumRepository) ListTopics(ctx context.Context, options *model.ListTop
 		conditions = append(conditions, fmt.Sprintf("ft.course_id = $%d", argIndex))
 		args = append(args, *options.CourseID)
 		argIndex++
-	}
-
-	// Filter by status - only show approved to regular users, show all to instructors/admins
-	if options.ShowPending {
-		// Show all statuses (for instructors/admins)
-		conditions = append(conditions, "ft.status IN ('pending', 'approved')")
-	} else {
-		// Show only approved (for students/public)
-		conditions = append(conditions, "ft.status = 'approved'")
 	}
 
 	if options.Category != "" {
@@ -172,8 +153,8 @@ func (r *ForumRepository) ListTopics(ctx context.Context, options *model.ListTop
 	// Main query with sorting and pagination
 	selectQuery := `
 		SELECT ft.id, ft.course_id, ft.created_by_id, ft.title, ft.description, ft.category, ft.tags,
-		       ft.is_sticky, ft.is_locked, ft.status, ft.pin_order, ft.view_count, ft.post_count, 
-		       ft.last_post_at, ft.last_post_by_id, ft.created_at, ft.updated_at ` + whereClause
+		       ft.is_sticky, ft.is_locked, ft.view_count, ft.post_count, ft.last_post_at, ft.last_post_by_id,
+		       ft.created_at, ft.updated_at ` + whereClause
 
 	// Add sorting
 	sortBy := "created_at"
@@ -215,7 +196,6 @@ func (r *ForumRepository) ListTopics(ctx context.Context, options *model.ListTop
 	for rows.Next() {
 		topic := &model.Topic{}
 		var courseID sql.NullString
-		var pinOrder sql.NullInt32
 		var lastPostAt sql.NullTime
 		var lastPostByID sql.NullString
 
@@ -229,8 +209,6 @@ func (r *ForumRepository) ListTopics(ctx context.Context, options *model.ListTop
 			pq.Array(&topic.Tags),
 			&topic.IsSticky,
 			&topic.IsLocked,
-			&topic.Status,
-			&pinOrder,
 			&topic.ViewCount,
 			&topic.PostCount,
 			&lastPostAt,
@@ -240,11 +218,6 @@ func (r *ForumRepository) ListTopics(ctx context.Context, options *model.ListTop
 		)
 		if err != nil {
 			return nil, 0, err
-		}
-
-		if pinOrder.Valid {
-			pinOrderInt := int(pinOrder.Int32)
-			topic.PinOrder = &pinOrderInt
 		}
 
 		if courseID.Valid {
@@ -274,7 +247,7 @@ func (r *ForumRepository) ListTopics(ctx context.Context, options *model.ListTop
 func (r *ForumRepository) UpdateTopic(ctx context.Context, topic *model.Topic) error {
 	query := `
 		UPDATE forum_topics
-		SET title = $2, description = $3, category = $4, tags = $5, is_sticky = $6, is_locked = $7, status = $8, pin_order = $9, updated_at = $10
+		SET title = $2, description = $3, category = $4, tags = $5, is_sticky = $6, is_locked = $7, updated_at = $8
 		WHERE id = $1`
 
 	_, err := r.db.ExecContext(ctx, query,
@@ -285,8 +258,6 @@ func (r *ForumRepository) UpdateTopic(ctx context.Context, topic *model.Topic) e
 		pq.Array(topic.Tags),
 		topic.IsSticky,
 		topic.IsLocked,
-		topic.Status,
-		topic.PinOrder,
 		topic.UpdatedAt,
 	)
 
@@ -323,8 +294,8 @@ func (r *ForumRepository) CreatePost(ctx context.Context, post *model.Post) erro
 
 	// Insert post
 	query := `
-		INSERT INTO forum_posts (id, topic_id, author_id, parent_id, content, is_edited, status, pin_order, created_at, updated_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`
+		INSERT INTO forum_posts (id, topic_id, author_id, parent_id, content, is_edited, created_at, updated_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`
 
 	_, err = tx.ExecContext(ctx, query,
 		post.ID,
@@ -333,8 +304,6 @@ func (r *ForumRepository) CreatePost(ctx context.Context, post *model.Post) erro
 		post.ParentID,
 		post.Content,
 		post.IsEdited,
-		post.Status,
-		post.PinOrder,
 		post.CreatedAt,
 		post.UpdatedAt,
 	)
@@ -364,14 +333,13 @@ func (r *ForumRepository) CreatePost(ctx context.Context, post *model.Post) erro
 func (r *ForumRepository) GetPostByID(ctx context.Context, postID uuid.UUID) (*model.Post, error) {
 	query := `
 		SELECT id, topic_id, author_id, parent_id, content, is_edited, edited_at, up_votes, down_votes,
-		       is_answer, is_pinned, status, pin_order, created_at, updated_at
+		       is_answer, is_pinned, created_at, updated_at
 		FROM forum_posts
 		WHERE id = $1 AND deleted_at IS NULL`
 
 	post := &model.Post{}
 	var parentID sql.NullString
 	var editedAt sql.NullTime
-	var pinOrder sql.NullInt32
 
 	err := r.db.QueryRowContext(ctx, query, postID).Scan(
 		&post.ID,
@@ -385,8 +353,6 @@ func (r *ForumRepository) GetPostByID(ctx context.Context, postID uuid.UUID) (*m
 		&post.DownVotes,
 		&post.IsAnswer,
 		&post.IsPinned,
-		&post.Status,
-		&pinOrder,
 		&post.CreatedAt,
 		&post.UpdatedAt,
 	)
@@ -400,11 +366,6 @@ func (r *ForumRepository) GetPostByID(ctx context.Context, postID uuid.UUID) (*m
 		if err == nil {
 			post.ParentID = &parentUUID
 		}
-	}
-
-	if pinOrder.Valid {
-		pinOrderInt := int(pinOrder.Int32)
-		post.PinOrder = &pinOrderInt
 	}
 
 	if editedAt.Valid {
@@ -435,15 +396,6 @@ func (r *ForumRepository) ListPosts(ctx context.Context, options *model.ListPost
 		conditions = append(conditions, "fp.parent_id IS NULL")
 	}
 
-	// Filter by status - only show approved to regular users, show all to instructors/admins
-	if options.ShowPending {
-		// Show all statuses (for instructors/admins)
-		conditions = append(conditions, "fp.status IN ('pending', 'approved')")
-	} else {
-		// Show only approved (for students/public)
-		conditions = append(conditions, "fp.status = 'approved'")
-	}
-
 	// Build WHERE clause
 	whereClause := baseQuery
 	if len(conditions) > 0 {
@@ -461,7 +413,7 @@ func (r *ForumRepository) ListPosts(ctx context.Context, options *model.ListPost
 	// Main query with sorting and pagination
 	selectQuery := `
 		SELECT fp.id, fp.topic_id, fp.author_id, fp.parent_id, fp.content, fp.is_edited, fp.edited_at,
-		       fp.up_votes, fp.down_votes, fp.is_answer, fp.is_pinned, fp.status, fp.pin_order, fp.created_at, fp.updated_at ` + whereClause
+		       fp.up_votes, fp.down_votes, fp.is_answer, fp.is_pinned, fp.created_at, fp.updated_at ` + whereClause
 
 	// Add sorting
 	sortBy := "created_at"
@@ -508,7 +460,6 @@ func (r *ForumRepository) ListPosts(ctx context.Context, options *model.ListPost
 		post := &model.Post{}
 		var parentID sql.NullString
 		var editedAt sql.NullTime
-		var pinOrder sql.NullInt32
 
 		err := rows.Scan(
 			&post.ID,
@@ -522,8 +473,6 @@ func (r *ForumRepository) ListPosts(ctx context.Context, options *model.ListPost
 			&post.DownVotes,
 			&post.IsAnswer,
 			&post.IsPinned,
-			&post.Status,
-			&pinOrder,
 			&post.CreatedAt,
 			&post.UpdatedAt,
 		)
@@ -536,11 +485,6 @@ func (r *ForumRepository) ListPosts(ctx context.Context, options *model.ListPost
 			if err == nil {
 				post.ParentID = &parentUUID
 			}
-		}
-
-		if pinOrder.Valid {
-			pinOrderInt := int(pinOrder.Int32)
-			post.PinOrder = &pinOrderInt
 		}
 
 		if editedAt.Valid {
@@ -556,7 +500,7 @@ func (r *ForumRepository) ListPosts(ctx context.Context, options *model.ListPost
 func (r *ForumRepository) UpdatePost(ctx context.Context, post *model.Post) error {
 	query := `
 		UPDATE forum_posts
-		SET content = $2, is_edited = $3, edited_at = $4, is_answer = $5, is_pinned = $6, status = $7, pin_order = $8, updated_at = $9
+		SET content = $2, is_edited = $3, edited_at = $4, is_answer = $5, is_pinned = $6, updated_at = $7
 		WHERE id = $1`
 
 	_, err := r.db.ExecContext(ctx, query,
@@ -566,8 +510,6 @@ func (r *ForumRepository) UpdatePost(ctx context.Context, post *model.Post) erro
 		post.EditedAt,
 		post.IsAnswer,
 		post.IsPinned,
-		post.Status,
-		post.PinOrder,
 		post.UpdatedAt,
 	)
 
@@ -744,213 +686,4 @@ func (r *ForumRepository) GetUserVote(ctx context.Context, postID, userID uuid.U
 
 	vt := model.VoteType(voteType)
 	return &vt, nil
-}
-
-// Approval methods
-func (r *ForumRepository) ApproveTopicStatus(ctx context.Context, topicID uuid.UUID, status string) error {
-	query := `UPDATE forum_topics SET status = $1, updated_at = NOW() WHERE id = $2`
-	_, err := r.db.ExecContext(ctx, query, status, topicID)
-	return err
-}
-
-func (r *ForumRepository) ApprovePostStatus(ctx context.Context, postID uuid.UUID, status string) error {
-	query := `UPDATE forum_posts SET status = $1, updated_at = NOW() WHERE id = $2`
-	_, err := r.db.ExecContext(ctx, query, status, postID)
-	return err
-}
-
-func (r *ForumRepository) SetTopicPinOrder(ctx context.Context, topicID uuid.UUID, pinOrder *int) error {
-	query := `UPDATE forum_topics SET pin_order = $1, updated_at = NOW() WHERE id = $2`
-	_, err := r.db.ExecContext(ctx, query, pinOrder, topicID)
-	return err
-}
-
-func (r *ForumRepository) SetPostPinOrder(ctx context.Context, postID uuid.UUID, pinOrder *int) error {
-	query := `UPDATE forum_posts SET pin_order = $1, updated_at = NOW() WHERE id = $2`
-	_, err := r.db.ExecContext(ctx, query, pinOrder, postID)
-	return err
-}
-
-func (r *ForumRepository) GetPendingTopics(ctx context.Context, courseID *uuid.UUID) ([]*model.Topic, error) {
-	var query string
-	var args []interface{}
-
-	if courseID != nil {
-		// Course-specific topics
-		query = `SELECT id, course_id, created_by_id, title, description, category, tags, is_sticky, is_locked, 
-		               status, pin_order, view_count, post_count, last_post_at, last_post_by_id, created_at, updated_at
-		         FROM forum_topics 
-		         WHERE course_id = $1 AND status = 'pending' AND deleted_at IS NULL
-		         ORDER BY created_at DESC`
-		args = append(args, *courseID)
-	} else {
-		// General forum topics
-		query = `SELECT id, course_id, created_by_id, title, description, category, tags, is_sticky, is_locked, 
-		               status, pin_order, view_count, post_count, last_post_at, last_post_by_id, created_at, updated_at
-		         FROM forum_topics 
-		         WHERE course_id IS NULL AND status = 'pending' AND deleted_at IS NULL
-		         ORDER BY created_at DESC`
-	}
-
-	rows, err := r.db.QueryContext(ctx, query, args...)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	var topics []*model.Topic
-	for rows.Next() {
-		topic := &model.Topic{}
-		var courseID sql.NullString
-		var pinOrder sql.NullInt32
-		var lastPostAt sql.NullTime
-		var lastPostByID sql.NullString
-
-		err := rows.Scan(
-			&topic.ID,
-			&courseID,
-			&topic.CreatedByID,
-			&topic.Title,
-			&topic.Description,
-			&topic.Category,
-			pq.Array(&topic.Tags),
-			&topic.IsSticky,
-			&topic.IsLocked,
-			&topic.Status,
-			&pinOrder,
-			&topic.ViewCount,
-			&topic.PostCount,
-			&lastPostAt,
-			&lastPostByID,
-			&topic.CreatedAt,
-			&topic.UpdatedAt,
-		)
-		if err != nil {
-			return nil, err
-		}
-
-		if courseID.Valid {
-			courseUUID, err := uuid.Parse(courseID.String)
-			if err == nil {
-				topic.CourseID = &courseUUID
-			}
-		}
-
-		if pinOrder.Valid {
-			pinOrderInt := int(pinOrder.Int32)
-			topic.PinOrder = &pinOrderInt
-		}
-
-		if lastPostAt.Valid {
-			topic.LastPostAt = &lastPostAt.Time
-		}
-
-		if lastPostByID.Valid {
-			lastPostByUUID, err := uuid.Parse(lastPostByID.String)
-			if err == nil {
-				topic.LastPostByID = &lastPostByUUID
-			}
-		}
-
-		topics = append(topics, topic)
-	}
-
-	return topics, nil
-}
-
-// Mention methods
-func (r *ForumRepository) CreateMention(ctx context.Context, mention *model.Mention) error {
-	query := `INSERT INTO forum_mentions (id, post_id, mentioned_user_id, mentioner_user_id, is_read, created_at)
-	          VALUES ($1, $2, $3, $4, $5, $6)
-	          ON CONFLICT (post_id, mentioned_user_id) DO UPDATE SET
-	          mentioner_user_id = $4, is_read = false, created_at = $6`
-	
-	_, err := r.db.ExecContext(ctx, query,
-		mention.ID,
-		mention.PostID,
-		mention.MentionedUserID,
-		mention.MentionerUserID,
-		mention.IsRead,
-		mention.CreatedAt,
-	)
-	return err
-}
-
-// Notification methods
-func (r *ForumRepository) CreateNotification(ctx context.Context, notification *model.Notification) error {
-	query := `INSERT INTO forum_notifications (id, user_id, type, title, message, reference_id, reference_type, is_read, created_at)
-	          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`
-	
-	_, err := r.db.ExecContext(ctx, query,
-		notification.ID,
-		notification.UserID,
-		notification.Type,
-		notification.Title,
-		notification.Message,
-		notification.ReferenceID,
-		notification.ReferenceType,
-		notification.IsRead,
-		notification.CreatedAt,
-	)
-	return err
-}
-
-// GetUserInfo fetches user information from the database
-func (r *ForumRepository) GetUserInfo(ctx context.Context, userID uuid.UUID) (*model.UserInfo, error) {
-	var userInfo model.UserInfo
-	var avatarURL sql.NullString
-	
-	query := `SELECT id, username, avatar_url, role FROM users WHERE id = $1`
-	err := r.db.QueryRowContext(ctx, query, userID).Scan(
-		&userInfo.ID,
-		&userInfo.Username,
-		&avatarURL,
-		&userInfo.Role,
-	)
-	
-	if err != nil {
-		return nil, err
-	}
-	
-	if avatarURL.Valid {
-		userInfo.Avatar = &avatarURL.String
-	}
-	
-	return &userInfo, nil
-}
-
-// Get user ID by username (for mentions)
-func (r *ForumRepository) GetUserIDByUsername(ctx context.Context, username string) (*uuid.UUID, error) {
-	var userID uuid.UUID
-	query := `SELECT id FROM users WHERE username = $1`
-	err := r.db.QueryRowContext(ctx, query, username).Scan(&userID)
-	if err != nil {
-		if err == sql.ErrNoRows {
-			return nil, nil // User not found
-		}
-		return nil, err
-	}
-	return &userID, nil
-}
-
-// Check enrollment in course (for course-specific topics)
-func (r *ForumRepository) IsUserEnrolledInCourse(ctx context.Context, userID, courseID uuid.UUID) (bool, error) {
-	var count int
-	query := `SELECT COUNT(*) FROM enrollments WHERE user_id = $1 AND course_id = $2 AND status = 'active'`
-	err := r.db.QueryRowContext(ctx, query, userID, courseID).Scan(&count)
-	if err != nil {
-		return false, err
-	}
-	return count > 0, nil
-}
-
-// Check if user is instructor of course
-func (r *ForumRepository) IsUserInstructorOfCourse(ctx context.Context, userID, courseID uuid.UUID) (bool, error) {
-	var count int
-	query := `SELECT COUNT(*) FROM courses WHERE id = $1 AND instructor_id = $2`
-	err := r.db.QueryRowContext(ctx, query, courseID, userID).Scan(&count)
-	if err != nil {
-		return false, err
-	}
-	return count > 0, nil
 }

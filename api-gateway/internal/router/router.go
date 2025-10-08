@@ -138,13 +138,6 @@ func (rt *Router) SetupRoutes() *mux.Router {
 		w.Write([]byte(`{"message": "Debug endpoint works", "path": "` + r.URL.Path + `"}`))
 	}).Methods("GET")
 
-	// Debug users endpoint for testing
-	generalRoutes.HandleFunc("/debug/users", func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`{"message": "Users debug endpoint works", "path": "` + r.URL.Path + `", "users": []}`))
-	}).Methods("GET")
-
 	// Debug dashboard endpoint without auth
 	generalRoutes.HandleFunc("/debug/dashboard", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
@@ -170,11 +163,6 @@ func (rt *Router) SetupRoutes() *mux.Router {
 	protectedAuthRoutes.Use(middleware.CORSMiddleware)
 	protectedAuthRoutes.Use(rt.authMiddleware.RequireAuth)
 	protectedAuthRoutes.HandleFunc("/profile", rt.authHandler.GetProfile).Methods("GET")
-
-	// Users route (public for mention functionality, can be made protected if needed)
-	usersRoutes := api.PathPrefix("/users").Subrouter()
-	usersRoutes.Use(middleware.CORSMiddleware)
-	usersRoutes.HandleFunc("", rt.authHandler.SearchUsers).Methods("GET")
 
 	// Course routes (some public, some protected)
 	courseRoutes := api.PathPrefix("/courses").Subrouter()
@@ -428,15 +416,6 @@ func (rt *Router) SetupRoutes() *mux.Router {
 	// Voting
 	protectedForumRoutes.HandleFunc("/votes", rt.forumHandler.VotePost).Methods("POST")
 	protectedForumRoutes.HandleFunc("/posts/{postId}/vote", rt.forumHandler.RemoveVote).Methods("DELETE")
-
-	// Approval management (instructors/admins only)
-	protectedForumRoutes.HandleFunc("/topics/{topicId}/approve", rt.forumHandler.ApproveTopic).Methods("PUT")
-	protectedForumRoutes.HandleFunc("/posts/{postId}/approve", rt.forumHandler.ApprovePost).Methods("PUT")
-	protectedForumRoutes.HandleFunc("/pending/topics", rt.forumHandler.GetPendingTopics).Methods("GET")
-
-	// Pin management (instructors/admins only)
-	protectedForumRoutes.HandleFunc("/topics/{topicId}/pin-order", rt.forumHandler.SetTopicPinOrder).Methods("PUT")
-	protectedForumRoutes.HandleFunc("/posts/{postId}/pin-order", rt.forumHandler.SetPostPinOrder).Methods("PUT")
 
 	// Payment routes (all require authentication)
 	paymentRoutes := api.PathPrefix("/payments").Subrouter()

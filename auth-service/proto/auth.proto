@@ -18,7 +18,6 @@ service AuthService {
     rpc LinkOAuthAccount(LinkOAuthAccountRequest) returns (LinkOAuthAccountResponse);
     rpc UnlinkOAuthAccount(UnlinkOAuthAccountRequest) returns (UnlinkOAuthAccountResponse);
     rpc GetLinkedAccounts(GetLinkedAccountsRequest) returns (GetLinkedAccountsResponse);
-    rpc SearchUsers(SearchUsersRequest) returns (SearchUsersResponse);
 }
 
 message User {
@@ -142,15 +141,4 @@ message GetLinkedAccountsRequest {
 
 message GetLinkedAccountsResponse {
     repeated string providers = 1;
-}
-
-message SearchUsersRequest {
-    string query = 1;
-    int32 limit = 2;
-    int32 offset = 3;
-}
-
-message SearchUsersResponse {
-    repeated User users = 1;
-    int32 total = 2;
 }
