@@ -101,7 +101,18 @@ jobs:
               git reset --hard origin/master
               git clean -fd
             else
-              echo "Cloning repository..."
+              echo "Setting up repository..."
+              # If directory is not empty and not a git repo, remove contents except important files
+              if [ "$(ls -A)" ]; then
+                echo "Directory not empty, preserving important files and cleaning up..."
+                # Preserve .setup-completed marker
+                [ -f ".setup-completed" ] && mv .setup-completed /tmp/.setup-completed-backup
+                # Remove all files except hidden ones
+                find . -maxdepth 1 -not -name '.' -not -name '..' -not -name '.*' -exec rm -rf {} +
+                # Restore marker
+                [ -f "/tmp/.setup-completed-backup" ] && mv /tmp/.setup-completed-backup .setup-completed
+              fi
+              # Clone repository
               git clone https://${GH_TOKEN}@github.com/khoipn21/study-platform.git .
             fi
             
