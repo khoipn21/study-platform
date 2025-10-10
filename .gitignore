@@ -68,6 +68,9 @@ dist/
 *.key
 *.crt
 
+# Credentials folder (contains sensitive AWS credentials and SSH keys)
+credentials/
+
 # Backup files
 *.backup
 *.bak
