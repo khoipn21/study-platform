@@ -126,24 +126,61 @@ jobs:
               sudo nginx -t && sudo systemctl reload nginx
             fi
             
+            # Create deployment script
+            cat > /tmp/deploy.sh << 'SCRIPT_END'
+            #!/bin/bash
+            cd /opt/study-platform
+            
             # Stop existing services
             if [ -f "docker-compose.yml" ]; then
               echo "Stopping existing services..."
               docker compose down || true
             fi
             
-            # Start services
-            echo "Starting services..."
-            docker compose up -d --build
+            # Start services with build
+            echo "Building and starting services (this may take several minutes)..."
+            docker compose up -d --build > /var/log/docker-build.log 2>&1
             
             # Wait for services
-            echo "Waiting for services to start..."
             sleep 30
             
             # Check service status
-            docker compose ps
+            docker compose ps >> /var/log/docker-build.log
             
-            echo "Deployment completed successfully!"
+            # Health check
+            if curl -f http://localhost:8080/api/v1/health; then
+              echo "Deployment successful!" >> /var/log/docker-build.log
+            else
+              echo "Health check failed" >> /var/log/docker-build.log
+            fi
+            
+            echo "Deployment completed at $(date)" >> /var/log/docker-build.log
+            SCRIPT_END
+            
+            chmod +x /tmp/deploy.sh
+            
+            # Run deployment in background
+            echo "Starting background deployment..."
+            nohup /tmp/deploy.sh > /var/log/deploy-output.log 2>&1 &
+            DEPLOY_PID=$!
+            
+            echo "Deployment started with PID: $DEPLOY_PID"
+            echo "Build is running in background. Check logs at:"
+            echo "  /var/log/docker-build.log - Docker build output"
+            echo "  /var/log/deploy-output.log - Deployment script output"
+            echo ""
+            echo "To monitor progress:"
+            echo "  tail -f /var/log/docker-build.log"
+            echo ""
+            
+            # Wait briefly to ensure deployment started
+            sleep 5
+            
+            if ps -p $DEPLOY_PID > /dev/null; then
+              echo "✓ Deployment process is running successfully in background"
+            else
+              echo "⚠ Deployment process may have encountered an issue, check logs"
+            fi
           ENDSSH
 
           # Clean up local temp file
