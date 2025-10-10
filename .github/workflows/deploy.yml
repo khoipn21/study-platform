@@ -17,11 +17,18 @@ jobs:
       - name: Setup SSH
         run: |
           mkdir -p ~/.ssh
-          echo "${{ secrets.EC2_SSH_KEY }}" > ~/.ssh/ec2-key.pem
+          # Write key to file with proper formatting
+          printf '%s\n' "${{ secrets.EC2_SSH_KEY }}" > ~/.ssh/ec2-key.pem
           chmod 600 ~/.ssh/ec2-key.pem
           # Verify key format
-          ssh-keygen -l -f ~/.ssh/ec2-key.pem || (echo "Invalid SSH key format" && exit 1)
+          echo "Key file stats:"
+          wc -l ~/.ssh/ec2-key.pem
+          head -1 ~/.ssh/ec2-key.pem
+          tail -1 ~/.ssh/ec2-key.pem
+          ssh-keygen -l -f ~/.ssh/ec2-key.pem || (echo "Invalid SSH key format" && cat ~/.ssh/ec2-key.pem && exit 1)
           ssh-keyscan -H ${{ secrets.EC2_HOST }} >> ~/.ssh/known_hosts 2>/dev/null
+          # Test SSH connection
+          ssh -i ~/.ssh/ec2-key.pem -o ConnectTimeout=10 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} "echo 'SSH test successful'" || (echo "SSH connection failed" && exit 1)
       
       - name: Initial EC2 Setup (First time only)
         env:
