@@ -20,6 +20,12 @@ jobs:
           # Write key to file with proper formatting
           printf '%s\n' "${{ secrets.EC2_SSH_KEY }}" > ~/.ssh/ec2-key.pem
           chmod 600 ~/.ssh/ec2-key.pem
+          # Configure SSH keep-alive to prevent timeouts
+          cat >> ~/.ssh/config << 'EOF'
+          Host *
+            ServerAliveInterval 60
+            ServerAliveCountMax 10
+          EOF
           # Verify key format
           echo "Key file stats:"
           wc -l ~/.ssh/ec2-key.pem
@@ -132,18 +138,31 @@ jobs:
               docker compose down || true
             fi
             
-            # Start services
-            echo "Starting services..."
-            docker compose up -d --build
+            # Start services with progress output
+            echo "Building and starting services (this may take several minutes)..."
+            echo "Starting at: $(date)"
             
-            # Wait for services
-            echo "Waiting for services to start..."
-            sleep 30
+            # Build and start in background with output
+            docker compose up -d --build 2>&1 | while IFS= read -r line; do
+              echo "$line"
+              # Keep connection alive
+              echo "... build in progress ($(date '+%H:%M:%S')) ..."
+            done
+            
+            echo "Services started at: $(date)"
+            
+            # Wait for services with progress
+            echo "Waiting for services to initialize..."
+            for i in {1..30}; do
+              echo "Waiting... $i/30 seconds"
+              sleep 1
+            done
             
             # Check service status
+            echo "=== Service Status ==="
             docker compose ps
             
-            echo "Deployment completed successfully!"
+            echo "Deployment completed successfully at: $(date)!"
           ENDSSH
           
           # Clean up local temp file
