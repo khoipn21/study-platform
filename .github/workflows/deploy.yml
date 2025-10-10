@@ -9,23 +9,17 @@ on:
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-      
+
       - name: Setup SSH
         run: |
           mkdir -p ~/.ssh
           # Write key to file with proper formatting
           printf '%s\n' "${{ secrets.EC2_SSH_KEY }}" > ~/.ssh/ec2-key.pem
           chmod 600 ~/.ssh/ec2-key.pem
-          # Configure SSH keep-alive to prevent timeouts
-          cat >> ~/.ssh/config << 'EOF'
-          Host *
-            ServerAliveInterval 60
-            ServerAliveCountMax 10
-          EOF
           # Verify key format
           echo "Key file stats:"
           wc -l ~/.ssh/ec2-key.pem
@@ -33,15 +27,9 @@ jobs:
           tail -1 ~/.ssh/ec2-key.pem
           ssh-keygen -l -f ~/.ssh/ec2-key.pem || (echo "Invalid SSH key format" && cat ~/.ssh/ec2-key.pem && exit 1)
           ssh-keyscan -H ${{ secrets.EC2_HOST }} >> ~/.ssh/known_hosts 2>/dev/null
-          # Test SSH connection (non-fatal)
-          echo "Testing SSH connection to ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }}..."
-          if ssh -i ~/.ssh/ec2-key.pem -o ConnectTimeout=30 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} "echo 'SSH test successful'" 2>&1; then
-            echo "SSH connection test passed"
-          else
-            echo "Warning: SSH test failed but continuing with deployment..."
-            echo "If deployment fails, check EC2 security group, key pair, and instance status"
-          fi
-      
+          # Test SSH connection
+          ssh -i ~/.ssh/ec2-key.pem -o ConnectTimeout=10 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} "echo 'SSH test successful'" || (echo "SSH connection failed" && exit 1)
+
       - name: Initial EC2 Setup (First time only)
         env:
           EC2_HOST: ${{ secrets.EC2_HOST }}
@@ -85,13 +73,13 @@ jobs:
               echo "Setup already completed, skipping..."
             fi
           ENDSSH
-      
+
       - name: Create Production Environment File
         env:
           PRODUCTION_ENV: ${{ secrets.PRODUCTION_ENV }}
         run: |
           echo "$PRODUCTION_ENV" > /tmp/.env.production
-      
+
       - name: Deploy Application
         env:
           EC2_HOST: ${{ secrets.EC2_HOST }}
@@ -100,7 +88,7 @@ jobs:
         run: |
           # Copy .env file to server
           scp -i ~/.ssh/ec2-key.pem -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR /tmp/.env.production ${EC2_USER}@${EC2_HOST}:/tmp/.env.production
-          
+
           ssh -i ~/.ssh/ec2-key.pem -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR ${EC2_USER}@${EC2_HOST} bash << 'ENDSSH'
             set -e
             
@@ -144,36 +132,23 @@ jobs:
               docker compose down || true
             fi
             
-            # Start services with progress output
-            echo "Building and starting services (this may take several minutes)..."
-            echo "Starting at: $(date)"
+            # Start services
+            echo "Starting services..."
+            docker compose up -d --build
             
-            # Build and start in background with output
-            docker compose up -d --build 2>&1 | while IFS= read -r line; do
-              echo "$line"
-              # Keep connection alive
-              echo "... build in progress ($(date '+%H:%M:%S')) ..."
-            done
-            
-            echo "Services started at: $(date)"
-            
-            # Wait for services with progress
-            echo "Waiting for services to initialize..."
-            for i in {1..30}; do
-              echo "Waiting... $i/30 seconds"
-              sleep 1
-            done
+            # Wait for services
+            echo "Waiting for services to start..."
+            sleep 30
             
             # Check service status
-            echo "=== Service Status ==="
             docker compose ps
             
-            echo "Deployment completed successfully at: $(date)!"
+            echo "Deployment completed successfully!"
           ENDSSH
-          
+
           # Clean up local temp file
           rm -f /tmp/.env.production
-      
+
       - name: Setup SSL Certificate
         env:
           EC2_HOST: ${{ secrets.EC2_HOST }}
@@ -218,7 +193,7 @@ jobs:
             
             echo "HTTPS setup completed!"
           ENDSSH
-      
+
       - name: Verify Deployment
         env:
           EC2_HOST: ${{ secrets.EC2_HOST }}
@@ -248,7 +223,7 @@ jobs:
             echo "=== API Gateway Health Check (direct) ==="
             curl -f http://localhost:8080/api/v1/health || echo "Direct health check failed"
           ENDSSH
-      
+
       - name: Cleanup
         if: always()
         run: |
