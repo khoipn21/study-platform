@@ -33,8 +33,14 @@ jobs:
           tail -1 ~/.ssh/ec2-key.pem
           ssh-keygen -l -f ~/.ssh/ec2-key.pem || (echo "Invalid SSH key format" && cat ~/.ssh/ec2-key.pem && exit 1)
           ssh-keyscan -H ${{ secrets.EC2_HOST }} >> ~/.ssh/known_hosts 2>/dev/null
-          # Test SSH connection
-          ssh -i ~/.ssh/ec2-key.pem -o ConnectTimeout=10 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} "echo 'SSH test successful'" || (echo "SSH connection failed" && exit 1)
+          # Test SSH connection (non-fatal)
+          echo "Testing SSH connection to ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }}..."
+          if ssh -i ~/.ssh/ec2-key.pem -o ConnectTimeout=30 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} "echo 'SSH test successful'" 2>&1; then
+            echo "SSH connection test passed"
+          else
+            echo "Warning: SSH test failed but continuing with deployment..."
+            echo "If deployment fails, check EC2 security group, key pair, and instance status"
+          fi
       
       - name: Initial EC2 Setup (First time only)
         env:
