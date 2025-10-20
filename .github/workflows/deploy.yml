@@ -17,6 +17,7 @@ jobs:
           host: ${{ secrets.EC2_HOST }}
           username: ${{ secrets.EC2_USERNAME }}
           key: ${{ secrets.EC2_SSH_KEY }}
+          command_timeout: 30m
           script: |
             set -e
             
@@ -37,8 +38,15 @@ jobs:
             # Stop running containers
             docker compose down || true
             
-            # Start services in detached mode
-            docker compose up -d --build
+            # Build and start services with reduced parallelism for t3.micro
+            COMPOSE_PARALLEL_LIMIT=2 docker compose up -d --build
+            
+            # Wait for services to stabilize
+            echo 'Waiting for services to start...'
+            sleep 30
+            
+            # Show container status
+            docker compose ps
             
             # Cleanup old images
             docker image prune -f
