@@ -1,211 +1,188 @@
-version: "3.8"
+version: '3.8'
 
 services:
+  # Infrastructure Services
   postgres:
     image: postgres:16
+    container_name: study-platform-postgres
     environment:
-      POSTGRES_DB: ${POSTGRES_DB:-studyplatform}
+      POSTGRES_DB: ${POSTGRES_DB}
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
     ports:
       - "2345:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./migrations:/docker-entrypoint-initdb.d
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB:-studyplatform}"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
       interval: 10s
       timeout: 5s
       retries: 5
+    restart: unless-stopped
 
   redis:
     image: redis:7-alpine
+    container_name: study-platform-redis
     ports:
       - "6379:6379"
-    environment:
-      REDIS_PASSWORD: ${REDIS_PASSWORD:-}
     volumes:
       - redis_data:/data
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 10s
-      timeout: 5s
-      retries: 5
+      timeout: 3s
+      retries: 3
+    restart: unless-stopped
 
   minio:
     image: minio/minio
-    ports:
-      - "9000:9000"
-      - "9001:9001"
+    container_name: study-platform-minio
     environment:
       MINIO_ROOT_USER: ${MINIO_ROOT_USER}
       MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
-    command: server /data --console-address ":9001"
+    ports:
+      - "9000:9000"
+      - "9001:9001"
     volumes:
       - minio_data:/data
+    command: server /data --console-address ":9001"
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
       interval: 30s
       timeout: 20s
       retries: 3
+    restart: unless-stopped
 
-  auth-service:
-    image: ghcr.io/khoipn21/study-platform/auth-service:latest
-    ports: []
-    depends_on:
-      postgres:
-        condition: service_healthy
-    environment:
-      DATABASE_URL: ${DATABASE_URL}
-      JWT_SECRET: ${JWT_SECRET}
-      GRPC_PORT: ${GRPC_PORT_AUTH:-8081}
-      BCRYPT_ROUNDS: ${BCRYPT_ROUNDS:-12}
-      JWT_EXPIRY: ${JWT_EXPIRY:-24h}
-      JWT_REFRESH_EXPIRY: ${JWT_REFRESH_EXPIRY:-168h}
-      DB_MAX_CONNECTIONS: ${DB_MAX_CONNECTIONS:-25}
-      DB_MAX_IDLE_CONNECTIONS: ${DB_MAX_IDLE_CONNECTIONS:-5}
-      DB_CONNECTION_LIFETIME: ${DB_CONNECTION_LIFETIME:-300s}
-
-  course-service:
-    image: ghcr.io/khoipn21/study-platform/course-service:latest
-    ports: []
-    depends_on:
-      postgres:
-        condition: service_healthy
-    environment:
-      DATABASE_URL: ${DATABASE_URL}
-      JWT_SECRET: ${JWT_SECRET}
-      GRPC_PORT: ${GRPC_PORT_COURSE:-8082}
-      HTTP_PORT: ${HTTP_PORT_COURSE:-8092}
-      DB_MAX_CONNECTIONS: ${DB_MAX_CONNECTIONS:-25}
-      DB_MAX_IDLE_CONNECTIONS: ${DB_MAX_IDLE_CONNECTIONS:-5}
-      DB_CONNECTION_LIFETIME: ${DB_CONNECTION_LIFETIME:-300s}
-      AWS_REGION: ${S3_REGION}
-      AWS_ACCESS_KEY_ID: ${S3_ACCESS_KEY_ID}
-      AWS_SECRET_ACCESS_KEY: ${S3_SECRET_ACCESS_KEY}
-      S3_BUCKET: ${S3_BUCKET_COURSE_MATERIALS}
-      CLOUDFLARE_ACCOUNT_ID: ${CLOUDFLARE_ACCOUNT_ID}
-      CLOUDFLARE_STREAM_TOKEN: ${CLOUDFLARE_STREAM_TOKEN}
-
-  progress-service:
-    image: ghcr.io/khoipn21/study-platform/progress-service:latest
-    ports: []
-    depends_on:
-      postgres:
-        condition: service_healthy
-    environment:
-      DATABASE_URL: ${DATABASE_URL}
-      JWT_SECRET: ${JWT_SECRET}
-      GRPC_PORT: ${GRPC_PORT_PROGRESS:-8083}
-      DB_MAX_CONNECTIONS: ${DB_MAX_CONNECTIONS:-25}
-      DB_MAX_IDLE_CONNECTIONS: ${DB_MAX_IDLE_CONNECTIONS:-5}
-      DB_CONNECTION_LIFETIME: ${DB_CONNECTION_LIFETIME:-300s}
-
-  payment-service:
-    image: ghcr.io/khoipn21/study-platform/payment-service:latest
+  # Application Services - Pre-built images from GHCR
+  api-gateway:
+    image: ghcr.io/khoipn21/study-platform/api-gateway:latest
+    container_name: study-platform-api-gateway
+    env_file:
+      - .env
     ports:
-      - "${PAYMENT_PORT:-8088}:8088"
-    depends_on:
-      postgres:
-        condition: service_healthy
-    environment:
-      DATABASE_URL: ${DATABASE_URL}
-      JWT_SECRET: ${JWT_SECRET}
-      HTTP_PORT: ${PAYMENT_PORT:-8088}
-      STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY}
-      STRIPE_PUBLISHABLE_KEY: ${STRIPE_PUBLISHABLE_KEY}
-      STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET}
-      LEMON_SQUEEZY_API_KEY: ${LEMON_SQUEEZY_API_KEY}
-      LEMON_SQUEEZY_STORE_ID: ${LEMON_SQUEEZY_STORE_ID}
-      LEMON_SQUEEZY_WEBHOOK_SECRET: ${LEMON_SQUEEZY_WEBHOOK_SECRET}
-
-  video-service:
-    image: ghcr.io/khoipn21/study-platform/video-service:latest
-    ports:
-      - "${VIDEO_SERVICE_PORT:-8084}:8084"
-    environment:
-      PORT: ${VIDEO_SERVICE_PORT:-8084}
-      CLOUDFLARE_ACCOUNT_ID: ${CLOUDFLARE_ACCOUNT_ID}
-      CLOUDFLARE_STREAM_TOKEN: ${CLOUDFLARE_STREAM_TOKEN}
-      DATABASE_URL: ${DATABASE_URL}
-
-  bucket-service:
-    image: ghcr.io/khoipn21/study-platform/bucket-service:latest
-    ports:
-      - "${BUCKET_SERVICE_PORT:-8085}:8085"
-    environment:
-      PORT: ${BUCKET_SERVICE_PORT:-8085}
-      AWS_REGION: ${S3_REGION}
-      AWS_ACCESS_KEY_ID: ${S3_ACCESS_KEY_ID}
-      AWS_SECRET_ACCESS_KEY: ${S3_SECRET_ACCESS_KEY}
-      S3_BUCKET_FILES: ${S3_BUCKET_FILES}
-      S3_BUCKET_IMAGES: ${S3_BUCKET_IMAGES}
-      S3_BUCKET_AVATARS: ${S3_BUCKET_AVATARS}
-      DATABASE_URL: ${DATABASE_URL}
-
-  chatbot-service:
-    image: ghcr.io/khoipn21/study-platform/chatbot-service:latest
-    ports:
-      - "${CHATBOT_PORT:-8086}:8086"
+      - "8080:8080"
     depends_on:
       postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
-    environment:
-      PORT: ${CHATBOT_PORT:-8086}
-      DATABASE_URL: ${DATABASE_URL}
-      REDIS_HOST: ${REDIS_HOST}
-      REDIS_PORT: ${REDIS_PORT}
-      OPENAI_API_KEY: ${OPENAI_API_KEY}
-      OPENAI_MODEL: ${OPENAI_MODEL:-gpt-3.5-turbo}
+      auth-service:
+        condition: service_started
+      course-service:
+        condition: service_started
+      progress-service:
+        condition: service_started
+    restart: unless-stopped
 
-  forum-service:
-    image: ghcr.io/khoipn21/study-platform/forum-service:latest
+  auth-service:
+    image: ghcr.io/khoipn21/study-platform/auth-service:latest
+    container_name: study-platform-auth-service
+    env_file:
+      - .env
     ports:
-      - "${FORUM_PORT:-8087}:8087"
+      - "8081:8081"
     depends_on:
       postgres:
         condition: service_healthy
-    environment:
-      PORT: ${FORUM_PORT:-8087}
-      DATABASE_URL: ${DATABASE_URL}
-      JWT_SECRET: ${JWT_SECRET}
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  course-service:
+    image: ghcr.io/khoipn21/study-platform/course-service:latest
+    container_name: study-platform-course-service
+    env_file:
+      - .env
+    ports:
+      - "8082:8082"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+  progress-service:
+    image: ghcr.io/khoipn21/study-platform/progress-service:latest
+    container_name: study-platform-progress-service
+    env_file:
+      - .env
+    ports:
+      - "8083:8083"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+  video-service:
+    image: ghcr.io/khoipn21/study-platform/video-service:latest
+    container_name: study-platform-video-service
+    env_file:
+      - .env
+    ports:
+      - "8084:8084"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+  bucket-service:
+    image: ghcr.io/khoipn21/study-platform/bucket-service:latest
+    container_name: study-platform-bucket-service
+    env_file:
+      - .env
+    ports:
+      - "8085:8085"
+    depends_on:
+      minio:
+        condition: service_healthy
+    restart: unless-stopped
+
+  chatbot-service:
+    image: ghcr.io/khoipn21/study-platform/chatbot-service:latest
+    container_name: study-platform-chatbot-service
+    env_file:
+      - .env
+    ports:
+      - "8086:8086"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+  forum-service:
+    image: ghcr.io/khoipn21/study-platform/forum-service:latest
+    container_name: study-platform-forum-service
+    env_file:
+      - .env
+    ports:
+      - "8087:8087"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+  payment-service:
+    image: ghcr.io/khoipn21/study-platform/payment-service:latest
+    container_name: study-platform-payment-service
+    env_file:
+      - .env
+    ports:
+      - "8088:8088"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
 
   instructor-dashboard-service:
     image: ghcr.io/khoipn21/study-platform/instructor-dashboard-service:latest
+    container_name: study-platform-instructor-dashboard
+    env_file:
+      - .env
     ports:
       - "8089:8089"
     depends_on:
       postgres:
         condition: service_healthy
-    environment:
-      PORT: 8089
-      DATABASE_URL: ${DATABASE_URL}
-      JWT_SECRET: ${JWT_SECRET}
-
-  api-gateway:
-    image: ghcr.io/khoipn21/study-platform/api-gateway:latest
-    ports:
-      - "${API_GATEWAY_PORT:-8080}:8080"
-    depends_on:
-      - auth-service
-      - course-service
-      - progress-service
-    environment:
-      PORT: ${API_GATEWAY_PORT:-8080}
-      AUTH_SERVICE_URL: ${AUTH_SERVICE_URL:-auth-service:8081}
-      COURSE_SERVICE_URL: ${COURSE_SERVICE_URL:-course-service:8082}
-      PROGRESS_SERVICE_URL: ${PROGRESS_SERVICE_URL:-progress-service:8083}
-      VIDEO_SERVICE_URL: ${VIDEO_SERVICE_URL:-http://video-service:8084}
-      BUCKET_SERVICE_URL: ${BUCKET_SERVICE_URL:-http://bucket-service:8085}
-      CHATBOT_SERVICE_URL: ${CHATBOT_SERVICE_URL:-http://chatbot-service:8086}
-      FORUM_SERVICE_URL: ${FORUM_SERVICE_URL:-http://forum-service:8087}
-      PAYMENT_SERVICE_URL: ${PAYMENT_SERVICE_URL:-http://payment-service:8088}
-      JWT_SECRET: ${JWT_SECRET}
-      CORS_ORIGINS: ${CORS_ORIGINS}
-      RATE_LIMIT_REQUESTS: ${RATE_LIMIT_REQUESTS:-100}
-      RATE_LIMIT_WINDOW: ${RATE_LIMIT_WINDOW:-60s}
+    restart: unless-stopped
 
 volumes:
   postgres_data:
