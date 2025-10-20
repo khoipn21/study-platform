@@ -52,19 +52,24 @@ jobs:
             type=sha,prefix={{branch}}-
             type=raw,value=latest,enable={{is_default_branch}}
       
+      - name: Determine Dockerfile
+        id: dockerfile
+        run: |
+          SERVICE="${{ matrix.service }}"
+          case "$SERVICE" in
+            api-gateway) echo "file=Dockerfile.gateway" >> $GITHUB_OUTPUT ;;
+            auth-service) echo "file=Dockerfile.auth" >> $GITHUB_OUTPUT ;;
+            course-service) echo "file=Dockerfile.course" >> $GITHUB_OUTPUT ;;
+            progress-service) echo "file=Dockerfile.progress" >> $GITHUB_OUTPUT ;;
+            payment-service) echo "file=Dockerfile.payment" >> $GITHUB_OUTPUT ;;
+            *) echo "file=${SERVICE}/Dockerfile" >> $GITHUB_OUTPUT ;;
+          esac
+      
       - name: Build and push Docker image
         uses: docker/build-push-action@v6
         with:
           context: .
-          file: |
-            ${{
-              matrix.service == 'api-gateway' && 'Dockerfile.gateway' ||
-              matrix.service == 'auth-service' && 'Dockerfile.auth' ||
-              matrix.service == 'course-service' && 'Dockerfile.course' ||
-              matrix.service == 'progress-service' && 'Dockerfile.progress' ||
-              matrix.service == 'payment-service' && 'Dockerfile.payment' ||
-              format('{0}/Dockerfile', matrix.service)
-            }}
+          file: ${{ steps.dockerfile.outputs.file }}
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
