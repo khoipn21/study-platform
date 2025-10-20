@@ -1,0 +1,57 @@
+name: Deploy to EC2
+
+on:
+  push:
+    branches:
+      - master
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Deploy to EC2
+        env:
+          EC2_HOST: ${{ secrets.EC2_HOST }}
+          EC2_USERNAME: ${{ secrets.EC2_USERNAME }}
+          EC2_SSH_KEY: ${{ secrets.EC2_SSH_KEY }}
+          DEPLOY_TOKEN: ${{ secrets.DEPLOY_TOKEN }}
+        run: |
+          # Setup SSH
+          mkdir -p ~/.ssh
+          echo "$EC2_SSH_KEY" > ~/.ssh/deploy_key.pem
+          chmod 600 ~/.ssh/deploy_key.pem
+          ssh-keyscan -H $EC2_HOST >> ~/.ssh/known_hosts
+          
+          # Deploy via SSH
+          ssh -i ~/.ssh/deploy_key.pem -o StrictHostKeyChecking=no $EC2_USERNAME@$EC2_HOST << ENDSSH
+            set -e
+            
+            # Navigate to project directory
+            cd ~/study-platform || {
+              echo "First time deployment - cloning repository"
+              cd ~
+              git clone https://${DEPLOY_TOKEN}@github.com/khoipn21/study-platform.git
+              cd study-platform
+            }
+            
+            # Pull latest changes
+            git fetch origin
+            git reset --hard origin/master
+            
+            # Stop running containers
+            docker-compose down || true
+            
+            # Pull latest images and rebuild
+            docker-compose pull || true
+            docker-compose build --no-cache
+            
+            # Start services
+            docker-compose up -d
+            
+            # Cleanup old images
+            docker image prune -f
+            
+            echo "Deployment completed successfully"
+          ENDSSH
