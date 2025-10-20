@@ -18,17 +18,17 @@ jobs:
           mkdir -p ~/.ssh
           echo "$EC2_SSH_KEY" > ~/.ssh/deploy_key.pem
           chmod 600 ~/.ssh/deploy_key.pem
-          
-      - name: Add SSH host key
-        env:
-          EC2_HOST: ${{ secrets.EC2_HOST }}
-        run: |
-          ssh-keyscan -H "$EC2_HOST" >> ~/.ssh/known_hosts
+          cat >> ~/.ssh/config << EOF
+          Host ec2-deploy
+            HostName ${{ secrets.EC2_HOST }}
+            User ${{ secrets.EC2_USERNAME }}
+            IdentityFile ~/.ssh/deploy_key.pem
+            StrictHostKeyChecking no
+            UserKnownHostsFile /dev/null
+          EOF
           
       - name: Deploy to EC2
         env:
-          EC2_HOST: ${{ secrets.EC2_HOST }}
-          EC2_USERNAME: ${{ secrets.EC2_USERNAME }}
           DEPLOY_TOKEN: ${{ secrets.DEPLOY_TOKEN }}
         run: |
           cat > deploy_script.sh << 'SCRIPT_EOF'
@@ -62,6 +62,6 @@ jobs:
           
           sed -i "s/DEPLOY_TOKEN_PLACEHOLDER/$DEPLOY_TOKEN/g" deploy_script.sh
           
-          scp -i ~/.ssh/deploy_key.pem -o StrictHostKeyChecking=no deploy_script.sh "$EC2_USERNAME@$EC2_HOST":~/deploy_script.sh
-          ssh -i ~/.ssh/deploy_key.pem -o StrictHostKeyChecking=no "$EC2_USERNAME@$EC2_HOST" "bash ~/deploy_script.sh && rm ~/deploy_script.sh"
+          scp deploy_script.sh ec2-deploy:~/deploy_script.sh
+          ssh ec2-deploy "bash ~/deploy_script.sh && rm ~/deploy_script.sh"
           rm deploy_script.sh
