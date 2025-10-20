@@ -11,47 +11,47 @@ jobs:
     runs-on: ubuntu-latest
     
     steps:
-      - name: Deploy to EC2
+      - name: Setup SSH
         env:
-          EC2_HOST: ${{ secrets.EC2_HOST }}
-          EC2_USERNAME: ${{ secrets.EC2_USERNAME }}
           EC2_SSH_KEY: ${{ secrets.EC2_SSH_KEY }}
-          DEPLOY_TOKEN: ${{ secrets.DEPLOY_TOKEN }}
         run: |
-          # Setup SSH
           mkdir -p ~/.ssh
           echo "$EC2_SSH_KEY" > ~/.ssh/deploy_key.pem
           chmod 600 ~/.ssh/deploy_key.pem
-          ssh-keyscan -H $EC2_HOST >> ~/.ssh/known_hosts
           
-          # Deploy via SSH
-          ssh -i ~/.ssh/deploy_key.pem -o StrictHostKeyChecking=no $EC2_USERNAME@$EC2_HOST << ENDSSH
+      - name: Add SSH host key
+        run: |
+          ssh-keyscan -H ${{ secrets.EC2_HOST }} >> ~/.ssh/known_hosts
+          
+      - name: Deploy to EC2
+        env:
+          DEPLOY_TOKEN: ${{ secrets.DEPLOY_TOKEN }}
+        run: |
+          ssh -i ~/.ssh/deploy_key.pem -o StrictHostKeyChecking=no ${{ secrets.EC2_USERNAME }}@${{ secrets.EC2_HOST }} "
             set -e
             
-            # Navigate to project directory
-            cd ~/study-platform || {
-              echo "First time deployment - cloning repository"
+            # Navigate to project directory or clone
+            if [ ! -d ~/study-platform ]; then
+              echo 'First time deployment - cloning repository'
               cd ~
-              git clone https://${DEPLOY_TOKEN}@github.com/khoipn21/study-platform.git
+              git clone https://${{ secrets.DEPLOY_TOKEN }}@github.com/khoipn21/study-platform.git
               cd study-platform
-            }
+            else
+              cd ~/study-platform
+            fi
             
             # Pull latest changes
             git fetch origin
             git reset --hard origin/master
             
             # Stop running containers
-            docker-compose down || true
+            docker compose down || true
             
-            # Pull latest images and rebuild
-            docker-compose pull || true
-            docker-compose build --no-cache
-            
-            # Start services
-            docker-compose up -d
+            # Start services in detached mode
+            docker compose up -d --build
             
             # Cleanup old images
             docker image prune -f
             
-            echo "Deployment completed successfully"
-          ENDSSH
+            echo 'Deployment completed successfully'
+          "
