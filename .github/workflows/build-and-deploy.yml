@@ -52,24 +52,42 @@ jobs:
             type=sha,prefix={{branch}}-
             type=raw,value=latest,enable={{is_default_branch}}
       
-      - name: Determine Dockerfile
-        id: dockerfile
+      - name: Determine build context
+        id: build-context
         run: |
           SERVICE="${{ matrix.service }}"
           case "$SERVICE" in
-            api-gateway) echo "file=Dockerfile.gateway" >> $GITHUB_OUTPUT ;;
-            auth-service) echo "file=Dockerfile.auth" >> $GITHUB_OUTPUT ;;
-            course-service) echo "file=Dockerfile.course" >> $GITHUB_OUTPUT ;;
-            progress-service) echo "file=Dockerfile.progress" >> $GITHUB_OUTPUT ;;
-            payment-service) echo "file=Dockerfile.payment" >> $GITHUB_OUTPUT ;;
-            *) echo "file=${SERVICE}/Dockerfile" >> $GITHUB_OUTPUT ;;
+            api-gateway)
+              echo "context=." >> $GITHUB_OUTPUT
+              echo "file=Dockerfile.gateway" >> $GITHUB_OUTPUT
+              ;;
+            auth-service)
+              echo "context=." >> $GITHUB_OUTPUT
+              echo "file=Dockerfile.auth" >> $GITHUB_OUTPUT
+              ;;
+            course-service)
+              echo "context=." >> $GITHUB_OUTPUT
+              echo "file=Dockerfile.course" >> $GITHUB_OUTPUT
+              ;;
+            progress-service)
+              echo "context=." >> $GITHUB_OUTPUT
+              echo "file=Dockerfile.progress" >> $GITHUB_OUTPUT
+              ;;
+            payment-service)
+              echo "context=." >> $GITHUB_OUTPUT
+              echo "file=Dockerfile.payment" >> $GITHUB_OUTPUT
+              ;;
+            *)
+              echo "context=${SERVICE}" >> $GITHUB_OUTPUT
+              echo "file=Dockerfile" >> $GITHUB_OUTPUT
+              ;;
           esac
       
       - name: Build and push Docker image
         uses: docker/build-push-action@v6
         with:
-          context: .
-          file: ${{ steps.dockerfile.outputs.file }}
+          context: ${{ steps.build-context.outputs.context }}
+          file: ${{ steps.build-context.outputs.context }}/${{ steps.build-context.outputs.file }}
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
