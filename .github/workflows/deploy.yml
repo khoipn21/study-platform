@@ -11,57 +11,44 @@ jobs:
     runs-on: ubuntu-latest
     
     steps:
-      - name: Setup SSH
-        env:
-          EC2_SSH_KEY: ${{ secrets.EC2_SSH_KEY }}
+      - name: Executing remote SSH commands
+        uses: appleboy/ssh-action@v1.2.2
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USERNAME }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            set -e
+            
+            # Navigate to project directory or clone
+            if [ ! -d ~/study-platform ]; then
+              echo 'First time deployment - cloning repository'
+              cd ~
+              git clone https://${{ secrets.DEPLOY_TOKEN }}@github.com/khoipn21/study-platform.git
+              cd study-platform
+            else
+              cd ~/study-platform
+            fi
+            
+            # Pull latest changes
+            git fetch origin
+            git reset --hard origin/master
+            
+            # Stop running containers
+            docker compose down || true
+            
+            # Start services in detached mode
+            docker compose up -d --build
+            
+            # Cleanup old images
+            docker image prune -f
+            
+            echo 'Deployment completed successfully'
+      
+      - name: Test deployment with curl
+        if: success()
         run: |
-          mkdir -p ~/.ssh
-          echo "$EC2_SSH_KEY" > ~/.ssh/deploy_key.pem
-          chmod 600 ~/.ssh/deploy_key.pem
-          cat >> ~/.ssh/config << EOF
-          Host ec2-deploy
-            HostName ${{ secrets.EC2_HOST }}
-            User ${{ secrets.EC2_USERNAME }}
-            IdentityFile ~/.ssh/deploy_key.pem
-            StrictHostKeyChecking no
-            UserKnownHostsFile /dev/null
-          EOF
-          
-      - name: Deploy to EC2
-        env:
-          DEPLOY_TOKEN: ${{ secrets.DEPLOY_TOKEN }}
-        run: |
-          cat > deploy_script.sh << 'SCRIPT_EOF'
-          set -e
-          
-          # Navigate to project directory or clone
-          if [ ! -d ~/study-platform ]; then
-            echo 'First time deployment - cloning repository'
-            cd ~
-            git clone https://DEPLOY_TOKEN_PLACEHOLDER@github.com/khoipn21/study-platform.git
-            cd study-platform
-          else
-            cd ~/study-platform
-          fi
-          
-          # Pull latest changes
-          git fetch origin
-          git reset --hard origin/master
-          
-          # Stop running containers
-          docker compose down || true
-          
-          # Start services in detached mode
-          docker compose up -d --build
-          
-          # Cleanup old images
-          docker image prune -f
-          
-          echo 'Deployment completed successfully'
-          SCRIPT_EOF
-          
-          sed -i "s/DEPLOY_TOKEN_PLACEHOLDER/$DEPLOY_TOKEN/g" deploy_script.sh
-          
-          scp deploy_script.sh ec2-deploy:~/deploy_script.sh
-          ssh ec2-deploy "bash ~/deploy_script.sh && rm ~/deploy_script.sh"
-          rm deploy_script.sh
+          echo "Waiting 30 seconds for services to start..."
+          sleep 30
+          echo "Testing API Gateway endpoint..."
+          curl -f -m 10 http://${{ secrets.EC2_HOST }}:8080/health || echo "Health check failed but deployment completed"
