@@ -51,7 +51,7 @@ func (r *LectureRepository) GetByID(ctx context.Context, id uuid.UUID) (*model.L
 			COALESCE(v.stream_url, l.video_url, '') as video_url,
 			l.video_id, l.status, l.is_free, l.created_at, l.updated_at
 		FROM lectures l
-		LEFT JOIN videos v ON l.video_id::uuid = v.id
+		LEFT JOIN videos v ON NULLIF(l.video_id, '')::uuid = v.id
 		WHERE l.id = $1
 	`
 
@@ -135,7 +135,7 @@ func (r *LectureRepository) List(ctx context.Context, filters model.LectureFilte
 			COALESCE(v.stream_url, l.video_url, '') as video_url,
 			l.video_id, l.status, l.is_free, l.created_at, l.updated_at
 		FROM lectures l
-		LEFT JOIN videos v ON l.video_id::uuid = v.id
+		LEFT JOIN videos v ON NULLIF(l.video_id, '')::uuid = v.id
 	`
 
 	if filters.CourseID != "" {
@@ -156,7 +156,7 @@ func (r *LectureRepository) List(ctx context.Context, filters model.LectureFilte
 	}
 
 	// Count total results - also need to update count query to match the JOIN
-	countQuery := fmt.Sprintf("SELECT COUNT(*) FROM lectures l LEFT JOIN videos v ON l.video_id::uuid = v.id %s", whereClause)
+	countQuery := fmt.Sprintf("SELECT COUNT(*) FROM lectures l LEFT JOIN videos v ON NULLIF(l.video_id, '')::uuid = v.id %s", whereClause)
 	var totalCount int32
 	err := r.db.QueryRowContext(ctx, countQuery, args...).Scan(&totalCount)
 	if err != nil {
@@ -213,7 +213,7 @@ func (r *LectureRepository) GetByCourseID(ctx context.Context, courseID uuid.UUI
 			COALESCE(v.stream_url, l.video_url, '') as video_url,
 			l.video_id, l.status, l.is_free, l.created_at, l.updated_at
 		FROM lectures l
-		LEFT JOIN videos v ON l.video_id::uuid = v.id
+		LEFT JOIN videos v ON NULLIF(l.video_id, '')::uuid = v.id
 		WHERE l.course_id = $1
 		ORDER BY l.order_number ASC
 	`

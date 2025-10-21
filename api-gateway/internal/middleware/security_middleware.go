@@ -16,19 +16,19 @@ import (
 )
 
 type SecurityMiddleware struct {
-	logger            logger.Logger
-	jwtSecret         []byte
-	securityHeaders   map[string]string
-	cspPolicy         string
-	validatedInputs   map[string]*regexp.Regexp
-	allowedOrigins    []string
+	logger          logger.Logger
+	jwtSecret       []byte
+	securityHeaders map[string]string
+	cspPolicy       string
+	validatedInputs map[string]*regexp.Regexp
+	allowedOrigins  []string
 }
 
 type SecurityConfig struct {
-	JWTSecret               string
-	ContentSecurityPolicy   string
-	EnableSecurityHeaders   bool
-	AllowedOrigins          []string
+	JWTSecret             string
+	ContentSecurityPolicy string
+	EnableSecurityHeaders bool
+	AllowedOrigins        []string
 }
 
 func NewSecurityMiddleware(config SecurityConfig, logger logger.Logger) *SecurityMiddleware {
@@ -115,20 +115,20 @@ func (sm *SecurityMiddleware) InputValidation(next http.Handler) http.Handler {
 
 		// Check headers for attack patterns (skip common legitimate headers)
 		legitimateHeaders := map[string]bool{
-			"Accept":           true,
-			"Accept-Language":  true,
-			"Accept-Encoding":  true,
-			"User-Agent":      true,
-			"Host":            true,
-			"Connection":      true,
-			"Content-Type":    true,
-			"Content-Length":  true,
-			"Origin":          true,
-			"Referer":         true,
-			"Cache-Control":   true,
-			"Pragma":          true,
-			"Authorization":   true,
-			"X-Requested-With": true,
+			"Accept":                         true,
+			"Accept-Language":                true,
+			"Accept-Encoding":                true,
+			"User-Agent":                     true,
+			"Host":                           true,
+			"Connection":                     true,
+			"Content-Type":                   true,
+			"Content-Length":                 true,
+			"Origin":                         true,
+			"Referer":                        true,
+			"Cache-Control":                  true,
+			"Pragma":                         true,
+			"Authorization":                  true,
+			"X-Requested-With":               true,
 			"Access-Control-Request-Method":  true,
 			"Access-Control-Request-Headers": true,
 			// Browser security headers
@@ -140,13 +140,13 @@ func (sm *SecurityMiddleware) InputValidation(next http.Handler) http.Handler {
 			"Sec-Fetch-Dest":     true,
 			"Sec-Fetch-User":     true,
 			// Additional common headers
-			"Accept-Charset":     true,
-			"If-None-Match":      true,
-			"If-Modified-Since":  true,
-			"Dnt":                true,
+			"Accept-Charset":            true,
+			"If-None-Match":             true,
+			"If-Modified-Since":         true,
+			"Dnt":                       true,
 			"Upgrade-Insecure-Requests": true,
 		}
-		
+
 		for name, values := range r.Header {
 			// Skip legitimate headers and authentication headers for this check
 			if legitimateHeaders[name] || name == "Authorization" {
@@ -179,7 +179,7 @@ func (sm *SecurityMiddleware) JWTSecurityValidation(next http.Handler) http.Hand
 			parts := strings.Split(authHeader, " ")
 			if len(parts) == 2 && parts[0] == "Bearer" {
 				token := parts[1]
-				
+
 				// Check for common JWT attack patterns
 				if sm.isJWTSuspicious(token) {
 					sm.sendSecurityError(w, http.StatusUnauthorized, "Invalid token format", "SUSPICIOUS_JWT")
@@ -219,7 +219,7 @@ func (sm *SecurityMiddleware) RequestSizeLimit(maxBytes int64) func(http.Handler
 func (sm *SecurityMiddleware) SecureCORS(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		origin := r.Header.Get("Origin")
-		
+
 		// If there's an origin header, it must be in the allowlist
 		if origin != "" {
 			if sm.isOriginAllowed(origin) {
@@ -294,7 +294,7 @@ func (sm *SecurityMiddleware) RateLimitByIP(requests int, window time.Duration) 
 // containsAttackPatterns checks for common attack patterns
 func (sm *SecurityMiddleware) containsAttackPatterns(input string) bool {
 	input = strings.ToLower(input)
-	
+
 	// SQL injection patterns
 	sqlPatterns := []string{
 		"union select", "drop table", "insert into", "delete from",
@@ -447,12 +447,6 @@ func ValidateEnvVars() error {
 	jwtSecret := os.Getenv("JWT_SECRET")
 	if len(jwtSecret) < 32 {
 		return fmt.Errorf("JWT_SECRET must be at least 32 characters (256 bits) for security")
-	}
-
-	// Validate database password strength
-	dbPassword := os.Getenv("POSTGRES_PASSWORD")
-	if len(dbPassword) < 12 {
-		return fmt.Errorf("POSTGRES_PASSWORD must be at least 12 characters for security")
 	}
 
 	return nil

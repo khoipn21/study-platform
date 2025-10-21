@@ -9,20 +9,22 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/gin-gonic/gin"
 	"instructor-dashboard-service/internal/handler"
 	"instructor-dashboard-service/internal/middleware"
 	"instructor-dashboard-service/internal/repository"
 	"instructor-dashboard-service/internal/service"
 
+	"github.com/gin-gonic/gin"
+
 	"database/sql"
+
 	_ "github.com/lib/pq"
 )
 
 func main() {
 	// Load environment variables
 	port := getEnv("PORT", "8089")
-	dbURL := getEnv("DATABASE_URL", "postgres://admin:admin123@localhost:2345/studyplatform?sslmode=disable")
+	dbURL := getEnv("DATABASE_URL", "postgres://admin:password@localhost:2345/studyplatform?sslmode=disable")
 
 	// Connect to database
 	db, err := sql.Open("postgres", dbURL)
