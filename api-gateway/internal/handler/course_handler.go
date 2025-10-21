@@ -521,6 +521,20 @@ func (h *CourseHandler) DeleteCourse(w http.ResponseWriter, r *http.Request) {
 	h.sendSuccess(w, resp.Message, nil)
 }
 
+// ListCourses godoc
+// @Summary      List all courses
+// @Description  Get a paginated list of all available courses with optional filters
+// @Tags         Courses
+// @Accept       json
+// @Produce      json
+// @Param        page query int false "Page number" default(1)
+// @Param        page_size query int false "Items per page" default(10)
+// @Param        category query string false "Filter by category"
+// @Param        level query string false "Filter by level (beginner, intermediate, advanced)"
+// @Param        instructor_id query string false "Filter by instructor ID"
+// @Success      200 {object} APIResponse "List of courses"
+// @Failure      500 {object} APIResponse "Internal server error"
+// @Router       /courses [get]
 func (h *CourseHandler) ListCourses(w http.ResponseWriter, r *http.Request) {
 	// Parse query parameters
 	page, _ := strconv.Atoi(r.URL.Query().Get("page"))

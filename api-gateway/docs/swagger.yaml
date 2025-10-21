@@ -163,6 +163,48 @@ paths:
       summary: Validate JWT token
       tags:
       - Authentication
+  /courses:
+    get:
+      consumes:
+      - application/json
+      description: Get a paginated list of all available courses with optional filters
+      parameters:
+      - default: 1
+        description: Page number
+        in: query
+        name: page
+        type: integer
+      - default: 10
+        description: Items per page
+        in: query
+        name: page_size
+        type: integer
+      - description: Filter by category
+        in: query
+        name: category
+        type: string
+      - description: Filter by level (beginner, intermediate, advanced)
+        in: query
+        name: level
+        type: string
+      - description: Filter by instructor ID
+        in: query
+        name: instructor_id
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: List of courses
+          schema:
+            $ref: '#/definitions/internal_handler.APIResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/internal_handler.APIResponse'
+      summary: List all courses
+      tags:
+      - Courses
 produces:
 - application/json
 schemes:
