@@ -152,6 +152,9 @@ func (rt *Router) SetupRoutes() *mux.Router {
 	authRoutes.HandleFunc("/oauth/{provider}/url", rt.authHandler.GetOAuthURL).Methods("GET")
 	authRoutes.HandleFunc("/oauth/{provider}/callback", rt.authHandler.OAuthCallback).Methods("GET")
 
+	// User routes (public for mentions) - proxy to auth service
+	api.HandleFunc("/users", rt.authHandler.ListUsers).Methods("GET")
+
 	// Protected auth routes (authentication required)
 	protectedAuthRoutes := api.PathPrefix("/auth").Subrouter()
 	protectedAuthRoutes.Use(rt.authMiddleware.RequireAuth)

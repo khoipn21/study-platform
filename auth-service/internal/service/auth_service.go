@@ -170,3 +170,18 @@ func (s *AuthService) generateToken(user *model.User) (string, error) {
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 	return token.SignedString([]byte(s.jwtSecret))
 }
+func (s *AuthService) ListUsers(query string, limit int32) ([]*model.User, error) {
+	if limit <= 0 {
+		limit = 20
+	}
+	if limit > 100 {
+		limit = 100
+	}
+
+	users, err := s.userRepo.SearchUsers(query, int(limit))
+	if err != nil {
+		return nil, fmt.Errorf("failed to search users: %w", err)
+	}
+
+	return users, nil
+}

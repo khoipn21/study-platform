@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"os"
+	"strconv"
 	"time"
 
 	"github.com/gorilla/mux"
@@ -333,26 +334,26 @@ func (h *AuthHandler) OAuthCallback(w http.ResponseWriter, r *http.Request) {
 func (h *AuthHandler) sendSuccess(w http.ResponseWriter, message string, data interface{}) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	
+
 	response := APIResponse{
 		Success: true,
 		Message: message,
 		Data:    data,
 	}
-	
+
 	json.NewEncoder(w).Encode(response)
 }
 
 func (h *AuthHandler) sendError(w http.ResponseWriter, statusCode int, message string) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(statusCode)
-	
+
 	response := APIResponse{
 		Success: false,
 		Message: message,
 		Error:   message,
 	}
-	
+
 	json.NewEncoder(w).Encode(response)
 }
 
@@ -375,7 +376,7 @@ func (h *AuthHandler) handleGRPCError(w http.ResponseWriter, err error, defaultM
 	} else {
 		h.sendError(w, http.StatusInternalServerError, defaultMessage)
 	}
-	
+
 	h.logger.Errorf("gRPC error: %v", err)
 }
 
@@ -385,4 +386,59 @@ func getEnv(key, defaultValue string) string {
 		return value
 	}
 	return defaultValue
+}
+
+// ListUsers godoc
+// @Summary      List users for mentions
+// @Description  Get list of users for autocomplete/mentions
+// @Tags         Users
+// @Accept       json
+// @Produce      json
+// @Param        q query string false "Search query (username)"
+// @Param        limit query int false "Limit results (default 20, max 100)"
+// @Success      200 {object} APIResponse "Users retrieved successfully"
+// @Failure      500 {object} APIResponse "Failed to fetch users"
+// @Router       /users [get]
+func (h *AuthHandler) ListUsers(w http.ResponseWriter, r *http.Request) {
+	query := r.URL.Query().Get("q")
+	limitStr := r.URL.Query().Get("limit")
+
+	limit := int32(20)
+	if limitStr != "" {
+		if parsedLimit, err := strconv.Atoi(limitStr); err == nil && parsedLimit > 0 && parsedLimit <= 100 {
+			limit = int32(parsedLimit)
+		}
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	// Call auth service
+	grpcReq := &authpb.ListUsersRequest{
+		Query: query,
+		Limit: limit,
+	}
+
+	resp, err := h.authClient.ListUsers(ctx, grpcReq)
+	if err != nil {
+		h.handleGRPCError(w, err, "Failed to fetch users")
+		return
+	}
+
+	// Format response
+	users := make([]map[string]interface{}, 0, len(resp.Users))
+	for _, user := range resp.Users {
+		users = append(users, map[string]interface{}{
+			"id":       user.Id,
+			"username": user.Username,
+			"role":     user.Role,
+			"avatar":   user.Avatar,
+		})
+	}
+
+	data := map[string]interface{}{
+		"users": users,
+	}
+
+	h.sendSuccess(w, "Users retrieved successfully", data)
 }

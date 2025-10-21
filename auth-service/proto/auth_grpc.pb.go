@@ -30,6 +30,7 @@ const (
 	AuthService_LinkOAuthAccount_FullMethodName   = "/auth.AuthService/LinkOAuthAccount"
 	AuthService_UnlinkOAuthAccount_FullMethodName = "/auth.AuthService/UnlinkOAuthAccount"
 	AuthService_GetLinkedAccounts_FullMethodName  = "/auth.AuthService/GetLinkedAccounts"
+	AuthService_ListUsers_FullMethodName          = "/auth.AuthService/ListUsers"
 )
 
 // AuthServiceClient is the client API for AuthService service.
@@ -47,6 +48,7 @@ type AuthServiceClient interface {
 	LinkOAuthAccount(ctx context.Context, in *LinkOAuthAccountRequest, opts ...grpc.CallOption) (*LinkOAuthAccountResponse, error)
 	UnlinkOAuthAccount(ctx context.Context, in *UnlinkOAuthAccountRequest, opts ...grpc.CallOption) (*UnlinkOAuthAccountResponse, error)
 	GetLinkedAccounts(ctx context.Context, in *GetLinkedAccountsRequest, opts ...grpc.CallOption) (*GetLinkedAccountsResponse, error)
+	ListUsers(ctx context.Context, in *ListUsersRequest, opts ...grpc.CallOption) (*ListUsersResponse, error)
 }
 
 type authServiceClient struct {
@@ -167,6 +169,16 @@ func (c *authServiceClient) GetLinkedAccounts(ctx context.Context, in *GetLinked
 	return out, nil
 }
 
+func (c *authServiceClient) ListUsers(ctx context.Context, in *ListUsersRequest, opts ...grpc.CallOption) (*ListUsersResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListUsersResponse)
+	err := c.cc.Invoke(ctx, AuthService_ListUsers_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // AuthServiceServer is the server API for AuthService service.
 // All implementations must embed UnimplementedAuthServiceServer
 // for forward compatibility.
@@ -182,6 +194,7 @@ type AuthServiceServer interface {
 	LinkOAuthAccount(context.Context, *LinkOAuthAccountRequest) (*LinkOAuthAccountResponse, error)
 	UnlinkOAuthAccount(context.Context, *UnlinkOAuthAccountRequest) (*UnlinkOAuthAccountResponse, error)
 	GetLinkedAccounts(context.Context, *GetLinkedAccountsRequest) (*GetLinkedAccountsResponse, error)
+	ListUsers(context.Context, *ListUsersRequest) (*ListUsersResponse, error)
 	mustEmbedUnimplementedAuthServiceServer()
 }
 
@@ -224,6 +237,9 @@ func (UnimplementedAuthServiceServer) UnlinkOAuthAccount(context.Context, *Unlin
 }
 func (UnimplementedAuthServiceServer) GetLinkedAccounts(context.Context, *GetLinkedAccountsRequest) (*GetLinkedAccountsResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetLinkedAccounts not implemented")
+}
+func (UnimplementedAuthServiceServer) ListUsers(context.Context, *ListUsersRequest) (*ListUsersResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ListUsers not implemented")
 }
 func (UnimplementedAuthServiceServer) mustEmbedUnimplementedAuthServiceServer() {}
 func (UnimplementedAuthServiceServer) testEmbeddedByValue()                     {}
@@ -444,6 +460,24 @@ func _AuthService_GetLinkedAccounts_Handler(srv interface{}, ctx context.Context
 	return interceptor(ctx, in, info, handler)
 }
 
+func _AuthService_ListUsers_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListUsersRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AuthServiceServer).ListUsers(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AuthService_ListUsers_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AuthServiceServer).ListUsers(ctx, req.(*ListUsersRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // AuthService_ServiceDesc is the grpc.ServiceDesc for AuthService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -494,6 +528,10 @@ var AuthService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GetLinkedAccounts",
 			Handler:    _AuthService_GetLinkedAccounts_Handler,
+		},
+		{
+			MethodName: "ListUsers",
+			Handler:    _AuthService_ListUsers_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

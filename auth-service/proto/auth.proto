@@ -18,6 +18,7 @@ service AuthService {
     rpc LinkOAuthAccount(LinkOAuthAccountRequest) returns (LinkOAuthAccountResponse);
     rpc UnlinkOAuthAccount(UnlinkOAuthAccountRequest) returns (UnlinkOAuthAccountResponse);
     rpc GetLinkedAccounts(GetLinkedAccountsRequest) returns (GetLinkedAccountsResponse);
+    rpc ListUsers(ListUsersRequest) returns (ListUsersResponse);
 }
 
 message User {
@@ -141,4 +142,20 @@ message GetLinkedAccountsRequest {
 
 message GetLinkedAccountsResponse {
     repeated string providers = 1;
+}
+
+message UserInfo {
+    string id = 1;
+    string username = 2;
+    string role = 3;
+    string avatar = 4;
+}
+
+message ListUsersRequest {
+    string query = 1;  // search query for username
+    int32 limit = 2;   // max results (default 20, max 100)
+}
+
+message ListUsersResponse {
+    repeated UserInfo users = 1;
 }

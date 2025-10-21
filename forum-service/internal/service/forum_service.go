@@ -69,8 +69,21 @@ func (s *ForumService) GetTopic(ctx context.Context, topicID uuid.UUID, userID *
 		Topic: topic,
 	}
 
-	// TODO: Add user info, vote info, subscription info
-	// This would typically involve calling other services (auth service for user info)
+	// Fetch creator information
+	creatorInfo, err := s.forumRepo.GetUserInfo(ctx, topic.CreatedByID)
+	if err == nil {
+		response.CreatedBy = creatorInfo
+	}
+
+	// Fetch last post author information if available
+	if topic.LastPostByID != nil {
+		lastPostByInfo, err := s.forumRepo.GetUserInfo(ctx, *topic.LastPostByID)
+		if err == nil {
+			response.LastPostBy = lastPostByInfo
+		}
+	}
+
+	// TODO: Add vote info, subscription info
 
 	return response, nil
 }
@@ -81,12 +94,48 @@ func (s *ForumService) ListTopics(ctx context.Context, options *model.ListTopics
 		return nil, 0, fmt.Errorf("failed to list topics: %w", err)
 	}
 
+	// Collect all unique user IDs to fetch in batch
+	userIDsMap := make(map[uuid.UUID]bool)
+	for _, topic := range topics {
+		userIDsMap[topic.CreatedByID] = true
+		if topic.LastPostByID != nil {
+			userIDsMap[*topic.LastPostByID] = true
+		}
+	}
+
+	// Convert map to slice
+	var userIDs []uuid.UUID
+	for userID := range userIDsMap {
+		userIDs = append(userIDs, userID)
+	}
+
+	// Fetch all user information in one query
+	usersInfo, err := s.forumRepo.GetUsersInfo(ctx, userIDs)
+	if err != nil {
+		// Don't fail the request if user info fetch fails, just log it
+		fmt.Printf("Warning: failed to fetch users info: %v\n", err)
+		usersInfo = make(map[uuid.UUID]*model.UserInfo)
+	}
+
 	var responses []*model.TopicResponse
 	for _, topic := range topics {
 		response := &model.TopicResponse{
 			Topic: topic,
 		}
-		// TODO: Add user info, vote info, subscription info
+
+		// Add creator information
+		if creatorInfo, ok := usersInfo[topic.CreatedByID]; ok {
+			response.CreatedBy = creatorInfo
+		}
+
+		// Add last post author information
+		if topic.LastPostByID != nil {
+			if lastPostByInfo, ok := usersInfo[*topic.LastPostByID]; ok {
+				response.LastPostBy = lastPostByInfo
+			}
+		}
+
+		// TODO: Add vote info, subscription info
 		responses = append(responses, response)
 	}
 
@@ -249,7 +298,12 @@ func (s *ForumService) GetPost(ctx context.Context, postID uuid.UUID, userID *uu
 		}
 	}
 
-	// TODO: Add author info from user service
+	// Fetch author information
+	authorInfo, err := s.forumRepo.GetUserInfo(ctx, post.AuthorID)
+	if err == nil {
+		response.Author = authorInfo
+	}
+
 	// TODO: Add children posts if needed
 
 	return response, nil
@@ -259,6 +313,26 @@ func (s *ForumService) ListPosts(ctx context.Context, options *model.ListPostsOp
 	posts, total, err := s.forumRepo.ListPosts(ctx, options)
 	if err != nil {
 		return nil, 0, fmt.Errorf("failed to list posts: %w", err)
+	}
+
+	// Collect all unique author IDs to fetch in batch
+	authorIDsMap := make(map[uuid.UUID]bool)
+	for _, post := range posts {
+		authorIDsMap[post.AuthorID] = true
+	}
+
+	// Convert map to slice
+	var authorIDs []uuid.UUID
+	for authorID := range authorIDsMap {
+		authorIDs = append(authorIDs, authorID)
+	}
+
+	// Fetch all author information in one query
+	authorsInfo, err := s.forumRepo.GetUsersInfo(ctx, authorIDs)
+	if err != nil {
+		// Don't fail the request if author info fetch fails, just log it
+		fmt.Printf("Warning: failed to fetch authors info: %v\n", err)
+		authorsInfo = make(map[uuid.UUID]*model.UserInfo)
 	}
 
 	var responses []*model.PostResponse
@@ -276,7 +350,11 @@ func (s *ForumService) ListPosts(ctx context.Context, options *model.ListPostsOp
 			}
 		}
 
-		// TODO: Add author info from user service
+		// Add author information
+		if authorInfo, ok := authorsInfo[post.AuthorID]; ok {
+			response.Author = authorInfo
+		}
+
 		responses = append(responses, response)
 	}
 
@@ -478,10 +556,99 @@ func (s *ForumService) SetPostPinOrder(ctx context.Context, postID uuid.UUID, or
 }
 
 // Get pending items
-func (s *ForumService) GetPendingTopics(ctx context.Context, courseID *uuid.UUID) ([]model.Topic, error) {
-	return s.forumRepo.GetPendingTopics(ctx, courseID)
+func (s *ForumService) GetPendingTopics(ctx context.Context, courseID *uuid.UUID) ([]*model.TopicResponse, error) {
+	topics, err := s.forumRepo.GetPendingTopics(ctx, courseID)
+	if err != nil {
+		return nil, err
+	}
+
+	// Collect all unique user IDs to fetch in batch
+	userIDsMap := make(map[uuid.UUID]bool)
+	for _, topic := range topics {
+		userIDsMap[topic.CreatedByID] = true
+		if topic.LastPostByID != nil {
+			userIDsMap[*topic.LastPostByID] = true
+		}
+	}
+
+	// Convert map to slice
+	var userIDs []uuid.UUID
+	for userID := range userIDsMap {
+		userIDs = append(userIDs, userID)
+	}
+
+	// Fetch all user information in one query
+	usersInfo, err := s.forumRepo.GetUsersInfo(ctx, userIDs)
+	if err != nil {
+		// Don't fail the request if user info fetch fails
+		fmt.Printf("Warning: failed to fetch users info: %v\n", err)
+		usersInfo = make(map[uuid.UUID]*model.UserInfo)
+	}
+
+	var responses []*model.TopicResponse
+	for i := range topics {
+		response := &model.TopicResponse{
+			Topic: &topics[i],
+		}
+
+		// Add creator information
+		if creatorInfo, ok := usersInfo[topics[i].CreatedByID]; ok {
+			response.CreatedBy = creatorInfo
+		}
+
+		// Add last post author information
+		if topics[i].LastPostByID != nil {
+			if lastPostByInfo, ok := usersInfo[*topics[i].LastPostByID]; ok {
+				response.LastPostBy = lastPostByInfo
+			}
+		}
+
+		responses = append(responses, response)
+	}
+
+	return responses, nil
 }
 
-func (s *ForumService) GetPendingPosts(ctx context.Context, topicID uuid.UUID) ([]model.Post, error) {
-	return s.forumRepo.GetPendingPosts(ctx, topicID)
+func (s *ForumService) GetPendingPosts(ctx context.Context, topicID uuid.UUID) ([]*model.PostResponse, error) {
+	posts, err := s.forumRepo.GetPendingPosts(ctx, topicID)
+	if err != nil {
+		return nil, err
+	}
+
+	// Collect all unique author IDs to fetch in batch
+	authorIDsMap := make(map[uuid.UUID]bool)
+	for _, post := range posts {
+		authorIDsMap[post.AuthorID] = true
+	}
+
+	// Convert map to slice
+	var authorIDs []uuid.UUID
+	for authorID := range authorIDsMap {
+		authorIDs = append(authorIDs, authorID)
+	}
+
+	// Fetch all author information in one query
+	authorsInfo, err := s.forumRepo.GetUsersInfo(ctx, authorIDs)
+	if err != nil {
+		// Don't fail the request if author info fetch fails
+		fmt.Printf("Warning: failed to fetch authors info: %v\n", err)
+		authorsInfo = make(map[uuid.UUID]*model.UserInfo)
+	}
+
+	var responses []*model.PostResponse
+	for i := range posts {
+		response := &model.PostResponse{
+			Post:      &posts[i],
+			VoteTotal: posts[i].UpVotes - posts[i].DownVotes,
+		}
+
+		// Add author information
+		if authorInfo, ok := authorsInfo[posts[i].AuthorID]; ok {
+			response.Author = authorInfo
+		}
+
+		responses = append(responses, response)
+	}
+
+	return responses, nil
 }

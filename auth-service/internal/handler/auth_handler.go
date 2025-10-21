@@ -320,3 +320,39 @@ func (h *AuthHandler) userToProto(user *model.User) *pb.User {
 		UpdatedAt: timestamppb.New(user.UpdatedAt),
 	}
 }
+func (h *AuthHandler) ListUsers(ctx context.Context, req *pb.ListUsersRequest) (*pb.ListUsersResponse, error) {
+	// Default limit if not specified
+	limit := req.Limit
+	if limit <= 0 {
+		limit = 20
+	}
+	if limit > 100 {
+		limit = 100
+	}
+
+	users, err := h.authService.ListUsers(req.Query, limit)
+	if err != nil {
+		h.logger.Error(fmt.Errorf("list users error: %w", err))
+		return nil, status.Error(codes.Internal, "Failed to fetch users")
+	}
+
+	// Convert to protobuf UserInfo
+	pbUsers := make([]*pb.UserInfo, 0, len(users))
+	for _, user := range users {
+		avatar := ""
+		if user.AvatarURL != nil {
+			avatar = *user.AvatarURL
+		}
+
+		pbUsers = append(pbUsers, &pb.UserInfo{
+			Id:       user.ID.String(),
+			Username: user.Username,
+			Role:     string(user.Role),
+			Avatar:   avatar,
+		})
+	}
+
+	return &pb.ListUsersResponse{
+		Users: pbUsers,
+	}, nil
+}

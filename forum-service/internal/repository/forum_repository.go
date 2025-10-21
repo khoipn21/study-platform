@@ -818,6 +818,73 @@ func (r *ForumRepository) GetPendingTopics(ctx context.Context, courseID *uuid.U
 	return topics, nil
 }
 
+// GetUserInfo fetches user information by user ID
+func (r *ForumRepository) GetUserInfo(ctx context.Context, userID uuid.UUID) (*model.UserInfo, error) {
+	query := `SELECT id, username, avatar_url, role FROM users WHERE id = $1`
+	
+	var userInfo model.UserInfo
+	var avatarURL sql.NullString
+	
+	err := r.db.QueryRowContext(ctx, query, userID).Scan(
+		&userInfo.ID,
+		&userInfo.Username,
+		&avatarURL,
+		&userInfo.Role,
+	)
+	
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, fmt.Errorf("user not found")
+		}
+		return nil, err
+	}
+	
+	if avatarURL.Valid {
+		userInfo.Avatar = &avatarURL.String
+	}
+	
+	return &userInfo, nil
+}
+
+// GetUsersInfo fetches multiple users' information by their IDs
+func (r *ForumRepository) GetUsersInfo(ctx context.Context, userIDs []uuid.UUID) (map[uuid.UUID]*model.UserInfo, error) {
+	if len(userIDs) == 0 {
+		return make(map[uuid.UUID]*model.UserInfo), nil
+	}
+	
+	query := `SELECT id, username, avatar_url, role FROM users WHERE id = ANY($1)`
+	
+	rows, err := r.db.QueryContext(ctx, query, pq.Array(userIDs))
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	
+	userInfoMap := make(map[uuid.UUID]*model.UserInfo)
+	for rows.Next() {
+		var userInfo model.UserInfo
+		var avatarURL sql.NullString
+		
+		err := rows.Scan(
+			&userInfo.ID,
+			&userInfo.Username,
+			&avatarURL,
+			&userInfo.Role,
+		)
+		if err != nil {
+			return nil, err
+		}
+		
+		if avatarURL.Valid {
+			userInfo.Avatar = &avatarURL.String
+		}
+		
+		userInfoMap[userInfo.ID] = &userInfo
+	}
+	
+	return userInfoMap, nil
+}
+
 func (r *ForumRepository) GetPendingPosts(ctx context.Context, topicID uuid.UUID) ([]model.Post, error) {
 	query := `SELECT id, topic_id, author_id, parent_id, content, status, pin_order, is_edited, edited_at,
 	                 up_votes, down_votes, is_answer, is_pinned, created_at, updated_at

@@ -191,3 +191,42 @@ func (r *UserRepository) GetByProviderID(provider model.OAuthProvider, providerI
 	
 	return user, nil
 }
+func (r *UserRepository) SearchUsers(query string, limit int) ([]*model.User, error) {
+	sqlQuery := `
+		SELECT id, username, email, role, avatar_url
+		FROM users
+		WHERE username ILIKE $1
+		ORDER BY username ASC
+		LIMIT $2
+	`
+	
+	rows, err := r.db.Query(sqlQuery, "%"+query+"%", limit)
+	if err != nil {
+		return nil, fmt.Errorf("failed to search users: %w", err)
+	}
+	defer rows.Close()
+	
+	var users []*model.User
+	for rows.Next() {
+		user := &model.User{}
+		var avatarURL sql.NullString
+		
+		err := rows.Scan(&user.ID, &user.Username, &user.Email, &user.Role, &avatarURL)
+		if err != nil {
+			return nil, fmt.Errorf("failed to scan user: %w", err)
+		}
+		
+		if avatarURL.Valid {
+			avatarStr := avatarURL.String
+			user.AvatarURL = &avatarStr
+		}
+		
+		users = append(users, user)
+	}
+	
+	if err = rows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating rows: %w", err)
+	}
+	
+	return users, nil
+}
