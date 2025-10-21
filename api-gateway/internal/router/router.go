@@ -367,6 +367,14 @@ func (rt *Router) SetupRoutes() *mux.Router {
 	// WebSocket endpoint for real-time chat
 	chatRoutes.HandleFunc("/ws", rt.chatbotHandler.HandleWebSocket).Methods("GET")
 
+	// Chat history management
+	chatRoutes.HandleFunc("/history", rt.chatbotHandler.ListUserSessions).Methods("GET")
+	chatRoutes.HandleFunc("/history/{sessionId}", rt.chatbotHandler.GetSessionHistory).Methods("GET")
+	chatRoutes.HandleFunc("/history/{sessionId}", rt.chatbotHandler.DeleteHistorySession).Methods("DELETE")
+
+	// Rate limit endpoint (requires auth but no rate limiting on this)
+	api.Handle("/rate-limit", rt.authMiddleware.RequireAuth(http.HandlerFunc(rt.chatbotHandler.GetRateLimit))).Methods("GET")
+
 	// Forum routes
 	forumRoutes := api.PathPrefix("/forum").Subrouter()
 

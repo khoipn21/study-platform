@@ -7,6 +7,8 @@ import (
 	"log"
 	"net/http"
 
+	"strings"
+	
 	"chatbot-service/internal/config"
 	"chatbot-service/internal/handler"
 	"chatbot-service/internal/repository"
@@ -14,6 +16,7 @@ import (
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
+	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
 	"github.com/joho/godotenv"
 	_ "github.com/lib/pq"
@@ -63,9 +66,10 @@ func main() {
 	chatHandler := handler.NewSimpleChatHandler(chatRepo, redisRepo, aiService)
 	wsHandler := handler.NewSimpleWebSocketHandler(chatRepo, aiService)
 	analyticsHandler := handler.NewAnalyticsHandler(analyticsService)
+	historyHandler := handler.NewHistoryHandler(redisRepo)
 
 	// Setup router
-	router := setupRouter(chatHandler, wsHandler, analyticsHandler, rateLimiter, redisRepo)
+	router := setupRouter(chatHandler, wsHandler, analyticsHandler, historyHandler, rateLimiter, redisRepo, cfg)
 
 	// Start server
 	addr := fmt.Sprintf("%s:%s", cfg.Server.Host, cfg.Server.Port)
@@ -107,16 +111,23 @@ func connectRedis(cfg config.RedisConfig) (*redis.Client, error) {
 	return client, nil
 }
 
-func setupRouter(chatHandler *handler.SimpleChatHandler, wsHandler *handler.SimpleWebSocketHandler, analyticsHandler *handler.AnalyticsHandler, rateLimiter *service.RateLimiter, redisRepo *repository.RedisRepository) *gin.Engine {
+func setupRouter(chatHandler *handler.SimpleChatHandler, wsHandler *handler.SimpleWebSocketHandler, analyticsHandler *handler.AnalyticsHandler, historyHandler *handler.HistoryHandler, rateLimiter *service.RateLimiter, redisRepo *repository.RedisRepository, cfg *config.Config) *gin.Engine {
 	router := gin.Default()
+
+	// Parse CORS origins from config
+	allowedOrigins := strings.Split(cfg.CORS.AllowedOrigins, ",")
+	for i, origin := range allowedOrigins {
+		allowedOrigins[i] = strings.TrimSpace(origin)
+	}
 
 	// CORS middleware
 	router.Use(cors.New(cors.Config{
-		AllowOrigins:     []string{"*"},
+		AllowOrigins:     allowedOrigins,
 		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
-		AllowHeaders:     []string{"*"},
-		ExposeHeaders:    []string{"Content-Length"},
+		AllowHeaders:     []string{"Origin", "Content-Type", "Accept", "Authorization", "X-User-ID", "X-User-Role"},
+		ExposeHeaders:    []string{"Content-Length", "X-RateLimit-Limit", "X-RateLimit-Remaining"},
 		AllowCredentials: true,
+		MaxAge:           12 * 3600, // 12 hours
 	}))
 
 	// Health check
@@ -127,12 +138,56 @@ func setupRouter(chatHandler *handler.SimpleChatHandler, wsHandler *handler.Simp
 	// Swagger documentation
 	router.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 
-	// Authentication middleware (simplified - in production, this should validate JWT tokens)
+	// Authentication middleware - Parse JWT tokens
 	authMiddleware := func(c *gin.Context) {
-		// For now, we'll expect user_id in headers
-		userIDStr := c.GetHeader("X-User-ID")
-		if userIDStr == "" {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "User ID required"})
+		// Get token from Authorization header
+		authHeader := c.GetHeader("Authorization")
+		if authHeader == "" {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Authorization header required"})
+			c.Abort()
+			return
+		}
+
+		// Remove "Bearer " prefix
+		tokenString := authHeader
+		if len(authHeader) > 7 && authHeader[:7] == "Bearer " {
+			tokenString = authHeader[7:]
+		}
+
+		// Parse JWT token
+		token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
+			// Validate signing method
+			if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+				return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
+			}
+			return []byte(cfg.JWT.Secret), nil
+		})
+
+		if err != nil {
+			log.Printf("JWT parse error: %v", err)
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid token"})
+			c.Abort()
+			return
+		}
+
+		if !token.Valid {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid token"})
+			c.Abort()
+			return
+		}
+
+		// Extract claims
+		claims, ok := token.Claims.(jwt.MapClaims)
+		if !ok {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid token claims"})
+			c.Abort()
+			return
+		}
+
+		// Extract user_id from claims
+		userIDStr, ok := claims["user_id"].(string)
+		if !ok {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "User ID not found in token"})
 			c.Abort()
 			return
 		}
@@ -145,7 +200,6 @@ func setupRouter(chatHandler *handler.SimpleChatHandler, wsHandler *handler.Simp
 			return
 		}
 
-		// In production, validate JWT token and extract user info
 		c.Set("user_id", userID)
 		c.Next()
 	}
@@ -238,7 +292,12 @@ func setupRouter(chatHandler *handler.SimpleChatHandler, wsHandler *handler.Simp
 			chatGroup.GET("/ws", wsHandler.HandleWebSocket)
 		}
 
-		// Chat sessions - no rate limiting
+		// Chat history - no rate limiting
+		api.GET("/chat/history", historyHandler.ListUserSessions)
+		api.GET("/chat/history/:sessionId", historyHandler.GetSessionHistory)
+		api.DELETE("/chat/history/:sessionId", historyHandler.DeleteSession)
+		
+		// Legacy session endpoints (kept for compatibility)
 		api.POST("/sessions", chatHandler.CreateSession)
 		api.GET("/sessions", chatHandler.GetUserSessions)
 		api.GET("/sessions/:sessionId", chatHandler.GetSession)

@@ -10,6 +10,8 @@ type Config struct {
 	Database DatabaseConfig `json:"database"`
 	Gemini   GeminiConfig   `json:"gemini"`
 	Redis    RedisConfig    `json:"redis"`
+	JWT      JWTConfig      `json:"jwt"`
+	CORS     CORSConfig     `json:"cors"`
 }
 
 type ServerConfig struct {
@@ -40,6 +42,14 @@ type RedisConfig struct {
 	DB       int    `json:"db"`
 }
 
+type JWTConfig struct {
+	Secret string `json:"secret"`
+}
+
+type CORSConfig struct {
+	AllowedOrigins string `json:"allowed_origins"`
+}
+
 func LoadConfig() *Config {
 	return &Config{
 		Server: ServerConfig{
@@ -65,6 +75,12 @@ func LoadConfig() *Config {
 			Port:     getEnv("REDIS_PORT", "6379"),
 			Password: getEnv("REDIS_PASSWORD", ""),
 			DB:       getEnvAsInt("REDIS_DB", 0),
+		},
+		JWT: JWTConfig{
+			Secret: getEnv("JWT_SECRET", ""),
+		},
+		CORS: CORSConfig{
+			AllowedOrigins: getEnv("CORS_ORIGINS", "http://localhost:3000"),
 		},
 	}
 }

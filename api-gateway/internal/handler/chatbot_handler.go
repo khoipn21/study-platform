@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 
 	"github.com/gorilla/mux"
 )
@@ -113,6 +114,62 @@ func (h *ChatbotHandler) HandleWebSocket(w http.ResponseWriter, r *http.Request)
 	http.Error(w, "WebSocket not available through gateway", http.StatusNotImplemented)
 }
 
+// ListUserSessions godoc
+// @Summary      List user chat sessions
+// @Description  Get all chat sessions with history for the current user
+// @Tags         Chatbot
+// @Produce      json
+// @Success      200 {object} APIResponse "List of chat sessions"
+// @Security     BearerAuth
+// @Router       /chat/history [get]
+func (h *ChatbotHandler) ListUserSessions(w http.ResponseWriter, r *http.Request) {
+	h.proxyRequest(w, r, "/api/v1/chat/history", "GET")
+}
+
+// GetSessionHistory godoc
+// @Summary      Get session history
+// @Description  Get all messages for a specific chat session
+// @Tags         Chatbot
+// @Produce      json
+// @Param        sessionId path string true "Session ID"
+// @Success      200 {object} APIResponse "Session messages"
+// @Security     BearerAuth
+// @Router       /chat/history/{sessionId} [get]
+func (h *ChatbotHandler) GetSessionHistory(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	sessionID := vars["sessionId"]
+	path := fmt.Sprintf("/api/v1/chat/history/%s", sessionID)
+	h.proxyRequest(w, r, path, "GET")
+}
+
+// GetRateLimit godoc
+// @Summary      Get rate limit
+// @Description  Get current rate limit status for the user
+// @Tags         Chatbot
+// @Produce      json
+// @Success      200 {object} APIResponse "Rate limit info"
+// @Security     BearerAuth
+// @Router       /rate-limit [get]
+func (h *ChatbotHandler) GetRateLimit(w http.ResponseWriter, r *http.Request) {
+	h.proxyRequest(w, r, "/api/v1/rate-limit", "GET")
+}
+
+// DeleteHistorySession godoc
+// @Summary      Delete history session
+// @Description  Delete a chat history session
+// @Tags         Chatbot
+// @Produce      json
+// @Param        sessionId path string true "Session ID"
+// @Success      200 {object} APIResponse "Session deleted"
+// @Security     BearerAuth
+// @Router       /chat/history/{sessionId} [delete]
+func (h *ChatbotHandler) DeleteHistorySession(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	sessionID := vars["sessionId"]
+	path := fmt.Sprintf("/api/v1/chat/history/%s", sessionID)
+	h.proxyRequest(w, r, path, "DELETE")
+}
+
 func (h *ChatbotHandler) proxyRequest(w http.ResponseWriter, r *http.Request, path, method string) {
 	// CRITICAL FIX for BUG-003: Get user info from context (set by auth middleware)
 	var userID, userRole string
@@ -171,8 +228,12 @@ func (h *ChatbotHandler) proxyRequest(w http.ResponseWriter, r *http.Request, pa
 	}
 	defer resp.Body.Close()
 
-	// Copy response headers
+	// Copy response headers (skip CORS headers to prevent duplication - API Gateway handles CORS)
 	for key, values := range resp.Header {
+		// Skip CORS headers since API Gateway middleware already sets them
+		if strings.HasPrefix(key, "Access-Control-") {
+			continue
+		}
 		for _, value := range values {
 			w.Header().Add(key, value)
 		}

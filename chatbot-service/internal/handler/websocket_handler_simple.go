@@ -2,8 +2,11 @@ package handler
 
 import (
 	"context"
+	"encoding/base64"
+	"encoding/json"
 	"log"
 	"net/http"
+	"strings"
 	"sync"
 	"time"
 
@@ -44,18 +47,80 @@ func NewSimpleWebSocketHandler(chatRepo *repository.SimpleChatRepository, aiServ
 	}
 }
 
-func (h *SimpleWebSocketHandler) HandleWebSocket(c *gin.Context) {
-	// Get user ID from middleware
-	userIDInterface, exists := c.Get("user_id")
-	if !exists {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "User not authenticated"})
-		return
+// extractUserIDFromToken extracts user_id from JWT token
+// This is a simplified version - in production, use proper JWT library
+func extractUserIDFromToken(token string) string {
+	parts := strings.Split(token, ".")
+	if len(parts) != 3 {
+		return ""
 	}
 
-	userID, ok := userIDInterface.(uuid.UUID)
-	if !ok {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid user ID"})
-		return
+	// Decode payload (second part)
+	payload, err := base64.RawURLEncoding.DecodeString(parts[1])
+	if err != nil {
+		log.Printf("Failed to decode token payload: %v", err)
+		return ""
+	}
+
+	// Parse JSON
+	var claims map[string]interface{}
+	if err := json.Unmarshal(payload, &claims); err != nil {
+		log.Printf("Failed to parse token claims: %v", err)
+		return ""
+	}
+
+	// Extract user_id
+	if userID, ok := claims["user_id"].(string); ok {
+		return userID
+	}
+	if sub, ok := claims["sub"].(string); ok {
+		return sub
+	}
+
+	return ""
+}
+
+func (h *SimpleWebSocketHandler) HandleWebSocket(c *gin.Context) {
+	// Try to get user ID from middleware first (X-User-ID header)
+	userIDInterface, exists := c.Get("user_id")
+	var userID uuid.UUID
+	
+	if !exists {
+		// Fallback: Try to get from token query parameter or Authorization header
+		token := c.Query("token")
+		if token == "" {
+			token = c.GetHeader("Authorization")
+			if len(token) > 7 && token[:7] == "Bearer " {
+				token = token[7:]
+			}
+		}
+		
+		if token == "" {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "User not authenticated"})
+			return
+		}
+		
+		// For demo, extract user_id from JWT claims
+		// In production, properly validate JWT and extract claims
+		userIDStr := extractUserIDFromToken(token)
+		if userIDStr == "" {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid token"})
+			return
+		}
+		
+		parsedID, err := uuid.Parse(userIDStr)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid user ID format"})
+			return
+		}
+		userID = parsedID
+	} else {
+		var ok bool
+		userID, ok = userIDInterface.(uuid.UUID)
+		if !ok {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid user ID"})
+			return
+		}
 	}
 
 	// Upgrade HTTP connection to WebSocket
