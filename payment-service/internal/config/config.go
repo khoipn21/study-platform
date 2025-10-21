@@ -2,6 +2,7 @@ package config
 
 import (
 	"os"
+	"strings"
 )
 
 type Config struct {
@@ -9,6 +10,7 @@ type Config struct {
 	Database DatabaseConfig `json:"database"`
 	Payment  PaymentConfig  `json:"payment"`
 	Services ServicesConfig `json:"services"`
+	CORS     CORSConfig     `json:"cors"`
 }
 
 type ServerConfig struct {
@@ -27,13 +29,13 @@ type DatabaseConfig struct {
 
 type PaymentConfig struct {
 	// Lemon Squeezy Configuration
-	LemonSqueezyAPIKey       string `json:"lemon_squeezy_api_key"`
-	LemonSqueezyStoreID      string `json:"lemon_squeezy_store_id"`
-	LemonSqueezyProductID    string `json:"lemon_squeezy_product_id"`
-	LemonSqueezyVariantID    string `json:"lemon_squeezy_variant_id"`
+	LemonSqueezyAPIKey        string `json:"lemon_squeezy_api_key"`
+	LemonSqueezyStoreID       string `json:"lemon_squeezy_store_id"`
+	LemonSqueezyProductID     string `json:"lemon_squeezy_product_id"`
+	LemonSqueezyVariantID     string `json:"lemon_squeezy_variant_id"`
 	LemonSqueezyWebhookSecret string `json:"lemon_squeezy_webhook_secret"`
-	LemonSqueezyWebhookURL   string `json:"lemon_squeezy_webhook_url"`
-	LemonSqueezyBaseURL      string `json:"lemon_squeezy_base_url"`
+	LemonSqueezyWebhookURL    string `json:"lemon_squeezy_webhook_url"`
+	LemonSqueezyBaseURL       string `json:"lemon_squeezy_base_url"`
 
 	// Stripe Configuration
 	StripeSecretKey      string `json:"stripe_secret_key"`
@@ -52,6 +54,10 @@ type ServicesConfig struct {
 	ProgressServiceURL string `json:"progress_service_url"`
 }
 
+type CORSConfig struct {
+	AllowedOrigins []string `json:"allowed_origins"`
+}
+
 func LoadConfig() *Config {
 	return &Config{
 		Server: ServerConfig{
@@ -67,26 +73,44 @@ func LoadConfig() *Config {
 			SSLMode:  getEnv("DB_SSLMODE", "disable"),
 		},
 		Payment: PaymentConfig{
-			LemonSqueezyAPIKey:       getEnv("LEMON_SQUEEZY_API_KEY", ""),
-			LemonSqueezyStoreID:      getEnv("LEMON_SQUEEZY_STORE_ID", ""),
-			LemonSqueezyProductID:    getEnv("LEMON_SQUEEZY_PRODUCT_ID", ""),
-			LemonSqueezyVariantID:    getEnv("LEMON_SQUEEZY_VARIANT_ID", ""),
+			LemonSqueezyAPIKey:        getEnv("LEMON_SQUEEZY_API_KEY", ""),
+			LemonSqueezyStoreID:       getEnv("LEMON_SQUEEZY_STORE_ID", ""),
+			LemonSqueezyProductID:     getEnv("LEMON_SQUEEZY_PRODUCT_ID", ""),
+			LemonSqueezyVariantID:     getEnv("LEMON_SQUEEZY_VARIANT_ID", ""),
 			LemonSqueezyWebhookSecret: getEnv("LEMON_SQUEEZY_WEBHOOK_SECRET", ""),
-			LemonSqueezyWebhookURL:   getEnv("LEMON_SQUEEZY_WEBHOOK_URL", ""),
-			LemonSqueezyBaseURL:      getEnv("LEMON_SQUEEZY_BASE_URL", "https://api.lemonsqueezy.com/v1"),
-			StripeSecretKey:          getEnv("STRIPE_SECRET_KEY", ""),
-			StripePublishableKey:     getEnv("STRIPE_PUBLISHABLE_KEY", ""),
-			StripeWebhookSecret:      getEnv("STRIPE_WEBHOOK_SECRET", ""),
-			StripeSuccessURL:         getEnv("STRIPE_SUCCESS_URL", "http://localhost:3000/payment/success"),
-			StripeCancelURL:          getEnv("STRIPE_CANCEL_URL", "http://localhost:3000/payment/cancel"),
-			StripeWebhookURL:         getEnv("STRIPE_WEBHOOK_URL", "http://localhost:8080/api/v1/payments/stripe/webhook"),
-			Currency:                 getEnv("PAYMENT_CURRENCY", "VND"),
-			PaymentProvider:          getEnv("PAYMENT_PROVIDER", "lemonsqueezy"),
+			LemonSqueezyWebhookURL:    getEnv("LEMON_SQUEEZY_WEBHOOK_URL", ""),
+			LemonSqueezyBaseURL:       getEnv("LEMON_SQUEEZY_BASE_URL", "https://api.lemonsqueezy.com/v1"),
+			StripeSecretKey:           getEnv("STRIPE_SECRET_KEY", ""),
+			StripePublishableKey:      getEnv("STRIPE_PUBLISHABLE_KEY", ""),
+			StripeWebhookSecret:       getEnv("STRIPE_WEBHOOK_SECRET", ""),
+			StripeSuccessURL:          getEnv("STRIPE_SUCCESS_URL", "http://localhost:3000/payment/success"),
+			StripeCancelURL:           getEnv("STRIPE_CANCEL_URL", "http://localhost:3000/payment/cancel"),
+			StripeWebhookURL:          getEnv("STRIPE_WEBHOOK_URL", "http://localhost:8080/api/v1/payments/stripe/webhook"),
+			Currency:                  getEnv("PAYMENT_CURRENCY", "VND"),
+			PaymentProvider:           getEnv("PAYMENT_PROVIDER", "lemonsqueezy"),
 		},
 		Services: ServicesConfig{
 			ProgressServiceURL: getEnv("PROGRESS_SERVICE_URL", "progress-service:8080"),
 		},
+		CORS: CORSConfig{
+			AllowedOrigins: parseCORSOrigins(getEnv("CORS_ORIGINS", "http://localhost:3000,http://127.0.0.1:3000")),
+		},
 	}
+}
+
+func parseCORSOrigins(origins string) []string {
+	if origins == "" {
+		return []string{"http://localhost:3000", "https://lms.khoipn.id.vn"}
+	}
+	parts := strings.Split(origins, ",")
+	result := make([]string, 0, len(parts))
+	for _, part := range parts {
+		trimmed := strings.TrimSpace(part)
+		if trimmed != "" {
+			result = append(result, trimmed)
+		}
+	}
+	return result
 }
 
 func getEnv(key, defaultValue string) string {

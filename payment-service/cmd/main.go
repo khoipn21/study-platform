@@ -115,7 +115,7 @@ func main() {
 	}
 
 	// Setup router
-	router := setupRouter(paymentHandler, lemonSqueezyHandler, stripeHandler)
+	router := setupRouter(paymentHandler, lemonSqueezyHandler, stripeHandler, cfg)
 
 	// Start server
 	addr := fmt.Sprintf("%s:%s", cfg.Server.Host, cfg.Server.Port)
@@ -142,12 +142,12 @@ func connectDB(cfg config.DatabaseConfig) (*sqlx.DB, error) {
 	return db, nil
 }
 
-func setupRouter(paymentHandler *handler.PaymentHandler, lemonSqueezyHandler *handler.LemonSqueezyHandler, stripeHandler *handler.StripeHandler) *gin.Engine {
+func setupRouter(paymentHandler *handler.PaymentHandler, lemonSqueezyHandler *handler.LemonSqueezyHandler, stripeHandler *handler.StripeHandler, cfg *config.Config) *gin.Engine {
 	router := gin.Default()
 
-	// CORS middleware - specific origins to avoid conflicts with API Gateway
+	// CORS middleware - configured via environment variable
 	router.Use(cors.New(cors.Config{
-		AllowOrigins:     []string{"http://localhost:3000", "http://127.0.0.1:3000"},
+		AllowOrigins:     cfg.CORS.AllowedOrigins,
 		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
 		AllowHeaders:     []string{"Content-Type", "Authorization", "X-Requested-With", "Accept", "Accept-Language", "X-User-ID", "X-User-Role"},
 		ExposeHeaders:    []string{"Content-Length"},
