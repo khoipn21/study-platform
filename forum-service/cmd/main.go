@@ -11,7 +11,7 @@ import (
 	"forum-service/internal/repository"
 	"forum-service/internal/service"
 
-	"github.com/gin-contrib/cors"
+	// "github.com/gin-contrib/cors" // Not needed - CORS handled by API Gateway
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
 	_ "github.com/lib/pq"
@@ -73,14 +73,15 @@ func connectDB(cfg config.DatabaseConfig) (*sql.DB, error) {
 func setupRouter(forumHandler *handler.ForumHandler) *gin.Engine {
 	router := gin.Default()
 
-	// CORS middleware
-	router.Use(cors.New(cors.Config{
-		AllowOrigins:     []string{"*"},
-		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
-		AllowHeaders:     []string{"*"},
-		ExposeHeaders:    []string{"Content-Length"},
-		AllowCredentials: true,
-	}))
+	// Note: CORS is handled by API Gateway, not by individual services
+	// Removing CORS middleware to prevent duplicate headers
+	// router.Use(cors.New(cors.Config{
+	// 	AllowOrigins:     []string{"*"},
+	// 	AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
+	// 	AllowHeaders:     []string{"*"},
+	// 	ExposeHeaders:    []string{"Content-Length"},
+	// 	AllowCredentials: true,
+	// }))
 
 	// Health check
 	router.GET("/health", func(c *gin.Context) {
