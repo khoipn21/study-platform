@@ -8,7 +8,7 @@ import (
 type Config struct {
 	Server   ServerConfig   `json:"server"`
 	Database DatabaseConfig `json:"database"`
-	OpenAI   OpenAIConfig   `json:"openai"`
+	Gemini   GeminiConfig   `json:"gemini"`
 	Redis    RedisConfig    `json:"redis"`
 }
 
@@ -26,11 +26,11 @@ type DatabaseConfig struct {
 	SSLMode  string `json:"sslmode"`
 }
 
-type OpenAIConfig struct {
+type GeminiConfig struct {
 	APIKey      string  `json:"api_key"`
 	Model       string  `json:"model"`
 	MaxTokens   int     `json:"max_tokens"`
-	Temperature float32 `json:"temperature"`
+	Temperature float64 `json:"temperature"`
 }
 
 type RedisConfig struct {
@@ -54,11 +54,11 @@ func LoadConfig() *Config {
 			DBName:   getEnv("DB_NAME", "studyplatform"),
 			SSLMode:  getEnv("DB_SSLMODE", "disable"),
 		},
-		OpenAI: OpenAIConfig{
-			APIKey:      getEnv("OPENAI_API_KEY", ""),
-			Model:       getEnv("OPENAI_MODEL", "gpt-3.5-turbo"),
-			MaxTokens:   getEnvAsInt("OPENAI_MAX_TOKENS", 1000),
-			Temperature: getEnvAsFloat32("OPENAI_TEMPERATURE", 0.7),
+		Gemini: GeminiConfig{
+			APIKey:      getEnv("GEMINI_API_KEY", ""),
+			Model:       getEnv("GEMINI_MODEL", "gemini-2.0-flash-001"),
+			MaxTokens:   getEnvAsInt("GEMINI_MAX_TOKENS", 2048),
+			Temperature: getEnvAsFloat64("GEMINI_TEMPERATURE", 0.7),
 		},
 		Redis: RedisConfig{
 			Host:     getEnv("REDIS_HOST", "localhost"),
@@ -85,10 +85,10 @@ func getEnvAsInt(key string, defaultValue int) int {
 	return defaultValue
 }
 
-func getEnvAsFloat32(key string, defaultValue float32) float32 {
+func getEnvAsFloat64(key string, defaultValue float64) float64 {
 	if value := os.Getenv(key); value != "" {
-		if floatValue, err := strconv.ParseFloat(value, 32); err == nil {
-			return float32(floatValue)
+		if floatValue, err := strconv.ParseFloat(value, 64); err == nil {
+			return floatValue
 		}
 	}
 	return defaultValue

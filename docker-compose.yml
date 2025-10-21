@@ -268,11 +268,11 @@ services:
       CHATBOT_PORT: ${CHATBOT_PORT:-8086}
       CHATBOT_HOST: ${CHATBOT_HOST:-0.0.0.0}
 
-      # OpenAI Configuration
-      OPENAI_API_KEY: ${OPENAI_API_KEY}
-      OPENAI_MODEL: ${OPENAI_MODEL:-gpt-3.5-turbo}
-      OPENAI_MAX_TOKENS: ${OPENAI_MAX_TOKENS:-1000}
-      OPENAI_TEMPERATURE: ${OPENAI_TEMPERATURE:-0.7}
+      # Gemini Configuration
+      GEMINI_API_KEY: ${GEMINI_API_KEY}
+      GEMINI_MODEL: ${GEMINI_MODEL:-gemini-2.0-flash-001}
+      GEMINI_MAX_TOKENS: ${GEMINI_MAX_TOKENS:-2048}
+      GEMINI_TEMPERATURE: ${GEMINI_TEMPERATURE:-0.7}
 
       # Redis Configuration
       REDIS_HOST: ${REDIS_HOST:-redis}

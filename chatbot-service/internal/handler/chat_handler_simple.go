@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"log"
 	"net/http"
 	"strconv"
 	"time"
@@ -15,12 +16,14 @@ import (
 
 type SimpleChatHandler struct {
 	chatRepo  *repository.SimpleChatRepository
+	redisRepo *repository.RedisRepository
 	aiService *service.AIService
 }
 
-func NewSimpleChatHandler(chatRepo *repository.SimpleChatRepository, aiService *service.AIService) *SimpleChatHandler {
+func NewSimpleChatHandler(chatRepo *repository.SimpleChatRepository, redisRepo *repository.RedisRepository, aiService *service.AIService) *SimpleChatHandler {
 	return &SimpleChatHandler{
 		chatRepo:  chatRepo,
+		redisRepo: redisRepo,
 		aiService: aiService,
 	}
 }
@@ -224,23 +227,32 @@ func (h *SimpleChatHandler) DeleteSession(c *gin.Context) {
 }
 
 func (h *SimpleChatHandler) SendMessage(c *gin.Context) {
+	log.Printf("SendMessage handler called")
+	
 	userIDInterface, exists := c.Get("user_id")
 	if !exists {
+		log.Printf("User not authenticated - user_id not found in context")
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "User not authenticated"})
 		return
 	}
 
 	userID, ok := userIDInterface.(uuid.UUID)
 	if !ok {
+		log.Printf("Invalid user ID type: %T", userIDInterface)
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid user ID"})
 		return
 	}
 
+	log.Printf("Processing message for user: %s", userID.String())
+
 	var req model.ChatRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
+		log.Printf("JSON binding error: %v", err)
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request", "details": err.Error()})
 		return
 	}
+
+	log.Printf("Request message: %s", req.Message)
 
 	// Generate session ID if not provided
 	sessionID := uuid.New()
@@ -259,20 +271,23 @@ func (h *SimpleChatHandler) SendMessage(c *gin.Context) {
 	}
 
 	if err := h.chatRepo.CreateMessageWithUser(c.Request.Context(), userMessage, userID); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save message"})
+		log.Printf("Database error saving user message: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save message", "details": err.Error()})
 		return
 	}
 
 	// Get recent messages for context (last 10 messages from this user)
 	messages, err := h.chatRepo.GetUserMessages(c.Request.Context(), userID, 10)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get message history"})
+		log.Printf("Database error getting message history: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get message history", "details": err.Error()})
 		return
 	}
 
 	// Generate AI response
 	aiResponse, err := h.aiService.GenerateResponse(c.Request.Context(), messages, nil)
 	if err != nil {
+		log.Printf("AI service error: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate AI response", "details": err.Error()})
 		return
 	}
@@ -288,8 +303,29 @@ func (h *SimpleChatHandler) SendMessage(c *gin.Context) {
 	}
 
 	if err := h.chatRepo.CreateMessageWithUser(c.Request.Context(), assistantMessage, userID); err != nil {
+		log.Printf("Database error saving AI response: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save AI response"})
 		return
+	}
+
+	// Store chat history in Redis with format: chat_history:{userid}:{chatid}
+	log.Printf("Attempting to store in Redis - redisRepo is nil: %v", h.redisRepo == nil)
+	if h.redisRepo != nil {
+		log.Printf("Storing messages in Redis for user: %s, session: %s", userID, sessionID)
+		// Append both user and assistant messages to Redis
+		if err := h.redisRepo.AppendMessage(c.Request.Context(), userID, sessionID, *userMessage); err != nil {
+			log.Printf("Warning: Failed to append user message to Redis: %v", err)
+		} else {
+			log.Printf("User message appended to Redis successfully")
+		}
+		if err := h.redisRepo.AppendMessage(c.Request.Context(), userID, sessionID, *assistantMessage); err != nil {
+			log.Printf("Warning: Failed to append assistant message to Redis: %v", err)
+		} else {
+			log.Printf("Assistant message appended to Redis successfully")
+			log.Printf("Successfully stored chat history in Redis: chat_history:%s:%s", userID, sessionID)
+		}
+	} else {
+		log.Printf("RedisRepo is nil, cannot store chat history in Redis")
 	}
 
 	response := &model.ChatResponse{

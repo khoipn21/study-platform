@@ -1,0 +1,132 @@
+{
+    "swagger": "2.0",
+    "info": {
+        "description": "API for AI-powered academic chat assistant using Gemini",
+        "title": "Chatbot Service API",
+        "contact": {},
+        "version": "1.0"
+    },
+    "host": "localhost:8086",
+    "basePath": "/api/v1",
+    "schemes": [
+        "http",
+        "https"
+    ],
+    "paths": {
+        "/chat": {
+            "post": {
+                "description": "Send a message to the AI assistant and get a response (Rate limited: 10 requests per day)",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "chat"
+                ],
+                "summary": "Send a chat message",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "User ID",
+                        "name": "X-User-ID",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "description": "Chat message request",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/model.ChatRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/model.ChatResponse"
+                        }
+                    },
+                    "429": {
+                        "description": "Rate limit exceeded"
+                    }
+                }
+            }
+        },
+        "/rate-limit": {
+            "get": {
+                "description": "Get current rate limit status for the authenticated user",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "rate-limit"
+                ],
+                "summary": "Get rate limit status",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "User ID",
+                        "name": "X-User-ID",
+                        "in": "header",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Rate limit info"
+                    }
+                }
+            }
+        }
+    },
+    "definitions": {
+        "model.ChatRequest": {
+            "type": "object",
+            "required": [
+                "message"
+            ],
+            "properties": {
+                "context": {
+                    "type": "string"
+                },
+                "course_id": {
+                    "type": "string"
+                },
+                "message": {
+                    "type": "string"
+                },
+                "session_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "model.ChatResponse": {
+            "type": "object",
+            "properties": {
+                "content": {
+                    "type": "string"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "message_id": {
+                    "type": "string"
+                },
+                "role": {
+                    "type": "string"
+                },
+                "session_id": {
+                    "type": "string"
+                },
+                "tokens_used": {
+                    "type": "integer"
+                }
+            }
+        }
+    }
+}

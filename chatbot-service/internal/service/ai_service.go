@@ -9,20 +9,29 @@ import (
 	"chatbot-service/internal/config"
 	"chatbot-service/internal/model"
 
-	"github.com/sashabaranov/go-openai"
+	"github.com/tmc/langchaingo/llms"
+	"github.com/tmc/langchaingo/llms/googleai"
 )
 
 type AIService struct {
-	client *openai.Client
-	config *config.OpenAIConfig
+	llm    llms.Model
+	config *config.GeminiConfig
 }
 
-func NewAIService(cfg *config.OpenAIConfig) *AIService {
-	client := openai.NewClient(cfg.APIKey)
-	return &AIService{
-		client: client,
-		config: cfg,
+func NewAIService(cfg *config.GeminiConfig) (*AIService, error) {
+	llm, err := googleai.New(
+		context.Background(),
+		googleai.WithAPIKey(cfg.APIKey),
+		googleai.WithDefaultModel(cfg.Model),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create Gemini client: %w", err)
 	}
+
+	return &AIService{
+		llm:    llm,
+		config: cfg,
+	}, nil
 }
 
 type ChatContext struct {
@@ -36,35 +45,30 @@ type ChatContext struct {
 func (s *AIService) GenerateResponse(ctx context.Context, messages []*model.ChatMessage, chatContext *ChatContext) (*model.ChatResponse, error) {
 	startTime := time.Now()
 
-	// Build OpenAI messages from chat history
-	openAIMessages := s.buildOpenAIMessages(messages, chatContext)
+	// Build prompt from chat history
+	prompt := s.buildPrompt(messages, chatContext)
 
-	// Create chat completion request
-	req := openai.ChatCompletionRequest{
-		Model:       s.config.Model,
-		Messages:    openAIMessages,
-		MaxTokens:   s.config.MaxTokens,
-		Temperature: s.config.Temperature,
-		Stream:      false,
-	}
-
-	// Call OpenAI API
-	resp, err := s.client.CreateChatCompletion(ctx, req)
+	// Generate response using Gemini
+	content, err := llms.GenerateFromSinglePrompt(
+		ctx,
+		s.llm,
+		prompt,
+		llms.WithTemperature(s.config.Temperature),
+		llms.WithMaxTokens(s.config.MaxTokens),
+	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate AI response: %w", err)
 	}
 
-	if len(resp.Choices) == 0 {
-		return nil, fmt.Errorf("no response choices returned from AI")
-	}
-
 	_ = int(time.Since(startTime).Milliseconds())
-	content := resp.Choices[0].Message.Content
+
+	// Estimate token usage (Gemini doesn't always provide exact counts)
+	tokensUsed := len(strings.Fields(prompt))/2 + len(strings.Fields(content))/2
 
 	return &model.ChatResponse{
 		Role:       model.RoleAssistant,
 		Content:    content,
-		TokensUsed: resp.Usage.TotalTokens,
+		TokensUsed: tokensUsed,
 		CreatedAt:  time.Now(),
 	}, nil
 }
@@ -79,109 +83,89 @@ func (s *AIService) GenerateStreamResponse(ctx context.Context, messages []*mode
 
 		startTime := time.Now()
 
-		// Build OpenAI messages from chat history
-		openAIMessages := s.buildOpenAIMessages(messages, chatContext)
-
-		// Create streaming chat completion request
-		req := openai.ChatCompletionRequest{
-			Model:       s.config.Model,
-			Messages:    openAIMessages,
-			MaxTokens:   s.config.MaxTokens,
-			Temperature: s.config.Temperature,
-			Stream:      true,
-		}
-
-		stream, err := s.client.CreateChatCompletionStream(ctx, req)
-		if err != nil {
-			errorChan <- fmt.Errorf("failed to create AI stream: %w", err)
-			return
-		}
-		defer stream.Close()
+		// Build prompt from chat history
+		prompt := s.buildPrompt(messages, chatContext)
 
 		var fullContent strings.Builder
-		var totalTokens int
 
-		for {
-			response, err := stream.Recv()
-			if err != nil {
-				if err.Error() == "EOF" {
-					// Send final response with complete content
-					_ = int(time.Since(startTime).Milliseconds())
-					finalResponse := &model.ChatResponse{
-						Role:       model.RoleAssistant,
-						Content:    fullContent.String(),
-						TokensUsed: totalTokens,
-						CreatedAt:  time.Now(),
-					}
-					responseChan <- finalResponse
-					return
-				}
-				errorChan <- fmt.Errorf("stream error: %w", err)
-				return
-			}
-
-			if len(response.Choices) > 0 {
-				delta := response.Choices[0].Delta
-				if delta.Content != "" {
-					fullContent.WriteString(delta.Content)
+		// Stream response using Gemini
+		_, err := s.llm.GenerateContent(
+			ctx,
+			[]llms.MessageContent{
+				llms.TextParts(llms.ChatMessageTypeHuman, prompt),
+			},
+			llms.WithTemperature(s.config.Temperature),
+			llms.WithMaxTokens(s.config.MaxTokens),
+			llms.WithStreamingFunc(func(ctx context.Context, chunk []byte) error {
+				content := string(chunk)
+				if content != "" {
+					fullContent.WriteString(content)
 					
 					// Send partial response
 					partialResponse := &model.ChatResponse{
 						Role:       model.RoleAssistant,
-						Content:    delta.Content,
-						TokensUsed: 0, // We'll set this only in the final response
+						Content:    content,
+						TokensUsed: 0,
 						CreatedAt:  time.Now(),
 					}
 					responseChan <- partialResponse
 				}
-			}
+				return nil
+			}),
+		)
 
-			// Note: ChatCompletionStreamResponse doesn't have Usage field in newer versions
-			// We'll track tokens differently if needed
+		if err != nil {
+			errorChan <- fmt.Errorf("stream error: %w", err)
+			return
 		}
+
+		// Send final response with complete content
+		_ = int(time.Since(startTime).Milliseconds())
+		tokensUsed := len(strings.Fields(prompt))/2 + len(strings.Fields(fullContent.String()))/2
+
+		finalResponse := &model.ChatResponse{
+			Role:       model.RoleAssistant,
+			Content:    fullContent.String(),
+			TokensUsed: tokensUsed,
+			CreatedAt:  time.Now(),
+		}
+		responseChan <- finalResponse
 	}()
 
 	return responseChan, errorChan
 }
 
-func (s *AIService) buildOpenAIMessages(messages []*model.ChatMessage, chatContext *ChatContext) []openai.ChatCompletionMessage {
-	var openAIMessages []openai.ChatCompletionMessage
+func (s *AIService) buildPrompt(messages []*model.ChatMessage, chatContext *ChatContext) string {
+	var prompt strings.Builder
 
 	// Add system message with context
 	systemPrompt := s.buildSystemPrompt(chatContext)
-	openAIMessages = append(openAIMessages, openai.ChatCompletionMessage{
-		Role:    openai.ChatMessageRoleSystem,
-		Content: systemPrompt,
-	})
+	prompt.WriteString(systemPrompt)
+	prompt.WriteString("\n\n")
 
-	// Convert chat messages to OpenAI format
+	// Convert chat messages to prompt format
 	for _, msg := range messages {
-		var role string
 		switch msg.Role {
 		case model.RoleUser:
-			role = openai.ChatMessageRoleUser
+			prompt.WriteString(fmt.Sprintf("Student: %s\n", msg.Content))
 		case model.RoleAssistant:
-			role = openai.ChatMessageRoleAssistant
+			prompt.WriteString(fmt.Sprintf("Assistant: %s\n", msg.Content))
 		case model.RoleSystem:
-			role = openai.ChatMessageRoleSystem
-		default:
-			role = openai.ChatMessageRoleUser
+			prompt.WriteString(fmt.Sprintf("System: %s\n", msg.Content))
 		}
-
-		openAIMessages = append(openAIMessages, openai.ChatCompletionMessage{
-			Role:    role,
-			Content: msg.Content,
-		})
 	}
 
-	return openAIMessages
+	prompt.WriteString("Assistant: ")
+
+	return prompt.String()
 }
 
 func (s *AIService) buildSystemPrompt(context *ChatContext) string {
 	var prompt strings.Builder
 
-	prompt.WriteString("You are an AI teaching assistant for an online learning platform. ")
-	prompt.WriteString("Your role is to help students understand course material, answer questions, and provide guidance. ")
+	prompt.WriteString("You are an AI teaching assistant specialized in helping students solve academic problems. ")
+	prompt.WriteString("Your primary role is to assist with homework, assignments, understanding complex concepts, ")
+	prompt.WriteString("and providing step-by-step solutions to academic questions across various subjects. ")
 
 	if context != nil {
 		if context.CourseName != "" {
@@ -198,38 +182,37 @@ func (s *AIService) buildSystemPrompt(context *ChatContext) string {
 		}
 	}
 
-	prompt.WriteString("\nGuidelines:\n")
-	prompt.WriteString("- Be helpful, educational, and encouraging\n")
-	prompt.WriteString("- Provide clear explanations with examples when possible\n")
-	prompt.WriteString("- Ask clarifying questions if the user's question is unclear\n")
-	prompt.WriteString("- Suggest related topics or resources when appropriate\n")
-	prompt.WriteString("- If you don't know something, be honest about it\n")
-	prompt.WriteString("- Keep responses concise but thorough\n")
-	prompt.WriteString("- Use markdown formatting for better readability when needed\n")
+	prompt.WriteString("\n\nCore Guidelines for Academic Assistance:\n")
+	prompt.WriteString("1. PROBLEM SOLVING: Break down complex problems into manageable steps\n")
+	prompt.WriteString("2. EXPLANATIONS: Provide clear, detailed explanations with examples and analogies\n")
+	prompt.WriteString("3. STEP-BY-STEP: Show your work and reasoning process for mathematical and logical problems\n")
+	prompt.WriteString("4. VERIFICATION: Help students verify their solutions and understand common mistakes\n")
+	prompt.WriteString("5. CONCEPTUAL UNDERSTANDING: Focus on helping students understand WHY, not just HOW\n")
+	prompt.WriteString("6. SUBJECT AREAS: Assist with mathematics, science, programming, languages, humanities, and more\n")
+	prompt.WriteString("7. CLARIFICATION: Ask follow-up questions if the problem statement is unclear\n")
+	prompt.WriteString("8. RESOURCES: Suggest relevant learning materials, practice problems, or topics to review\n")
+	prompt.WriteString("9. ENCOURAGEMENT: Be patient, supportive, and encouraging - learning is a journey\n")
+	prompt.WriteString("10. ACADEMIC INTEGRITY: Guide students toward understanding rather than just giving answers\n")
+	prompt.WriteString("\nFormatting:\n")
+	prompt.WriteString("- Use markdown for better readability (headers, lists, code blocks, math notation)\n")
+	prompt.WriteString("- For math: Use LaTeX notation when appropriate (e.g., $x^2 + y^2 = r^2$)\n")
+	prompt.WriteString("- For code: Use proper code blocks with syntax highlighting\n")
+	prompt.WriteString("- Structure responses with clear sections for complex topics\n")
 
 	return prompt.String()
 }
 
 func (s *AIService) GenerateSessionTitle(ctx context.Context, firstMessage string) (string, error) {
-	messages := []openai.ChatCompletionMessage{
-		{
-			Role:    openai.ChatMessageRoleSystem,
-			Content: "Generate a short, descriptive title (max 50 characters) for a chat session based on the user's first message. The title should be clear and concise.",
-		},
-		{
-			Role:    openai.ChatMessageRoleUser,
-			Content: firstMessage,
-		},
-	}
+	prompt := fmt.Sprintf("Generate a short, descriptive title (max 50 characters) for a chat session based on this message: '%s'. Return only the title, nothing else.", firstMessage)
 
-	req := openai.ChatCompletionRequest{
-		Model:       "gpt-3.5-turbo",
-		Messages:    messages,
-		MaxTokens:   20,
-		Temperature: 0.3,
-	}
-
-	resp, err := s.client.CreateChatCompletion(ctx, req)
+	title, err := llms.GenerateFromSinglePrompt(
+		ctx,
+		s.llm,
+		prompt,
+		llms.WithTemperature(0.3),
+		llms.WithMaxTokens(20),
+	)
+	
 	if err != nil {
 		// Fallback to a simple title if AI call fails
 		words := strings.Fields(firstMessage)
@@ -239,15 +222,15 @@ func (s *AIService) GenerateSessionTitle(ctx context.Context, firstMessage strin
 		return firstMessage, nil
 	}
 
-	if len(resp.Choices) == 0 {
-		return "New Chat", nil
-	}
-
-	title := strings.TrimSpace(resp.Choices[0].Message.Content)
+	title = strings.TrimSpace(title)
 	title = strings.Trim(title, "\"'")
 	
 	if len(title) > 50 {
 		title = title[:47] + "..."
+	}
+
+	if title == "" {
+		return "New Chat", nil
 	}
 
 	return title, nil
