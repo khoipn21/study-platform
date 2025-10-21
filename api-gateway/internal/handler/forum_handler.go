@@ -21,10 +21,29 @@ func NewForumHandler(forumServiceURL string) *ForumHandler {
 }
 
 // Topic handlers
+// CreateTopic godoc
+// @Summary      Create topic
+// @Description  Create new forum topic
+// @Tags         Forum
+// @Accept       json
+// @Produce      json
+// @Success      201 {object} APIResponse "Topic created"
+// @Failure      400 {object} APIResponse "Invalid request"
+// @Security     BearerAuth
+// @Router       /forum/topics [post]
 func (h *ForumHandler) CreateTopic(w http.ResponseWriter, r *http.Request) {
 	h.proxyRequest(w, r, "/api/v1/topics", "POST")
 }
 
+// GetTopic godoc
+// @Summary      Get topic
+// @Description  Get forum topic by ID
+// @Tags         Forum
+// @Produce      json
+// @Param        topicId path string true "Topic ID"
+// @Success      200 {object} APIResponse "Topic details"
+// @Failure      404 {object} APIResponse "Topic not found"
+// @Router       /forum/topics/{topicId} [get]
 func (h *ForumHandler) GetTopic(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	topicID := vars["topicId"]
@@ -32,6 +51,16 @@ func (h *ForumHandler) GetTopic(w http.ResponseWriter, r *http.Request) {
 	h.proxyRequest(w, r, path, "GET")
 }
 
+// ListTopics godoc
+// @Summary      List forum topics
+// @Description  Get list of forum topics with pagination
+// @Tags         Forum
+// @Produce      json
+// @Param        page query int false "Page number"
+// @Param        page_size query int false "Items per page"
+// @Param        course_id query string false "Filter by course"
+// @Success      200 {object} APIResponse "List of topics"
+// @Router       /forum/topics [get]
 func (h *ForumHandler) ListTopics(w http.ResponseWriter, r *http.Request) {
 	// Forward query parameters
 	queryParams := r.URL.Query().Encode()

@@ -1,0 +1,441 @@
+# Comprehensive Swagger Annotations for ALL Handlers
+# Total: ~170 methods across all handlers
+
+## COURSE HANDLER (28 methods - 1 done, 27 remaining)
+
+### GetCourse
+// @Summary      Get course by ID
+// @Description  Get detailed information about a specific course
+// @Tags         Courses
+// @Produce      json
+// @Param        id path string true "Course ID"
+// @Success      200 {object} APIResponse
+// @Failure      404 {object} APIResponse
+// @Router       /courses/{id} [get]
+
+### CreateCourse
+// @Summary      Create new course
+// @Description  Create a new course (instructor only)
+// @Tags         Courses
+// @Accept       json
+// @Produce      json
+// @Success      201 {object} APIResponse
+// @Failure      400 {object} APIResponse
+// @Security     BearerAuth
+// @Router       /courses [post]
+
+### UpdateCourse
+// @Summary      Update course
+// @Description  Update course details (instructor only)
+// @Tags         Courses
+// @Produce      json
+// @Param        id path string true "Course ID"
+// @Success      200 {object} APIResponse
+// @Security     BearerAuth
+// @Router       /courses/{id} [put]
+
+### DeleteCourse
+// @Summary      Delete course
+// @Description  Delete a course by ID
+// @Tags         Courses
+// @Param        id path string true "Course ID"
+// @Success      200 {object} APIResponse
+// @Security     BearerAuth
+// @Router       /courses/{id} [delete]
+
+### SearchCourses
+// @Summary      Search courses
+// @Description  Search courses with filters
+// @Tags         Courses
+// @Produce      json
+// @Param        q query string false "Search query"
+// @Param        category query string false "Category filter"
+// @Success      200 {object} APIResponse
+// @Router       /courses/search [get]
+
+### CreateLecture
+// @Summary      Create lecture
+// @Description  Add new lecture to course
+// @Tags         Lectures
+// @Accept       json
+// @Produce      json
+// @Param        course_id path string true "Course ID"
+// @Success      201 {object} APIResponse
+// @Security     BearerAuth
+// @Router       /courses/{course_id}/lectures [post]
+
+### GetLecture
+// @Summary      Get lecture details
+// @Description  Get lecture by ID
+// @Tags         Lectures
+// @Produce      json
+// @Param        id path string true "Lecture ID"
+// @Success      200 {object} APIResponse
+// @Router       /courses/lectures/{id} [get]
+
+### ListLectures
+// @Summary      List course lectures
+// @Description  Get all lectures for a course
+// @Tags         Lectures
+// @Produce      json
+// @Param        course_id path string true "Course ID"
+// @Success      200 {object} APIResponse
+// @Router       /courses/{course_id}/lectures [get]
+
+### EnrollInCourse
+// @Summary      Enroll in course
+// @Description  Enroll authenticated user in course
+// @Tags         Enrollments
+// @Produce      json
+// @Param        course_id path string true "Course ID"
+// @Success      201 {object} APIResponse
+// @Security     BearerAuth
+// @Router       /courses/{course_id}/enroll [post]
+
+## PROGRESS HANDLER (18 methods - 0 done)
+
+### UpdateProgress
+// @Summary      Update progress
+// @Description  Update user's learning progress
+// @Tags         Progress
+// @Accept       json
+// @Produce      json
+// @Success      200 {object} APIResponse
+// @Security     BearerAuth
+// @Router       /progress/update [post]
+
+### GetProgress
+// @Summary      Get lecture progress
+// @Description  Get user's progress for a lecture
+// @Tags         Progress
+// @Produce      json
+// @Param        course_id path string true "Course ID"
+// @Param        lecture_id path string true "Lecture ID"
+// @Success      200 {object} APIResponse
+// @Security     BearerAuth
+// @Router       /progress/courses/{course_id}/lectures/{lecture_id} [get]
+
+### GetUserProgress
+// @Summary      Get user course progress
+// @Description  Get all progress for a course
+// @Tags         Progress
+// @Produce      json
+// @Param        course_id path string true "Course ID"
+// @Success      200 {object} APIResponse
+// @Security     BearerAuth
+// @Router       /progress/courses/{course_id} [get]
+
+### MarkLectureComplete
+// @Summary      Mark lecture complete
+// @Description  Mark a lecture as completed
+// @Tags         Progress
+// @Accept       json
+// @Produce      json
+// @Success      200 {object} APIResponse
+// @Security     BearerAuth
+// @Router       /progress/lectures/complete [post]
+
+### CreateEnrollment
+// @Summary      Create enrollment
+// @Description  Enroll user in a course
+// @Tags         Enrollments
+// @Accept       json
+// @Produce      json
+// @Success      201 {object} APIResponse
+// @Security     BearerAuth
+// @Router       /enrollments [post]
+
+### ListEnrollments
+// @Summary      List enrollments
+// @Description  Get user's enrollments
+// @Tags         Enrollments
+// @Produce      json
+// @Success      200 {object} APIResponse
+// @Security     BearerAuth
+// @Router       /enrollments [get]
+
+### GetEnrollment
+// @Summary      Get enrollment details
+// @Description  Get enrollment for a specific course
+// @Tags         Enrollments
+// @Produce      json
+// @Param        course_id path string true "Course ID"
+// @Success      200 {object} APIResponse
+// @Security     BearerAuth
+// @Router       /enrollments/courses/{course_id} [get]
+
+### GetCourseCompletion
+// @Summary      Get course completion
+// @Description  Get completion percentage for course
+// @Tags         Progress
+// @Produce      json
+// @Param        course_id path string true "Course ID"
+// @Success      200 {object} APIResponse
+// @Security     BearerAuth
+// @Router       /progress/courses/{course_id}/completion [get]
+
+### GetUserAnalytics
+// @Summary      Get user analytics
+// @Description  Get learning analytics for user
+// @Tags         Analytics
+// @Produce      json
+// @Success      200 {object} APIResponse
+// @Security     BearerAuth
+// @Router       /analytics/user [get]
+
+## PAYMENT HANDLER (26 methods - 0 done)
+
+### CreateStripePaymentIntent
+// @Summary      Create payment intent
+// @Description  Create Stripe payment intent
+// @Tags         Payments
+// @Accept       json
+// @Produce      json
+// @Success      201 {object} APIResponse
+// @Security     BearerAuth
+// @Router       /payments/stripe/payment-intents [post]
+
+### GetStripePaymentIntent
+// @Summary      Get payment intent
+// @Description  Get payment intent by ID
+// @Tags         Payments
+// @Produce      json
+// @Param        payment_intent_id path string true "Payment Intent ID"
+// @Success      200 {object} APIResponse
+// @Security     BearerAuth
+// @Router       /payments/stripe/payment-intents/{payment_intent_id} [get]
+
+### ListStripeTransactions
+// @Summary      List transactions
+// @Description  List user's payment transactions
+// @Tags         Payments
+// @Produce      json
+// @Success      200 {object} APIResponse
+// @Security     BearerAuth
+// @Router       /payments/stripe/transactions [get]
+
+### PurchaseCourse
+// @Summary      Purchase course
+// @Description  Purchase a course with payment method
+// @Tags         Payments
+// @Accept       json
+// @Produce      json
+// @Param        course_id path string true "Course ID"
+// @Success      200 {object} APIResponse
+// @Security     BearerAuth
+// @Router       /payments/purchase/course/{course_id} [post]
+
+### GetStripeConfig
+// @Summary      Get Stripe config
+// @Description  Get Stripe publishable key
+// @Tags         Payments
+// @Produce      json
+// @Success      200 {object} APIResponse
+// @Router       /payments/stripe/config [get]
+
+### HandleStripeWebhook
+// @Summary      Stripe webhook
+// @Description  Handle Stripe webhook events
+// @Tags         Payments
+// @Accept       json
+// @Produce      json
+// @Success      200 {object} APIResponse
+// @Router       /payments/stripe/webhook [post]
+
+### HandleLemonSqueezyWebhook
+// @Summary      LemonSqueezy webhook
+// @Description  Handle LemonSqueezy webhook events
+// @Tags         Payments
+// @Accept       json
+// @Produce      json
+// @Success      200 {object} APIResponse
+// @Router       /lemonsqueezy/webhook [post]
+
+## FORUM HANDLER (26 methods - 0 done)
+
+### ListTopics
+// @Summary      List forum topics
+// @Description  Get list of forum topics
+// @Tags         Forum
+// @Produce      json
+// @Param        page query int false "Page number"
+// @Success      200 {object} APIResponse
+// @Router       /forum/topics [get]
+
+### GetTopic
+// @Summary      Get topic
+// @Description  Get forum topic by ID
+// @Tags         Forum
+// @Produce      json
+// @Param        topicId path string true "Topic ID"
+// @Success      200 {object} APIResponse
+// @Router       /forum/topics/{topicId} [get]
+
+### CreateTopic
+// @Summary      Create topic
+// @Description  Create new forum topic
+// @Tags         Forum
+// @Accept       json
+// @Produce      json
+// @Success      201 {object} APIResponse
+// @Security     BearerAuth
+// @Router       /forum/topics [post]
+
+### UpdateTopic
+// @Summary      Update topic
+// @Description  Update forum topic
+// @Tags         Forum
+// @Accept       json
+// @Produce      json
+// @Param        topicId path string true "Topic ID"
+// @Success      200 {object} APIResponse
+// @Security     BearerAuth
+// @Router       /forum/topics/{topicId} [put]
+
+### DeleteTopic
+// @Summary      Delete topic
+// @Description  Delete forum topic
+// @Tags         Forum
+// @Param        topicId path string true "Topic ID"
+// @Success      200 {object} APIResponse
+// @Security     BearerAuth
+// @Router       /forum/topics/{topicId} [delete]
+
+### ListPosts
+// @Summary      List topic posts
+// @Description  Get posts for a topic
+// @Tags         Forum
+// @Produce      json
+// @Param        topicId path string true "Topic ID"
+// @Success      200 {object} APIResponse
+// @Router       /forum/topics/{topicId}/posts [get]
+
+### CreatePost
+// @Summary      Create post
+// @Description  Create new forum post
+// @Tags         Forum
+// @Accept       json
+// @Produce      json
+// @Success      201 {object} APIResponse
+// @Security     BearerAuth
+// @Router       /forum/posts [post]
+
+### UpdatePost
+// @Summary      Update post
+// @Description  Update forum post
+// @Tags         Forum
+// @Accept       json
+// @Produce      json
+// @Param        postId path string true "Post ID"
+// @Success      200 {object} APIResponse
+// @Security     BearerAuth
+// @Router       /forum/posts/{postId} [put]
+
+### DeletePost
+// @Summary      Delete post
+// @Description  Delete forum post
+// @Tags         Forum
+// @Param        postId path string true "Post ID"
+// @Success      200 {object} APIResponse
+// @Security     BearerAuth
+// @Router       /forum/posts/{postId} [delete]
+
+### VotePost
+// @Summary      Vote on post
+// @Description  Upvote or downvote a post
+// @Tags         Forum
+// @Accept       json
+// @Produce      json
+// @Success      200 {object} APIResponse
+// @Security     BearerAuth
+// @Router       /forum/votes [post]
+
+## NOTES HANDLER (6 methods - 0 done)
+
+### CreateNote
+// @Summary      Create note
+// @Description  Create a note for a lecture
+// @Tags         Notes
+// @Accept       json
+// @Produce      json
+// @Param        course_id path string true "Course ID"
+// @Param        lecture_id path string true "Lecture ID"
+// @Success      201 {object} APIResponse
+// @Security     BearerAuth
+// @Router       /notes/courses/{course_id}/lectures/{lecture_id} [post]
+
+### GetNotesByLecture
+// @Summary      Get lecture notes
+// @Description  Get all notes for a lecture
+// @Tags         Notes
+// @Produce      json
+// @Param        course_id path string true "Course ID"
+// @Param        lecture_id path string true "Lecture ID"
+// @Success      200 {object} APIResponse
+// @Security     BearerAuth
+// @Router       /notes/courses/{course_id}/lectures/{lecture_id} [get]
+
+### UpdateNote
+// @Summary      Update note
+// @Description  Update a note
+// @Tags         Notes
+// @Accept       json
+// @Produce      json
+// @Param        note_id path string true "Note ID"
+// @Success      200 {object} APIResponse
+// @Security     BearerAuth
+// @Router       /notes/{note_id} [put]
+
+### DeleteNote
+// @Summary      Delete note
+// @Description  Delete a note
+// @Tags         Notes
+// @Param        note_id path string true "Note ID"
+// @Success      200 {object} APIResponse
+// @Security     BearerAuth
+// @Router       /notes/{note_id} [delete]
+
+## CHATBOT HANDLER (9 methods - 0 done)
+
+### CreateSession
+// @Summary      Create chat session
+// @Description  Create new chatbot session
+// @Tags         Chatbot
+// @Accept       json
+// @Produce      json
+// @Success      201 {object} APIResponse
+// @Security     BearerAuth
+// @Router       /chat/sessions [post]
+
+### GetUserSessions
+// @Summary      Get user sessions
+// @Description  Get all chat sessions for user
+// @Tags         Chatbot
+// @Produce      json
+// @Success      200 {object} APIResponse
+// @Security     BearerAuth
+// @Router       /chat/sessions [get]
+
+### SendMessage
+// @Summary      Send message
+// @Description  Send message to chatbot
+// @Tags         Chatbot
+// @Accept       json
+// @Produce      json
+// @Success      200 {object} APIResponse
+// @Security     BearerAuth
+// @Router       /chat/message [post]
+
+### GetMessages
+// @Summary      Get session messages
+// @Description  Get messages for a session
+// @Tags         Chatbot
+// @Produce      json
+// @Param        sessionId path string true "Session ID"
+// @Success      200 {object} APIResponse
+// @Security     BearerAuth
+// @Router       /chat/sessions/{sessionId}/messages [get]
+
+Total annotations needed: ~100+
+
+This is a template. Apply these systematically to each handler file.

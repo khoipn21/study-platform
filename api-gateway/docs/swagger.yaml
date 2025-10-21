@@ -48,6 +48,21 @@ info:
   title: Study Platform API
   version: "1.0"
 paths:
+  /analytics/user:
+    get:
+      description: Get learning analytics and statistics for the authenticated user
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: User analytics
+          schema:
+            $ref: '#/definitions/internal_handler.APIResponse'
+      security:
+      - BearerAuth: []
+      summary: Get user analytics
+      tags:
+      - Analytics
   /auth/login:
     post:
       consumes:
@@ -205,6 +220,660 @@ paths:
       summary: List all courses
       tags:
       - Courses
+    post:
+      consumes:
+      - application/json
+      description: Create a new course (instructor only)
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Course created
+          schema:
+            $ref: '#/definitions/internal_handler.APIResponse'
+        "400":
+          description: Invalid request
+          schema:
+            $ref: '#/definitions/internal_handler.APIResponse'
+      security:
+      - BearerAuth: []
+      summary: Create new course
+      tags:
+      - Courses
+  /courses/{course_id}/lectures:
+    get:
+      description: Get all lectures for a course
+      parameters:
+      - description: Course ID
+        in: path
+        name: course_id
+        required: true
+        type: string
+      - description: Page number
+        in: query
+        name: page
+        type: integer
+      - description: Items per page
+        in: query
+        name: page_size
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: List of lectures
+          schema:
+            $ref: '#/definitions/internal_handler.APIResponse'
+      summary: List lectures
+      tags:
+      - Lectures
+    post:
+      consumes:
+      - application/json
+      description: Add new lecture to course (instructor only)
+      parameters:
+      - description: Course ID
+        in: path
+        name: course_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Lecture created
+          schema:
+            $ref: '#/definitions/internal_handler.APIResponse'
+        "400":
+          description: Invalid request
+          schema:
+            $ref: '#/definitions/internal_handler.APIResponse'
+      security:
+      - BearerAuth: []
+      summary: Create lecture
+      tags:
+      - Lectures
+  /courses/{id}:
+    delete:
+      description: Delete a course by ID (instructor only)
+      parameters:
+      - description: Course ID
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: Course deleted
+          schema:
+            $ref: '#/definitions/internal_handler.APIResponse'
+        "404":
+          description: Course not found
+          schema:
+            $ref: '#/definitions/internal_handler.APIResponse'
+      security:
+      - BearerAuth: []
+      summary: Delete course
+      tags:
+      - Courses
+    get:
+      description: Get detailed information about a specific course
+      parameters:
+      - description: Course ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Course details
+          schema:
+            $ref: '#/definitions/internal_handler.APIResponse'
+        "404":
+          description: Course not found
+          schema:
+            $ref: '#/definitions/internal_handler.APIResponse'
+      summary: Get course by ID
+      tags:
+      - Courses
+    put:
+      consumes:
+      - application/json
+      description: Update course details (instructor only)
+      parameters:
+      - description: Course ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Course updated
+          schema:
+            $ref: '#/definitions/internal_handler.APIResponse'
+        "400":
+          description: Invalid request
+          schema:
+            $ref: '#/definitions/internal_handler.APIResponse'
+      security:
+      - BearerAuth: []
+      summary: Update course
+      tags:
+      - Courses
+  /courses/lectures/{id}:
+    get:
+      description: Get lecture details by ID
+      parameters:
+      - description: Lecture ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Lecture details
+          schema:
+            $ref: '#/definitions/internal_handler.APIResponse'
+        "404":
+          description: Lecture not found
+          schema:
+            $ref: '#/definitions/internal_handler.APIResponse'
+      summary: Get lecture
+      tags:
+      - Lectures
+  /courses/search:
+    get:
+      description: Search courses with filters and query
+      parameters:
+      - description: Search query
+        in: query
+        name: q
+        type: string
+      - description: Category filter
+        in: query
+        name: category
+        type: string
+      - description: Level filter
+        in: query
+        name: level
+        type: string
+      - description: Page number
+        in: query
+        name: page
+        type: integer
+      - description: Items per page
+        in: query
+        name: page_size
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Search results
+          schema:
+            $ref: '#/definitions/internal_handler.APIResponse'
+      summary: Search courses
+      tags:
+      - Courses
+  /enrollments:
+    get:
+      description: Get all enrollments for the authenticated user
+      parameters:
+      - description: Page number
+        in: query
+        name: page
+        type: integer
+      - description: Items per page
+        in: query
+        name: page_size
+        type: integer
+      - description: Filter by status (active, completed, dropped)
+        in: query
+        name: status
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: List of enrollments
+          schema:
+            $ref: '#/definitions/internal_handler.APIResponse'
+      security:
+      - BearerAuth: []
+      summary: List enrollments
+      tags:
+      - Enrollments
+    post:
+      consumes:
+      - application/json
+      description: Enroll user in a course
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Enrolled successfully
+          schema:
+            $ref: '#/definitions/internal_handler.APIResponse'
+        "400":
+          description: Invalid request
+          schema:
+            $ref: '#/definitions/internal_handler.APIResponse'
+      security:
+      - BearerAuth: []
+      summary: Create enrollment
+      tags:
+      - Enrollments
+  /enrollments/courses/{course_id}:
+    get:
+      description: Get enrollment for a specific course
+      parameters:
+      - description: Course ID
+        in: path
+        name: course_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Enrollment details
+          schema:
+            $ref: '#/definitions/internal_handler.APIResponse'
+        "404":
+          description: Enrollment not found
+          schema:
+            $ref: '#/definitions/internal_handler.APIResponse'
+      security:
+      - BearerAuth: []
+      summary: Get enrollment details
+      tags:
+      - Enrollments
+  /forum/topics:
+    get:
+      description: Get list of forum topics with pagination
+      parameters:
+      - description: Page number
+        in: query
+        name: page
+        type: integer
+      - description: Items per page
+        in: query
+        name: page_size
+        type: integer
+      - description: Filter by course
+        in: query
+        name: course_id
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: List of topics
+          schema:
+            $ref: '#/definitions/internal_handler.APIResponse'
+      summary: List forum topics
+      tags:
+      - Forum
+    post:
+      consumes:
+      - application/json
+      description: Create new forum topic
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Topic created
+          schema:
+            $ref: '#/definitions/internal_handler.APIResponse'
+        "400":
+          description: Invalid request
+          schema:
+            $ref: '#/definitions/internal_handler.APIResponse'
+      security:
+      - BearerAuth: []
+      summary: Create topic
+      tags:
+      - Forum
+  /forum/topics/{topicId}:
+    get:
+      description: Get forum topic by ID
+      parameters:
+      - description: Topic ID
+        in: path
+        name: topicId
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Topic details
+          schema:
+            $ref: '#/definitions/internal_handler.APIResponse'
+        "404":
+          description: Topic not found
+          schema:
+            $ref: '#/definitions/internal_handler.APIResponse'
+      summary: Get topic
+      tags:
+      - Forum
+  /lemonsqueezy/webhook:
+    post:
+      consumes:
+      - application/json
+      description: Handle LemonSqueezy webhook events
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Webhook processed
+          schema:
+            $ref: '#/definitions/internal_handler.APIResponse'
+      summary: LemonSqueezy webhook
+      tags:
+      - Payments
+  /payments/purchase/course/{course_id}:
+    post:
+      consumes:
+      - application/json
+      description: Purchase a course with payment method
+      parameters:
+      - description: Course ID
+        in: path
+        name: course_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Purchase successful
+          schema:
+            $ref: '#/definitions/internal_handler.APIResponse'
+        "400":
+          description: Invalid request
+          schema:
+            $ref: '#/definitions/internal_handler.APIResponse'
+      security:
+      - BearerAuth: []
+      summary: Purchase course
+      tags:
+      - Payments
+  /payments/stripe/config:
+    get:
+      description: Get Stripe publishable key for frontend
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Stripe config
+          schema:
+            $ref: '#/definitions/internal_handler.APIResponse'
+      summary: Get Stripe config
+      tags:
+      - Payments
+  /payments/stripe/payment-intents:
+    post:
+      consumes:
+      - application/json
+      description: Create Stripe payment intent for course purchase
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Payment intent created
+          schema:
+            $ref: '#/definitions/internal_handler.APIResponse'
+        "400":
+          description: Invalid request
+          schema:
+            $ref: '#/definitions/internal_handler.APIResponse'
+      security:
+      - BearerAuth: []
+      summary: Create payment intent
+      tags:
+      - Payments
+  /payments/stripe/payment-intents/{payment_intent_id}:
+    get:
+      description: Get payment intent details by ID
+      parameters:
+      - description: Payment Intent ID
+        in: path
+        name: payment_intent_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Payment intent details
+          schema:
+            $ref: '#/definitions/internal_handler.APIResponse'
+      security:
+      - BearerAuth: []
+      summary: Get payment intent
+      tags:
+      - Payments
+  /payments/stripe/transactions:
+    get:
+      description: List user's Stripe payment transactions
+      parameters:
+      - description: Page number
+        in: query
+        name: page
+        type: integer
+      - description: Items per page
+        in: query
+        name: limit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: List of transactions
+          schema:
+            $ref: '#/definitions/internal_handler.APIResponse'
+      security:
+      - BearerAuth: []
+      summary: List Stripe transactions
+      tags:
+      - Payments
+  /payments/stripe/webhook:
+    post:
+      consumes:
+      - application/json
+      description: Handle Stripe webhook events (payment confirmations, refunds)
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Webhook processed
+          schema:
+            $ref: '#/definitions/internal_handler.APIResponse'
+      summary: Stripe webhook
+      tags:
+      - Payments
+  /payments/transactions:
+    get:
+      description: List user's payment transactions
+      parameters:
+      - description: Page number
+        in: query
+        name: page
+        type: integer
+      - description: Items per page
+        in: query
+        name: page_size
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: List of transactions
+          schema:
+            $ref: '#/definitions/internal_handler.APIResponse'
+      security:
+      - BearerAuth: []
+      summary: List transactions
+      tags:
+      - Payments
+  /progress/courses/{course_id}:
+    get:
+      description: Get all progress for a course
+      parameters:
+      - description: Course ID
+        in: path
+        name: course_id
+        required: true
+        type: string
+      - description: Page number
+        in: query
+        name: page
+        type: integer
+      - description: Items per page
+        in: query
+        name: page_size
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Course progress
+          schema:
+            $ref: '#/definitions/internal_handler.APIResponse'
+      security:
+      - BearerAuth: []
+      summary: Get user course progress
+      tags:
+      - Progress
+  /progress/courses/{course_id}/completion:
+    get:
+      description: Get completion percentage and statistics for a course
+      parameters:
+      - description: Course ID
+        in: path
+        name: course_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Course completion stats
+          schema:
+            $ref: '#/definitions/internal_handler.APIResponse'
+        "404":
+          description: Course not found
+          schema:
+            $ref: '#/definitions/internal_handler.APIResponse'
+      security:
+      - BearerAuth: []
+      summary: Get course completion
+      tags:
+      - Progress
+  /progress/courses/{course_id}/lectures/{lecture_id}:
+    get:
+      description: Get user's progress for a specific lecture
+      parameters:
+      - description: Course ID
+        in: path
+        name: course_id
+        required: true
+        type: string
+      - description: Lecture ID
+        in: path
+        name: lecture_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Progress details
+          schema:
+            $ref: '#/definitions/internal_handler.APIResponse'
+        "404":
+          description: Progress not found
+          schema:
+            $ref: '#/definitions/internal_handler.APIResponse'
+      security:
+      - BearerAuth: []
+      summary: Get lecture progress
+      tags:
+      - Progress
+  /progress/lectures/{lecture_id}:
+    get:
+      description: Get detailed progress information for a lecture
+      parameters:
+      - description: Lecture ID
+        in: path
+        name: lecture_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Lecture progress
+          schema:
+            $ref: '#/definitions/internal_handler.APIResponse'
+        "404":
+          description: Progress not found
+          schema:
+            $ref: '#/definitions/internal_handler.APIResponse'
+      security:
+      - BearerAuth: []
+      summary: Get lecture progress details
+      tags:
+      - Progress
+  /progress/lectures/complete:
+    post:
+      consumes:
+      - application/json
+      description: Mark a lecture as completed
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Lecture marked complete
+          schema:
+            $ref: '#/definitions/internal_handler.APIResponse'
+        "400":
+          description: Invalid request
+          schema:
+            $ref: '#/definitions/internal_handler.APIResponse'
+      security:
+      - BearerAuth: []
+      summary: Mark lecture complete
+      tags:
+      - Progress
+  /progress/update:
+    post:
+      consumes:
+      - application/json
+      description: Update user's learning progress for a lecture
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Progress updated
+          schema:
+            $ref: '#/definitions/internal_handler.APIResponse'
+        "400":
+          description: Invalid request
+          schema:
+            $ref: '#/definitions/internal_handler.APIResponse'
+      security:
+      - BearerAuth: []
+      summary: Update progress
+      tags:
+      - Progress
 produces:
 - application/json
 schemes:

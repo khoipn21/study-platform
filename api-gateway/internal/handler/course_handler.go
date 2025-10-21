@@ -117,6 +117,16 @@ type UpdateLectureRequest struct {
 	IsFree          bool   `json:"is_free"`
 }
 
+// CreateCourse godoc
+// @Summary      Create new course
+// @Description  Create a new course (instructor only)
+// @Tags         Courses
+// @Accept       json
+// @Produce      json
+// @Success      201 {object} APIResponse "Course created"
+// @Failure      400 {object} APIResponse "Invalid request"
+// @Security     BearerAuth
+// @Router       /courses [post]
 func (h *CourseHandler) CreateCourse(w http.ResponseWriter, r *http.Request) {
 	h.logger.Infof("========== COURSE HANDLER CreateCourse CALLED ==========")
 	fmt.Printf("========== COURSE HANDLER CreateCourse CALLED ==========\n")
@@ -277,6 +287,15 @@ func (h *CourseHandler) CreateCourse(w http.ResponseWriter, r *http.Request) {
 	h.sendSuccess(w, "MODIFIED API GATEWAY: Course and lectures created successfully", data)
 }
 
+// GetCourse godoc
+// @Summary      Get course by ID
+// @Description  Get detailed information about a specific course
+// @Tags         Courses
+// @Produce      json
+// @Param        id path string true "Course ID"
+// @Success      200 {object} APIResponse "Course details"
+// @Failure      404 {object} APIResponse "Course not found"
+// @Router       /courses/{id} [get]
 func (h *CourseHandler) GetCourse(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	courseID := vars["id"]
@@ -305,6 +324,17 @@ func (h *CourseHandler) GetCourse(w http.ResponseWriter, r *http.Request) {
 	h.sendSuccess(w, "Course retrieved successfully", data)
 }
 
+// UpdateCourse godoc
+// @Summary      Update course
+// @Description  Update course details (instructor only)
+// @Tags         Courses
+// @Accept       json
+// @Produce      json
+// @Param        id path string true "Course ID"
+// @Success      200 {object} APIResponse "Course updated"
+// @Failure      400 {object} APIResponse "Invalid request"
+// @Security     BearerAuth
+// @Router       /courses/{id} [put]
 func (h *CourseHandler) UpdateCourse(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	courseID := vars["id"]
@@ -495,6 +525,15 @@ func getFormValueOrDefault(r *http.Request, key, defaultValue string) string {
 	return defaultValue
 }
 
+// DeleteCourse godoc
+// @Summary      Delete course
+// @Description  Delete a course by ID (instructor only)
+// @Tags         Courses
+// @Param        id path string true "Course ID"
+// @Success      200 {object} APIResponse "Course deleted"
+// @Failure      404 {object} APIResponse "Course not found"
+// @Security     BearerAuth
+// @Router       /courses/{id} [delete]
 func (h *CourseHandler) DeleteCourse(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	courseID := vars["id"]
@@ -588,6 +627,18 @@ func (h *CourseHandler) ListCourses(w http.ResponseWriter, r *http.Request) {
 	h.sendSuccess(w, "Courses retrieved successfully", data)
 }
 
+// SearchCourses godoc
+// @Summary      Search courses
+// @Description  Search courses with filters and query
+// @Tags         Courses
+// @Produce      json
+// @Param        q query string false "Search query"
+// @Param        category query string false "Category filter"
+// @Param        level query string false "Level filter"
+// @Param        page query int false "Page number"
+// @Param        page_size query int false "Items per page"
+// @Success      200 {object} APIResponse "Search results"
+// @Router       /courses/search [get]
 func (h *CourseHandler) SearchCourses(w http.ResponseWriter, r *http.Request) {
 	// Parse query parameters
 	query := r.URL.Query().Get("q")
@@ -645,6 +696,17 @@ func (h *CourseHandler) SearchCourses(w http.ResponseWriter, r *http.Request) {
 	h.sendSuccess(w, "Course search completed successfully", data)
 }
 
+// CreateLecture godoc
+// @Summary      Create lecture
+// @Description  Add new lecture to course (instructor only)
+// @Tags         Lectures
+// @Accept       json
+// @Produce      json
+// @Param        course_id path string true "Course ID"
+// @Success      201 {object} APIResponse "Lecture created"
+// @Failure      400 {object} APIResponse "Invalid request"
+// @Security     BearerAuth
+// @Router       /courses/{course_id}/lectures [post]
 func (h *CourseHandler) CreateLecture(w http.ResponseWriter, r *http.Request) {
 	// Extract course ID from URL parameter
 	vars := mux.Vars(r)
@@ -692,6 +754,15 @@ func (h *CourseHandler) CreateLecture(w http.ResponseWriter, r *http.Request) {
 	h.sendSuccess(w, resp.Message, data)
 }
 
+// GetLecture godoc
+// @Summary      Get lecture
+// @Description  Get lecture details by ID
+// @Tags         Lectures
+// @Produce      json
+// @Param        id path string true "Lecture ID"
+// @Success      200 {object} APIResponse "Lecture details"
+// @Failure      404 {object} APIResponse "Lecture not found"
+// @Router       /courses/lectures/{id} [get]
 func (h *CourseHandler) GetLecture(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	lectureID := vars["id"]
@@ -720,6 +791,16 @@ func (h *CourseHandler) GetLecture(w http.ResponseWriter, r *http.Request) {
 	h.sendSuccess(w, "Lecture retrieved successfully", data)
 }
 
+// ListLectures godoc
+// @Summary      List lectures
+// @Description  Get all lectures for a course
+// @Tags         Lectures
+// @Produce      json
+// @Param        course_id path string true "Course ID"
+// @Param        page query int false "Page number"
+// @Param        page_size query int false "Items per page"
+// @Success      200 {object} APIResponse "List of lectures"
+// @Router       /courses/{course_id}/lectures [get]
 func (h *CourseHandler) ListLectures(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	courseID := vars["course_id"]

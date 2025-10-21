@@ -165,6 +165,17 @@ func (h *PaymentHandler) SetDefaultPaymentMethod(w http.ResponseWriter, r *http.
 }
 
 // Purchase endpoints
+// PurchaseCourse godoc
+// @Summary      Purchase course
+// @Description  Purchase a course with payment method
+// @Tags         Payments
+// @Accept       json
+// @Produce      json
+// @Param        course_id path string true "Course ID"
+// @Success      200 {object} APIResponse "Purchase successful"
+// @Failure      400 {object} APIResponse "Invalid request"
+// @Security     BearerAuth
+// @Router       /payments/purchase/course/{course_id} [post]
 func (h *PaymentHandler) PurchaseCourse(w http.ResponseWriter, r *http.Request) {
 	h.forwardRequest(w, r)
 }
@@ -174,6 +185,16 @@ func (h *PaymentHandler) ValidatePayment(w http.ResponseWriter, r *http.Request)
 }
 
 // Transaction endpoints
+// GetTransactions godoc
+// @Summary      List transactions
+// @Description  List user's payment transactions
+// @Tags         Payments
+// @Produce      json
+// @Param        page query int false "Page number"
+// @Param        page_size query int false "Items per page"
+// @Success      200 {object} APIResponse "List of transactions"
+// @Security     BearerAuth
+// @Router       /payments/transactions [get]
 func (h *PaymentHandler) GetTransactions(w http.ResponseWriter, r *http.Request) {
 	h.forwardRequest(w, r)
 }
@@ -221,6 +242,13 @@ func (h *PaymentHandler) GetLemonSqueezyVariants(w http.ResponseWriter, r *http.
 }
 
 // Stripe endpoints
+// GetStripeConfig godoc
+// @Summary      Get Stripe config
+// @Description  Get Stripe publishable key for frontend
+// @Tags         Payments
+// @Produce      json
+// @Success      200 {object} APIResponse "Stripe config"
+// @Router       /payments/stripe/config [get]
 func (h *PaymentHandler) GetStripeConfig(w http.ResponseWriter, r *http.Request) {
 	// For now, return the public key directly from environment instead of calling the service
 	// This avoids auth issues while we fix the payment service
@@ -244,10 +272,29 @@ func (h *PaymentHandler) GetStripeConfig(w http.ResponseWriter, r *http.Request)
 	}
 }
 
+// CreateStripePaymentIntent godoc
+// @Summary      Create payment intent
+// @Description  Create Stripe payment intent for course purchase
+// @Tags         Payments
+// @Accept       json
+// @Produce      json
+// @Success      201 {object} APIResponse "Payment intent created"
+// @Failure      400 {object} APIResponse "Invalid request"
+// @Security     BearerAuth
+// @Router       /payments/stripe/payment-intents [post]
 func (h *PaymentHandler) CreateStripePaymentIntent(w http.ResponseWriter, r *http.Request) {
 	h.forwardRequest(w, r)
 }
 
+// GetStripePaymentIntent godoc
+// @Summary      Get payment intent
+// @Description  Get payment intent details by ID
+// @Tags         Payments
+// @Produce      json
+// @Param        payment_intent_id path string true "Payment Intent ID"
+// @Success      200 {object} APIResponse "Payment intent details"
+// @Security     BearerAuth
+// @Router       /payments/stripe/payment-intents/{payment_intent_id} [get]
 func (h *PaymentHandler) GetStripePaymentIntent(w http.ResponseWriter, r *http.Request) {
 	h.forwardRequest(w, r)
 }
@@ -256,11 +303,29 @@ func (h *PaymentHandler) ConfirmStripePaymentIntent(w http.ResponseWriter, r *ht
 	h.forwardRequest(w, r)
 }
 
+// ListStripeTransactions godoc
+// @Summary      List Stripe transactions
+// @Description  List user's Stripe payment transactions
+// @Tags         Payments
+// @Produce      json
+// @Param        page query int false "Page number"
+// @Param        limit query int false "Items per page"
+// @Success      200 {object} APIResponse "List of transactions"
+// @Security     BearerAuth
+// @Router       /payments/stripe/transactions [get]
 func (h *PaymentHandler) ListStripeTransactions(w http.ResponseWriter, r *http.Request) {
 	h.forwardRequest(w, r)
 }
 
 // Stripe webhook handler (no authentication required)
+// HandleStripeWebhook godoc
+// @Summary      Stripe webhook
+// @Description  Handle Stripe webhook events (payment confirmations, refunds)
+// @Tags         Payments
+// @Accept       json
+// @Produce      json
+// @Success      200 {object} APIResponse "Webhook processed"
+// @Router       /payments/stripe/webhook [post]
 func (h *PaymentHandler) HandleStripeWebhook(w http.ResponseWriter, r *http.Request) {
 	// Build target URL for webhook
 	targetURL := h.paymentServiceURL + "/api/v1/payments/stripe/webhook"
@@ -318,6 +383,14 @@ func (h *PaymentHandler) HandleStripeWebhook(w http.ResponseWriter, r *http.Requ
 }
 
 // Webhook handler for Lemon Squeezy (no authentication required)
+// HandleLemonSqueezyWebhook godoc
+// @Summary      LemonSqueezy webhook
+// @Description  Handle LemonSqueezy webhook events
+// @Tags         Payments
+// @Accept       json
+// @Produce      json
+// @Success      200 {object} APIResponse "Webhook processed"
+// @Router       /lemonsqueezy/webhook [post]
 func (h *PaymentHandler) HandleLemonSqueezyWebhook(w http.ResponseWriter, r *http.Request) {
 	// Build target URL for webhook
 	targetURL := h.paymentServiceURL + "/api/v1/lemonsqueezy/webhook"

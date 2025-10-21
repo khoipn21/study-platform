@@ -48,6 +48,16 @@ type MarkLectureCompleteRequest struct {
 	WatchTimeSeconds int32  `json:"watch_time_seconds"`
 }
 
+// UpdateProgress godoc
+// @Summary      Update progress
+// @Description  Update user's learning progress for a lecture
+// @Tags         Progress
+// @Accept       json
+// @Produce      json
+// @Success      200 {object} APIResponse "Progress updated"
+// @Failure      400 {object} APIResponse "Invalid request"
+// @Security     BearerAuth
+// @Router       /progress/update [post]
 func (h *ProgressHandler) UpdateProgress(w http.ResponseWriter, r *http.Request) {
 	// Get user ID from context (set by auth middleware)
 	userID, ok := r.Context().Value("user_id").(string)
@@ -92,6 +102,17 @@ func (h *ProgressHandler) UpdateProgress(w http.ResponseWriter, r *http.Request)
 	h.sendSuccess(w, resp.Message, data)
 }
 
+// GetProgress godoc
+// @Summary      Get lecture progress
+// @Description  Get user's progress for a specific lecture
+// @Tags         Progress
+// @Produce      json
+// @Param        course_id path string true "Course ID"
+// @Param        lecture_id path string true "Lecture ID"
+// @Success      200 {object} APIResponse "Progress details"
+// @Failure      404 {object} APIResponse "Progress not found"
+// @Security     BearerAuth
+// @Router       /progress/courses/{course_id}/lectures/{lecture_id} [get]
 func (h *ProgressHandler) GetProgress(w http.ResponseWriter, r *http.Request) {
 	// Get user ID from context (set by auth middleware)
 	userID, ok := r.Context().Value("user_id").(string)
@@ -130,6 +151,17 @@ func (h *ProgressHandler) GetProgress(w http.ResponseWriter, r *http.Request) {
 	h.sendSuccess(w, "Progress retrieved successfully", data)
 }
 
+// GetUserProgress godoc
+// @Summary      Get user course progress
+// @Description  Get all progress for a course
+// @Tags         Progress
+// @Produce      json
+// @Param        course_id path string true "Course ID"
+// @Param        page query int false "Page number"
+// @Param        page_size query int false "Items per page"
+// @Success      200 {object} APIResponse "Course progress"
+// @Security     BearerAuth
+// @Router       /progress/courses/{course_id} [get]
 func (h *ProgressHandler) GetUserProgress(w http.ResponseWriter, r *http.Request) {
 	// Get user ID from context (set by auth middleware)
 	userID, ok := r.Context().Value("user_id").(string)
@@ -175,6 +207,16 @@ func (h *ProgressHandler) GetUserProgress(w http.ResponseWriter, r *http.Request
 	h.sendSuccess(w, "User progress retrieved successfully", data)
 }
 
+// CreateEnrollment godoc
+// @Summary      Create enrollment
+// @Description  Enroll user in a course
+// @Tags         Enrollments
+// @Accept       json
+// @Produce      json
+// @Success      201 {object} APIResponse "Enrolled successfully"
+// @Failure      400 {object} APIResponse "Invalid request"
+// @Security     BearerAuth
+// @Router       /enrollments [post]
 func (h *ProgressHandler) CreateEnrollment(w http.ResponseWriter, r *http.Request) {
 	// Get user ID from context (set by auth middleware)
 	userID, ok := r.Context().Value("user_id").(string)
@@ -215,6 +257,16 @@ func (h *ProgressHandler) CreateEnrollment(w http.ResponseWriter, r *http.Reques
 	h.sendSuccess(w, resp.Message, data)
 }
 
+// GetEnrollment godoc
+// @Summary      Get enrollment details
+// @Description  Get enrollment for a specific course
+// @Tags         Enrollments
+// @Produce      json
+// @Param        course_id path string true "Course ID"
+// @Success      200 {object} APIResponse "Enrollment details"
+// @Failure      404 {object} APIResponse "Enrollment not found"
+// @Security     BearerAuth
+// @Router       /enrollments/courses/{course_id} [get]
 func (h *ProgressHandler) GetEnrollment(w http.ResponseWriter, r *http.Request) {
 	// Get user ID from context (set by auth middleware)
 	userID, ok := r.Context().Value("user_id").(string)
@@ -251,6 +303,17 @@ func (h *ProgressHandler) GetEnrollment(w http.ResponseWriter, r *http.Request) 
 	h.sendSuccess(w, "Enrollment retrieved successfully", data)
 }
 
+// ListEnrollments godoc
+// @Summary      List enrollments
+// @Description  Get all enrollments for the authenticated user
+// @Tags         Enrollments
+// @Produce      json
+// @Param        page query int false "Page number"
+// @Param        page_size query int false "Items per page"
+// @Param        status query string false "Filter by status (active, completed, dropped)"
+// @Success      200 {object} APIResponse "List of enrollments"
+// @Security     BearerAuth
+// @Router       /enrollments [get]
 func (h *ProgressHandler) ListEnrollments(w http.ResponseWriter, r *http.Request) {
 	// Get user ID from context (set by auth middleware)
 	userID, ok := r.Context().Value("user_id").(string)
@@ -306,6 +369,16 @@ func (h *ProgressHandler) ListEnrollments(w http.ResponseWriter, r *http.Request
 	h.sendSuccess(w, "Enrollments retrieved successfully", data)
 }
 
+// MarkLectureComplete godoc
+// @Summary      Mark lecture complete
+// @Description  Mark a lecture as completed
+// @Tags         Progress
+// @Accept       json
+// @Produce      json
+// @Success      200 {object} APIResponse "Lecture marked complete"
+// @Failure      400 {object} APIResponse "Invalid request"
+// @Security     BearerAuth
+// @Router       /progress/lectures/complete [post]
 func (h *ProgressHandler) MarkLectureComplete(w http.ResponseWriter, r *http.Request) {
 	// Get user ID from context (set by auth middleware)
 	userID, ok := r.Context().Value("user_id").(string)
@@ -352,6 +425,16 @@ func (h *ProgressHandler) MarkLectureComplete(w http.ResponseWriter, r *http.Req
 	h.sendSuccess(w, resp.Message, data)
 }
 
+// GetLectureProgress godoc
+// @Summary      Get lecture progress details
+// @Description  Get detailed progress information for a lecture
+// @Tags         Progress
+// @Produce      json
+// @Param        lecture_id path string true "Lecture ID"
+// @Success      200 {object} APIResponse "Lecture progress"
+// @Failure      404 {object} APIResponse "Progress not found"
+// @Security     BearerAuth
+// @Router       /progress/lectures/{lecture_id} [get]
 func (h *ProgressHandler) GetLectureProgress(w http.ResponseWriter, r *http.Request) {
 	// Get user ID from context (set by auth middleware)
 	userID, ok := r.Context().Value("user_id").(string)
@@ -396,6 +479,16 @@ func (h *ProgressHandler) GetLectureProgress(w http.ResponseWriter, r *http.Requ
 	h.sendSuccess(w, "Lecture progress retrieved successfully", data)
 }
 
+// GetCourseCompletion godoc
+// @Summary      Get course completion
+// @Description  Get completion percentage and statistics for a course
+// @Tags         Progress
+// @Produce      json
+// @Param        course_id path string true "Course ID"
+// @Success      200 {object} APIResponse "Course completion stats"
+// @Failure      404 {object} APIResponse "Course not found"
+// @Security     BearerAuth
+// @Router       /progress/courses/{course_id}/completion [get]
 func (h *ProgressHandler) GetCourseCompletion(w http.ResponseWriter, r *http.Request) {
 	// Get user ID from context (set by auth middleware)
 	userID, ok := r.Context().Value("user_id").(string)
@@ -432,6 +525,14 @@ func (h *ProgressHandler) GetCourseCompletion(w http.ResponseWriter, r *http.Req
 	h.sendSuccess(w, "Course completion retrieved successfully", data)
 }
 
+// GetUserAnalytics godoc
+// @Summary      Get user analytics
+// @Description  Get learning analytics and statistics for the authenticated user
+// @Tags         Analytics
+// @Produce      json
+// @Success      200 {object} APIResponse "User analytics"
+// @Security     BearerAuth
+// @Router       /analytics/user [get]
 func (h *ProgressHandler) GetUserAnalytics(w http.ResponseWriter, r *http.Request) {
 	// Get user ID from context (set by auth middleware)
 	userID, ok := r.Context().Value("user_id").(string)
