@@ -417,6 +417,17 @@ func (rt *Router) SetupRoutes() *mux.Router {
 	protectedForumRoutes.HandleFunc("/votes", rt.forumHandler.VotePost).Methods("POST")
 	protectedForumRoutes.HandleFunc("/posts/{postId}/vote", rt.forumHandler.RemoveVote).Methods("DELETE")
 
+	// Approval routes (instructor/admin only)
+	protectedForumRoutes.HandleFunc("/pending/topics", rt.forumHandler.GetPendingTopics).Methods("GET")
+	protectedForumRoutes.HandleFunc("/topics/{topicId}/approve", rt.forumHandler.ApproveTopic).Methods("PUT")
+	protectedForumRoutes.HandleFunc("/topics/{topicId}/reject", rt.forumHandler.RejectTopic).Methods("PUT")
+	protectedForumRoutes.HandleFunc("/posts/{postId}/approve", rt.forumHandler.ApprovePost).Methods("PUT")
+	protectedForumRoutes.HandleFunc("/posts/{postId}/reject", rt.forumHandler.RejectPost).Methods("PUT")
+
+	// Pin order management (instructor/admin only)
+	protectedForumRoutes.HandleFunc("/topics/{topicId}/pin-order", rt.forumHandler.SetTopicPinOrder).Methods("PUT")
+	protectedForumRoutes.HandleFunc("/posts/{postId}/pin-order", rt.forumHandler.SetPostPinOrder).Methods("PUT")
+
 	// Payment routes (all require authentication)
 	paymentRoutes := api.PathPrefix("/payments").Subrouter()
 	paymentRoutes.Use(middleware.CORSMiddleware)

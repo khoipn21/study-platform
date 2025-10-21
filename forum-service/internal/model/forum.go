@@ -16,6 +16,8 @@ type Topic struct {
 	Tags          []string   `json:"tags" db:"tags"`
 	IsSticky      bool       `json:"is_sticky" db:"is_sticky"`
 	IsLocked      bool       `json:"is_locked" db:"is_locked"`
+	Status        string     `json:"status" db:"status"`
+	PinOrder      *int       `json:"pin_order,omitempty" db:"pin_order"`
 	ViewCount     int        `json:"view_count" db:"view_count"`
 	PostCount     int        `json:"post_count" db:"post_count"`
 	LastPostAt    *time.Time `json:"last_post_at,omitempty" db:"last_post_at"`
@@ -31,6 +33,8 @@ type Post struct {
 	AuthorID    uuid.UUID  `json:"author_id" db:"author_id"`
 	ParentID    *uuid.UUID `json:"parent_id,omitempty" db:"parent_id"`
 	Content     string     `json:"content" db:"content"`
+	Status      string     `json:"status" db:"status"`
+	PinOrder    *int       `json:"pin_order,omitempty" db:"pin_order"`
 	IsEdited    bool       `json:"is_edited" db:"is_edited"`
 	EditedAt    *time.Time `json:"edited_at,omitempty" db:"edited_at"`
 	UpVotes     int        `json:"up_votes" db:"up_votes"`
@@ -160,6 +164,7 @@ type ListTopicsOptions struct {
 	Category  string     `json:"category,omitempty"`
 	Tags      []string   `json:"tags,omitempty"`
 	Search    string     `json:"search,omitempty"`
+	Status    string     `json:"status,omitempty"` // pending, approved, rejected
 	SortBy    string     `json:"sort_by,omitempty"` // created_at, updated_at, post_count, view_count
 	SortOrder string     `json:"sort_order,omitempty"` // asc, desc
 	Page      int        `json:"page,omitempty"`
@@ -169,6 +174,7 @@ type ListTopicsOptions struct {
 type ListPostsOptions struct {
 	TopicID   uuid.UUID `json:"topic_id"`
 	ParentID  *uuid.UUID `json:"parent_id,omitempty"`
+	Status    string    `json:"status,omitempty"` // pending, approved, rejected
 	SortBy    string    `json:"sort_by,omitempty"` // created_at, votes, is_answer
 	SortOrder string    `json:"sort_order,omitempty"` // asc, desc
 	Page      int       `json:"page,omitempty"`

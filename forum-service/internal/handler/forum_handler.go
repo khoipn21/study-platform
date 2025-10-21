@@ -684,3 +684,182 @@ func (h *ForumHandler) SearchTopics(c *gin.Context) {
 		"query":  query,
 	})
 }
+// Approval handlers
+func (h *ForumHandler) GetPendingTopics(c *gin.Context) {
+	userRole, _ := c.Get("user_role")
+	userRoleStr, _ := userRole.(string)
+	
+	// Only instructors and admins can view pending items
+	if userRoleStr != "instructor" && userRoleStr != "admin" {
+		c.JSON(http.StatusForbidden, gin.H{"error": "Access denied"})
+		return
+	}
+	
+	var courseID *uuid.UUID
+	if courseIDStr := c.Query("course_id"); courseIDStr != "" {
+		cid, err := uuid.Parse(courseIDStr)
+		if err == nil {
+			courseID = &cid
+		}
+	}
+	
+	topics, err := h.forumService.GetPendingTopics(c.Request.Context(), courseID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	
+	c.JSON(http.StatusOK, gin.H{"topics": topics})
+}
+
+func (h *ForumHandler) ApproveTopic(c *gin.Context) {
+	topicIDStr := c.Param("topicId")
+	topicID, err := uuid.Parse(topicIDStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid topic ID"})
+		return
+	}
+	
+	userIDInterface, _ := c.Get("user_id")
+	userIDStr, _ := userIDInterface.(string)
+	userID, _ := uuid.Parse(userIDStr)
+	
+	userRole, _ := c.Get("user_role")
+	userRoleStr, _ := userRole.(string)
+	
+	err = h.forumService.ApproveTopic(c.Request.Context(), topicID, userID, userRoleStr)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	
+	c.JSON(http.StatusOK, gin.H{"message": "Topic approved successfully"})
+}
+
+func (h *ForumHandler) RejectTopic(c *gin.Context) {
+	topicIDStr := c.Param("topicId")
+	topicID, err := uuid.Parse(topicIDStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid topic ID"})
+		return
+	}
+	
+	userIDInterface, _ := c.Get("user_id")
+	userIDStr, _ := userIDInterface.(string)
+	userID, _ := uuid.Parse(userIDStr)
+	
+	userRole, _ := c.Get("user_role")
+	userRoleStr, _ := userRole.(string)
+	
+	err = h.forumService.RejectTopic(c.Request.Context(), topicID, userID, userRoleStr)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	
+	c.JSON(http.StatusOK, gin.H{"message": "Topic rejected successfully"})
+}
+
+func (h *ForumHandler) ApprovePost(c *gin.Context) {
+	postIDStr := c.Param("postId")
+	postID, err := uuid.Parse(postIDStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid post ID"})
+		return
+	}
+	
+	userIDInterface, _ := c.Get("user_id")
+	userIDStr, _ := userIDInterface.(string)
+	userID, _ := uuid.Parse(userIDStr)
+	
+	userRole, _ := c.Get("user_role")
+	userRoleStr, _ := userRole.(string)
+	
+	err = h.forumService.ApprovePost(c.Request.Context(), postID, userID, userRoleStr)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	
+	c.JSON(http.StatusOK, gin.H{"message": "Post approved successfully"})
+}
+
+func (h *ForumHandler) RejectPost(c *gin.Context) {
+	postIDStr := c.Param("postId")
+	postID, err := uuid.Parse(postIDStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid post ID"})
+		return
+	}
+	
+	userIDInterface, _ := c.Get("user_id")
+	userIDStr, _ := userIDInterface.(string)
+	userID, _ := uuid.Parse(userIDStr)
+	
+	userRole, _ := c.Get("user_role")
+	userRoleStr, _ := userRole.(string)
+	
+	err = h.forumService.RejectPost(c.Request.Context(), postID, userID, userRoleStr)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	
+	c.JSON(http.StatusOK, gin.H{"message": "Post rejected successfully"})
+}
+
+func (h *ForumHandler) SetTopicPinOrder(c *gin.Context) {
+	topicIDStr := c.Param("topicId")
+	topicID, err := uuid.Parse(topicIDStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid topic ID"})
+		return
+	}
+	
+	var req struct {
+		PinOrder *int `json:"pin_order"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	
+	userRole, _ := c.Get("user_role")
+	userRoleStr, _ := userRole.(string)
+	
+	err = h.forumService.SetTopicPinOrder(c.Request.Context(), topicID, req.PinOrder, userRoleStr)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	
+	c.JSON(http.StatusOK, gin.H{"message": "Pin order updated successfully"})
+}
+
+func (h *ForumHandler) SetPostPinOrder(c *gin.Context) {
+	postIDStr := c.Param("postId")
+	postID, err := uuid.Parse(postIDStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid post ID"})
+		return
+	}
+	
+	var req struct {
+		PinOrder *int `json:"pin_order"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	
+	userRole, _ := c.Get("user_role")
+	userRoleStr, _ := userRole.(string)
+	
+	err = h.forumService.SetPostPinOrder(c.Request.Context(), postID, req.PinOrder, userRoleStr)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	
+	c.JSON(http.StatusOK, gin.H{"message": "Pin order updated successfully"})
+}

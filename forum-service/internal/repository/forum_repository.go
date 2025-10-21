@@ -25,8 +25,13 @@ func NewForumRepository(db *sql.DB) *ForumRepository {
 // Topic operations
 func (r *ForumRepository) CreateTopic(ctx context.Context, topic *model.Topic) error {
 	query := `
-		INSERT INTO forum_topics (id, course_id, created_by_id, title, description, category, tags, is_sticky, is_locked, created_at, updated_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`
+		INSERT INTO forum_topics (id, course_id, created_by_id, title, description, category, tags, is_sticky, is_locked, status, created_at, updated_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`
+
+	// Set default status to pending
+	if topic.Status == "" {
+		topic.Status = "pending"
+	}
 
 	_, err := r.db.ExecContext(ctx, query,
 		topic.ID,
@@ -38,6 +43,7 @@ func (r *ForumRepository) CreateTopic(ctx context.Context, topic *model.Topic) e
 		pq.Array(topic.Tags),
 		topic.IsSticky,
 		topic.IsLocked,
+		topic.Status,
 		topic.CreatedAt,
 		topic.UpdatedAt,
 	)
@@ -290,12 +296,17 @@ func (r *ForumRepository) CreatePost(ctx context.Context, post *model.Post) erro
 	if err != nil {
 		return err
 	}
-	defer tx.Rollback()
+	defer tx.Rollback()	// Set default status to pending
+	if post.Status == "" {
+		post.Status = "pending"
+	}
+
+
 
 	// Insert post
 	query := `
-		INSERT INTO forum_posts (id, topic_id, author_id, parent_id, content, is_edited, created_at, updated_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`
+		INSERT INTO forum_posts (id, topic_id, author_id, parent_id, content, status, is_edited, created_at, updated_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`
 
 	_, err = tx.ExecContext(ctx, query,
 		post.ID,
@@ -303,6 +314,7 @@ func (r *ForumRepository) CreatePost(ctx context.Context, post *model.Post) erro
 		post.AuthorID,
 		post.ParentID,
 		post.Content,
+		post.Status,
 		post.IsEdited,
 		post.CreatedAt,
 		post.UpdatedAt,
@@ -686,4 +698,181 @@ func (r *ForumRepository) GetUserVote(ctx context.Context, postID, userID uuid.U
 
 	vt := model.VoteType(voteType)
 	return &vt, nil
+}
+// Approval methods
+func (r *ForumRepository) ApproveTopic(ctx context.Context, topicID uuid.UUID) error {
+	query := `UPDATE forum_topics SET status = 'approved', updated_at = $1 WHERE id = $2 AND deleted_at IS NULL`
+	_, err := r.db.ExecContext(ctx, query, time.Now(), topicID)
+	return err
+}
+
+func (r *ForumRepository) RejectTopic(ctx context.Context, topicID uuid.UUID) error {
+	query := `UPDATE forum_topics SET status = 'rejected', updated_at = $1 WHERE id = $2 AND deleted_at IS NULL`
+	_, err := r.db.ExecContext(ctx, query, time.Now(), topicID)
+	return err
+}
+
+func (r *ForumRepository) ApprovePost(ctx context.Context, postID uuid.UUID) error {
+	query := `UPDATE forum_posts SET status = 'approved', updated_at = $1 WHERE id = $2 AND deleted_at IS NULL`
+	_, err := r.db.ExecContext(ctx, query, time.Now(), postID)
+	return err
+}
+
+func (r *ForumRepository) RejectPost(ctx context.Context, postID uuid.UUID) error {
+	query := `UPDATE forum_posts SET status = 'rejected', updated_at = $1 WHERE id = $2 AND deleted_at IS NULL`
+	_, err := r.db.ExecContext(ctx, query, time.Now(), postID)
+	return err
+}
+
+// Pin order methods
+func (r *ForumRepository) SetTopicPinOrder(ctx context.Context, topicID uuid.UUID, order *int) error {
+	query := `UPDATE forum_topics SET pin_order = $1, is_sticky = $2, updated_at = $3 WHERE id = $4 AND deleted_at IS NULL`
+	isSticky := order != nil
+	_, err := r.db.ExecContext(ctx, query, order, isSticky, time.Now(), topicID)
+	return err
+}
+
+func (r *ForumRepository) SetPostPinOrder(ctx context.Context, postID uuid.UUID, order *int) error {
+	query := `UPDATE forum_posts SET pin_order = $1, is_pinned = $2, updated_at = $3 WHERE id = $4 AND deleted_at IS NULL`
+	isPinned := order != nil
+	_, err := r.db.ExecContext(ctx, query, order, isPinned, time.Now(), postID)
+	return err
+}
+
+// Get pending items
+func (r *ForumRepository) GetPendingTopics(ctx context.Context, courseID *uuid.UUID) ([]model.Topic, error) {
+	var query string
+	var args []interface{}
+	
+	if courseID != nil {
+		query = `SELECT id, course_id, created_by_id, title, description, category, tags, is_sticky, is_locked, status, pin_order, 
+		                view_count, post_count, last_post_at, last_post_by_id, created_at, updated_at
+		         FROM forum_topics 
+		         WHERE status = 'pending' AND course_id = $1 AND deleted_at IS NULL 
+		         ORDER BY created_at DESC`
+		args = append(args, courseID)
+	} else {
+		query = `SELECT id, course_id, created_by_id, title, description, category, tags, is_sticky, is_locked, status, pin_order,
+		                view_count, post_count, last_post_at, last_post_by_id, created_at, updated_at
+		         FROM forum_topics 
+		         WHERE status = 'pending' AND course_id IS NULL AND deleted_at IS NULL 
+		         ORDER BY created_at DESC`
+	}
+	
+	rows, err := r.db.QueryContext(ctx, query, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	
+	var topics []model.Topic
+	for rows.Next() {
+		var topic model.Topic
+		var courseID sql.NullString
+		var pinOrder sql.NullInt64
+		var lastPostAt sql.NullTime
+		var lastPostByID sql.NullString
+		
+		err := rows.Scan(
+			&topic.ID,
+			&courseID,
+			&topic.CreatedByID,
+			&topic.Title,
+			&topic.Description,
+			&topic.Category,
+			pq.Array(&topic.Tags),
+			&topic.IsSticky,
+			&topic.IsLocked,
+			&topic.Status,
+			&pinOrder,
+			&topic.ViewCount,
+			&topic.PostCount,
+			&lastPostAt,
+			&lastPostByID,
+			&topic.CreatedAt,
+			&topic.UpdatedAt,
+		)
+		if err != nil {
+			return nil, err
+		}
+		
+		if courseID.Valid {
+			cid, _ := uuid.Parse(courseID.String)
+			topic.CourseID = &cid
+		}
+		if pinOrder.Valid {
+			order := int(pinOrder.Int64)
+			topic.PinOrder = &order
+		}
+		if lastPostAt.Valid {
+			topic.LastPostAt = &lastPostAt.Time
+		}
+		if lastPostByID.Valid {
+			lpid, _ := uuid.Parse(lastPostByID.String)
+			topic.LastPostByID = &lpid
+		}
+		
+		topics = append(topics, topic)
+	}
+	
+	return topics, nil
+}
+
+func (r *ForumRepository) GetPendingPosts(ctx context.Context, topicID uuid.UUID) ([]model.Post, error) {
+	query := `SELECT id, topic_id, author_id, parent_id, content, status, pin_order, is_edited, edited_at,
+	                 up_votes, down_votes, is_answer, is_pinned, created_at, updated_at
+	          FROM forum_posts
+	          WHERE topic_id = $1 AND status = 'pending' AND deleted_at IS NULL
+	          ORDER BY created_at DESC`
+	
+	rows, err := r.db.QueryContext(ctx, query, topicID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	
+	var posts []model.Post
+	for rows.Next() {
+		var post model.Post
+		var parentID sql.NullString
+		var pinOrder sql.NullInt64
+		var editedAt sql.NullTime
+		
+		err := rows.Scan(
+			&post.ID,
+			&post.TopicID,
+			&post.AuthorID,
+			&parentID,
+			&post.Content,
+			&post.Status,
+			&pinOrder,
+			&post.IsEdited,
+			&editedAt,
+			&post.UpVotes,
+			&post.DownVotes,
+			&post.IsAnswer,
+			&post.IsPinned,
+			&post.CreatedAt,
+			&post.UpdatedAt,
+		)
+		if err != nil {
+			return nil, err
+		}
+		
+		if parentID.Valid {
+			pid, _ := uuid.Parse(parentID.String)
+			post.ParentID = &pid
+		}
+		if pinOrder.Valid {
+			order := int(pinOrder.Int64)
+			post.PinOrder = &order
+		}
+		if editedAt.Valid {
+			post.EditedAt = &editedAt.Time
+		}
+		
+		posts = append(posts, post)
+	}
+	
+	return posts, nil
 }

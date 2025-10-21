@@ -421,3 +421,67 @@ func (s *ForumService) SearchTopics(ctx context.Context, query string, filters *
 
 	return s.ListTopics(ctx, options, userID)
 }
+// Approval methods
+func (s *ForumService) ApproveTopic(ctx context.Context, topicID uuid.UUID, userID uuid.UUID, userRole string) error {
+	// Only instructors and admins can approve
+	if userRole != "instructor" && userRole != "admin" {
+		return fmt.Errorf("access denied: only instructors and admins can approve topics")
+	}
+	
+	return s.forumRepo.ApproveTopic(ctx, topicID)
+}
+
+func (s *ForumService) RejectTopic(ctx context.Context, topicID uuid.UUID, userID uuid.UUID, userRole string) error {
+	// Only instructors and admins can reject
+	if userRole != "instructor" && userRole != "admin" {
+		return fmt.Errorf("access denied: only instructors and admins can reject topics")
+	}
+	
+	return s.forumRepo.RejectTopic(ctx, topicID)
+}
+
+func (s *ForumService) ApprovePost(ctx context.Context, postID uuid.UUID, userID uuid.UUID, userRole string) error {
+	// Only instructors and admins can approve
+	if userRole != "instructor" && userRole != "admin" {
+		return fmt.Errorf("access denied: only instructors and admins can approve posts")
+	}
+	
+	return s.forumRepo.ApprovePost(ctx, postID)
+}
+
+func (s *ForumService) RejectPost(ctx context.Context, postID uuid.UUID, userID uuid.UUID, userRole string) error {
+	// Only instructors and admins can reject
+	if userRole != "instructor" && userRole != "admin" {
+		return fmt.Errorf("access denied: only instructors and admins can reject posts")
+	}
+	
+	return s.forumRepo.RejectPost(ctx, postID)
+}
+
+// Pin order methods
+func (s *ForumService) SetTopicPinOrder(ctx context.Context, topicID uuid.UUID, order *int, userRole string) error {
+	// Only instructors and admins can set pin order
+	if userRole != "instructor" && userRole != "admin" {
+		return fmt.Errorf("access denied: only instructors and admins can pin topics")
+	}
+	
+	return s.forumRepo.SetTopicPinOrder(ctx, topicID, order)
+}
+
+func (s *ForumService) SetPostPinOrder(ctx context.Context, postID uuid.UUID, order *int, userRole string) error {
+	// Only instructors and admins can set pin order
+	if userRole != "instructor" && userRole != "admin" {
+		return fmt.Errorf("access denied: only instructors and admins can pin posts")
+	}
+	
+	return s.forumRepo.SetPostPinOrder(ctx, postID, order)
+}
+
+// Get pending items
+func (s *ForumService) GetPendingTopics(ctx context.Context, courseID *uuid.UUID) ([]model.Topic, error) {
+	return s.forumRepo.GetPendingTopics(ctx, courseID)
+}
+
+func (s *ForumService) GetPendingPosts(ctx context.Context, topicID uuid.UUID) ([]model.Post, error) {
+	return s.forumRepo.GetPendingPosts(ctx, topicID)
+}
