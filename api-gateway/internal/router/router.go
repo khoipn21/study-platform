@@ -80,48 +80,19 @@ func NewRouter(
 func (rt *Router) SetupRoutes() *mux.Router {
 	r := mux.NewRouter()
 
-	// Add global OPTIONS middleware before any routing
-	r.Use(func(next http.Handler) http.Handler {
-		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			if r.Method == http.MethodOptions {
-				w.Header().Set("Access-Control-Allow-Origin", "http://localhost:3000")
-				w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
-				w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Requested-With, Accept, Accept-Language")
-				w.Header().Set("Access-Control-Allow-Credentials", "true")
-				w.Header().Set("Access-Control-Max-Age", "86400")
-				w.WriteHeader(http.StatusNoContent)
-				return
-			}
-			next.ServeHTTP(w, r)
-		})
-	})
+	// CORS middleware will be applied globally
+	r.Use(middleware.CORSMiddleware)
 
 	// Apply other middleware
 	r.Use(middleware.SetJSONContentType)
 	r.Use(rt.rateLimitMiddleware.RateLimit)
 	r.Use(rt.loggingMiddleware.LogRequest)
 
-	// CORS preflight requests are handled by individual subrouters with their own CORS middleware
-
 	// API version prefix
 	api := r.PathPrefix("/api/v1").Subrouter()
 
-	// Global OPTIONS handler for API routes to ensure CORS preflight works
-	api.Methods("OPTIONS").HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// Apply CORS headers manually for OPTIONS requests
-		w.Header().Set("Access-Control-Allow-Origin", "http://localhost:3000")
-		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
-		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Requested-With, Accept, Accept-Language")
-		w.Header().Set("Access-Control-Allow-Credentials", "true")
-		w.Header().Set("Access-Control-Max-Age", "86400")
-		w.WriteHeader(http.StatusNoContent)
-	})
-
-	// Note: CORS middleware will be applied to individual subrouters to avoid duplication
-
 	// Create a general routes subrouter for non-specific endpoints
 	generalRoutes := api.PathPrefix("/").Subrouter()
-	generalRoutes.Use(middleware.CORSMiddleware)
 
 	// Health check endpoint
 	generalRoutes.HandleFunc("/health", rt.healthCheck).Methods("GET")
@@ -151,7 +122,6 @@ func (rt *Router) SetupRoutes() *mux.Router {
 
 	// Auth routes (no authentication required)
 	authRoutes := api.PathPrefix("/auth").Subrouter()
-	authRoutes.Use(middleware.CORSMiddleware)
 	authRoutes.HandleFunc("/register", rt.authHandler.Register).Methods("POST")
 	authRoutes.HandleFunc("/login", rt.authHandler.Login).Methods("POST")
 	authRoutes.HandleFunc("/validate", rt.authHandler.ValidateToken).Methods("POST")
@@ -160,13 +130,11 @@ func (rt *Router) SetupRoutes() *mux.Router {
 
 	// Protected auth routes (authentication required)
 	protectedAuthRoutes := api.PathPrefix("/auth").Subrouter()
-	protectedAuthRoutes.Use(middleware.CORSMiddleware)
 	protectedAuthRoutes.Use(rt.authMiddleware.RequireAuth)
 	protectedAuthRoutes.HandleFunc("/profile", rt.authHandler.GetProfile).Methods("GET")
 
 	// Course routes (some public, some protected)
 	courseRoutes := api.PathPrefix("/courses").Subrouter()
-	courseRoutes.Use(middleware.CORSMiddleware)
 
 	// Public course routes
 	courseRoutes.HandleFunc("", rt.courseHandler.ListCourses).Methods("GET")
@@ -177,7 +145,6 @@ func (rt *Router) SetupRoutes() *mux.Router {
 
 	// Protected course routes (authentication required)
 	protectedCourseRoutes := api.PathPrefix("/courses").Subrouter()
-	protectedCourseRoutes.Use(middleware.CORSMiddleware)
 	protectedCourseRoutes.Use(rt.authMiddleware.RequireAuth)
 	protectedCourseRoutes.HandleFunc("/upload", rt.courseHandler.CreateCourseWithThumbnail).Methods("POST")
 	protectedCourseRoutes.HandleFunc("", rt.courseHandler.CreateCourse).Methods("POST")
@@ -189,14 +156,12 @@ func (rt *Router) SetupRoutes() *mux.Router {
 
 	// Lecture Resource signed URL routes (require authentication)
 	lectureResourceRoutes := api.PathPrefix("/lecture-resources").Subrouter()
-	lectureResourceRoutes.Use(middleware.CORSMiddleware)
 	lectureResourceRoutes.Use(rt.authMiddleware.RequireAuth)
 	lectureResourceRoutes.HandleFunc("/{resource_id}/download-url", rt.courseHandler.GetLectureResourceDownloadURL).Methods("GET")
 	lectureResourceRoutes.HandleFunc("/{resource_id}/preview-url", rt.courseHandler.GetLectureResourcePreviewURL).Methods("GET")
 
 	// Notes routes (all require authentication)
 	notesRoutes := api.PathPrefix("/notes").Subrouter()
-	notesRoutes.Use(middleware.CORSMiddleware)
 	notesRoutes.Use(rt.authMiddleware.RequireAuth)
 
 	// Notes CRUD operations
@@ -233,7 +198,6 @@ func (rt *Router) SetupRoutes() *mux.Router {
 
 	// Course Access Control Routes (new endpoints for enrollment verification)
 	courseAccessRoutes := api.PathPrefix("/courses").Subrouter()
-	courseAccessRoutes.Use(middleware.CORSMiddleware)
 	courseAccessRoutes.Use(rt.authMiddleware.RequireAuth)
 
 	// Course access endpoints
@@ -242,13 +206,11 @@ func (rt *Router) SetupRoutes() *mux.Router {
 
 	// My enrolled courses endpoint
 	myCoursesRoutes := api.PathPrefix("/enrollments").Subrouter()
-	myCoursesRoutes.Use(middleware.CORSMiddleware)
 	myCoursesRoutes.Use(rt.authMiddleware.RequireAuth)
 	myCoursesRoutes.HandleFunc("/my-courses", rt.courseAccessHandler.GetMyEnrolledCourses).Methods("GET")
 
 	// Lecture Access and Video Streaming Routes
 	lectureRoutes := api.PathPrefix("/lectures").Subrouter()
-	lectureRoutes.Use(middleware.CORSMiddleware)
 	lectureRoutes.Use(rt.authMiddleware.RequireAuth)
 
 	// Video streaming with enrollment verification
@@ -256,7 +218,6 @@ func (rt *Router) SetupRoutes() *mux.Router {
 
 	// Progress Tracking Routes (enhanced)
 	progressTrackingRoutes := api.PathPrefix("/progress").Subrouter()
-	progressTrackingRoutes.Use(middleware.CORSMiddleware)
 	progressTrackingRoutes.Use(rt.authMiddleware.RequireAuth)
 
 	// Progress tracking endpoints
@@ -430,7 +391,6 @@ func (rt *Router) SetupRoutes() *mux.Router {
 
 	// Payment routes (all require authentication)
 	paymentRoutes := api.PathPrefix("/payments").Subrouter()
-	paymentRoutes.Use(middleware.CORSMiddleware)
 	paymentRoutes.Use(rt.authMiddleware.RequireAuth)
 
 	// Payment methods
@@ -464,7 +424,6 @@ func (rt *Router) SetupRoutes() *mux.Router {
 	// Stripe routes (match frontend paths: /payments/stripe/*)
 	// Note: CORS handled by global middleware to avoid duplicates
 	stripeRoutes := api.PathPrefix("/payments/stripe").Subrouter()
-	stripeRoutes.Use(middleware.CORSMiddleware)
 
 	// Public Stripe routes (no auth required) - order matters!
 	stripeRoutes.HandleFunc("/config", rt.paymentHandler.GetStripeConfig).Methods("GET")
@@ -509,7 +468,6 @@ func (rt *Router) SetupRoutes() *mux.Router {
 
 	// Video routes - single subrouter with CORS, selective auth per endpoint
 	videoRoutes := api.PathPrefix("/videos").Subrouter()
-	videoRoutes.Use(middleware.CORSMiddleware)
 
 	// Catch-all OPTIONS handler for all video routes - place this FIRST
 	videoRoutes.Methods("OPTIONS").HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
