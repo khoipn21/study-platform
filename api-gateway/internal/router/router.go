@@ -6,6 +6,9 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/study-platform/api-gateway/internal/handler"
 	"github.com/study-platform/api-gateway/internal/middleware"
+	httpSwagger "github.com/swaggo/http-swagger"
+	
+	_ "github.com/study-platform/api-gateway/docs" // swagger docs
 )
 
 type Router struct {
@@ -106,9 +109,22 @@ func (rt *Router) SetupRoutes() *mux.Router {
 	generalRoutes.HandleFunc("/health", rt.healthCheck).Methods("GET")
 	generalRoutes.HandleFunc("/health/circuit-breakers", rt.circuitBreakerStatus).Methods("GET")
 
-	// Documentation endpoints
+	// Documentation endpoints - Swagger UI
+	r.PathPrefix("/swagger/").Handler(httpSwagger.Handler(
+		httpSwagger.URL("/api/v1/swagger/doc.json"),
+		httpSwagger.DeepLinking(true),
+		httpSwagger.DocExpansion("list"),
+		httpSwagger.DomID("swagger-ui"),
+	))
+	
+	// Legacy docs endpoints (keep for backwards compatibility)
 	generalRoutes.HandleFunc("/docs/openapi.json", rt.docsHandler.GetAPISpec).Methods("GET")
 	generalRoutes.HandleFunc("/docs", rt.docsHandler.GetSwaggerUI).Methods("GET")
+	
+	// New Swagger JSON endpoint
+	api.PathPrefix("/swagger/doc.json").HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.ServeFile(w, r, "./docs/swagger.json")
+	}).Methods("GET")
 
 	// Debug endpoint for testing
 	generalRoutes.HandleFunc("/debug/files", func(w http.ResponseWriter, r *http.Request) {

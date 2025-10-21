@@ -1,0 +1,39 @@
+{
+    "produces": [
+        "application/json"
+    ],
+    "schemes": [
+        "https",
+        "http"
+    ],
+    "swagger": "2.0",
+    "info": {
+        "description": "API Gateway for Study Platform - A comprehensive learning management system",
+        "title": "Study Platform API",
+        "termsOfService": "https://study.khoipn.id.vn/terms",
+        "contact": {
+            "name": "Study Platform Support",
+            "url": "https://study.khoipn.id.vn/support",
+            "email": "support@study.khoipn.id.vn"
+        },
+        "license": {
+            "name": "MIT",
+            "url": "https://opensource.org/licenses/MIT"
+        },
+        "version": "1.0"
+    },
+    "host": "study.khoipn.id.vn",
+    "basePath": "/api/v1",
+    "paths": {},
+    "securityDefinitions": {
+        "BearerAuth": {
+            "description": "Type \"Bearer\" followed by a space and JWT token.",
+            "type": "apiKey",
+            "name": "Authorization",
+            "in": "header"
+        }
+    },
+    "x-extension-openapi": {
+        "example": "value on a json format"
+    }
+}

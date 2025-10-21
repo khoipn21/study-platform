@@ -18,6 +18,32 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 )
 
+// @title           Study Platform API
+// @version         1.0
+// @description     API Gateway for Study Platform - A comprehensive learning management system
+// @termsOfService  https://study.khoipn.id.vn/terms
+
+// @contact.name   Study Platform Support
+// @contact.url    https://study.khoipn.id.vn/support
+// @contact.email  support@study.khoipn.id.vn
+
+// @license.name  MIT
+// @license.url   https://opensource.org/licenses/MIT
+
+// @host      study.khoipn.id.vn
+// @BasePath  /api/v1
+
+// @securityDefinitions.apikey BearerAuth
+// @in header
+// @name Authorization
+// @description Type "Bearer" followed by a space and JWT token.
+
+// @schemes https http
+// @produce application/json
+// @consumes application/json
+
+// @x-extension-openapi {"example": "value on a json format"}
+
 func main() {
 	// Initialize logger
 	log := logger.New()

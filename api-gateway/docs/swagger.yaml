@@ -1,0 +1,30 @@
+basePath: /api/v1
+host: study.khoipn.id.vn
+info:
+  contact:
+    email: support@study.khoipn.id.vn
+    name: Study Platform Support
+    url: https://study.khoipn.id.vn/support
+  description: API Gateway for Study Platform - A comprehensive learning management
+    system
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+  termsOfService: https://study.khoipn.id.vn/terms
+  title: Study Platform API
+  version: "1.0"
+paths: {}
+produces:
+- application/json
+schemes:
+- https
+- http
+securityDefinitions:
+  BearerAuth:
+    description: Type "Bearer" followed by a space and JWT token.
+    in: header
+    name: Authorization
+    type: apiKey
+swagger: "2.0"
+x-extension-openapi:
+  example: value on a json format
