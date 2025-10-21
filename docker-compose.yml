@@ -67,6 +67,10 @@ services:
       DB_MAX_CONNECTIONS: ${DB_MAX_CONNECTIONS:-25}
       DB_MAX_IDLE_CONNECTIONS: ${DB_MAX_IDLE_CONNECTIONS:-5}
       DB_CONNECTION_LIFETIME: ${DB_CONNECTION_LIFETIME:-300s}
+      # Google OAuth Configuration
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET}
+      GOOGLE_REDIRECT_URL: ${GOOGLE_REDIRECT_URL}
     volumes:
       - ./auth-service:/app
     healthcheck:
@@ -509,6 +513,9 @@ services:
       RATE_LIMIT_BURST: ${RATE_LIMIT_BURST:-200}
       SECURITY_HEADERS_ENABLED: ${SECURITY_HEADERS_ENABLED:-true}
       CONTENT_SECURITY_POLICY: ${CONTENT_SECURITY_POLICY:-default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'}
+
+      # OAuth Configuration
+      FRONTEND_URL: ${FRONTEND_URL:-http://localhost:3000}
 
       # Environment
       ENVIRONMENT: ${ENVIRONMENT:-development}

@@ -9,10 +9,8 @@ import (
 type OAuthProvider string
 
 const (
-	ProviderLocal    OAuthProvider = "local"
-	ProviderGoogle   OAuthProvider = "google"
-	ProviderGitHub   OAuthProvider = "github"
-	ProviderFacebook OAuthProvider = "facebook"
+	ProviderLocal  OAuthProvider = "local"
+	ProviderGoogle OAuthProvider = "google"
 )
 
 type OAuthAccount struct {
@@ -63,7 +61,7 @@ func (p OAuthProvider) String() string {
 
 func (p OAuthProvider) IsValid() bool {
 	switch p {
-	case ProviderLocal, ProviderGoogle, ProviderGitHub, ProviderFacebook:
+	case ProviderLocal, ProviderGoogle:
 		return true
 	default:
 		return false
@@ -74,10 +72,6 @@ func (p OAuthProvider) GetAuthURL() string {
 	switch p {
 	case ProviderGoogle:
 		return "https://accounts.google.com/o/oauth2/auth"
-	case ProviderGitHub:
-		return "https://github.com/login/oauth/authorize"
-	case ProviderFacebook:
-		return "https://www.facebook.com/v18.0/dialog/oauth"
 	default:
 		return ""
 	}
@@ -87,10 +81,6 @@ func (p OAuthProvider) GetTokenURL() string {
 	switch p {
 	case ProviderGoogle:
 		return "https://oauth2.googleapis.com/token"
-	case ProviderGitHub:
-		return "https://github.com/login/oauth/access_token"
-	case ProviderFacebook:
-		return "https://graph.facebook.com/v18.0/oauth/access_token"
 	default:
 		return ""
 	}
@@ -100,10 +90,6 @@ func (p OAuthProvider) GetUserInfoURL() string {
 	switch p {
 	case ProviderGoogle:
 		return "https://www.googleapis.com/oauth2/v2/userinfo"
-	case ProviderGitHub:
-		return "https://api.github.com/user"
-	case ProviderFacebook:
-		return "https://graph.facebook.com/me?fields=id,name,email,picture"
 	default:
 		return ""
 	}

@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
+	"os"
 	"time"
 
 	"github.com/gorilla/mux"
@@ -319,17 +320,10 @@ func (h *AuthHandler) OAuthCallback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Determine redirect URL based on user role
-	var redirectURL string
-	switch resp.User.Role {
-	case "instructor", "admin":
-		redirectURL = "http://localhost:3001/dashboard/instructor/analytics"
-	default:
-		redirectURL = "http://localhost:3001/me/dashboard"
-	}
-
-	// Add authentication data as URL parameters
-	redirectURL += "?token=" + resp.Token + "&user=" + resp.User.Id
+	// Redirect to frontend OAuth callback handler
+	// The frontend will handle role-based routing
+	frontendURL := getEnv("FRONTEND_URL", "http://localhost:3000")
+	redirectURL := frontendURL + "/auth/oauth/callback?token=" + resp.Token + "&user=" + resp.User.Id
 
 	// Redirect to frontend with authentication data
 	http.Redirect(w, r, redirectURL, http.StatusTemporaryRedirect)
@@ -383,4 +377,12 @@ func (h *AuthHandler) handleGRPCError(w http.ResponseWriter, err error, defaultM
 	}
 	
 	h.logger.Errorf("gRPC error: %v", err)
+}
+
+// getEnv retrieves an environment variable or returns a default value
+func getEnv(key, defaultValue string) string {
+	if value := os.Getenv(key); value != "" {
+		return value
+	}
+	return defaultValue
 }

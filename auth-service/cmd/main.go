@@ -47,25 +47,13 @@ func main() {
 	oauthRepo := repository.NewOAuthRepository(db)
 	authService := service.NewAuthService(userRepo, jwtSecret, log)
 	
-	// OAuth configurations
+	// OAuth configurations - Google only
 	oauthConfigs := map[model.OAuthProvider]model.OAuthConfig{
 		model.ProviderGoogle: {
 			ClientID:     getEnv("GOOGLE_CLIENT_ID", ""),
 			ClientSecret: getEnv("GOOGLE_CLIENT_SECRET", ""),
 			RedirectURL:  getEnv("GOOGLE_REDIRECT_URL", "http://localhost:8080/auth/google/callback"),
 			Scopes:       []string{"openid", "email", "profile"},
-		},
-		model.ProviderGitHub: {
-			ClientID:     getEnv("GITHUB_CLIENT_ID", ""),
-			ClientSecret: getEnv("GITHUB_CLIENT_SECRET", ""),
-			RedirectURL:  getEnv("GITHUB_REDIRECT_URL", "http://localhost:8080/auth/github/callback"),
-			Scopes:       []string{"user:email"},
-		},
-		model.ProviderFacebook: {
-			ClientID:     getEnv("FACEBOOK_CLIENT_ID", ""),
-			ClientSecret: getEnv("FACEBOOK_CLIENT_SECRET", ""),
-			RedirectURL:  getEnv("FACEBOOK_REDIRECT_URL", "http://localhost:8080/auth/facebook/callback"),
-			Scopes:       []string{"email", "public_profile"},
 		},
 	}
 	

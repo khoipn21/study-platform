@@ -11,8 +11,6 @@ import (
 
 	"github.com/google/uuid"
 	"golang.org/x/oauth2"
-	"golang.org/x/oauth2/facebook"
-	"golang.org/x/oauth2/github"
 	"golang.org/x/oauth2/google"
 
 	"github.com/study-platform/auth-service/internal/model"
@@ -45,10 +43,8 @@ func NewOAuthService(
 		switch provider {
 		case model.ProviderGoogle:
 			endpoint = google.Endpoint
-		case model.ProviderGitHub:
-			endpoint = github.Endpoint
-		case model.ProviderFacebook:
-			endpoint = facebook.Endpoint
+		default:
+			continue
 		}
 		
 		oauthConfigs[provider] = &oauth2.Config{
@@ -282,10 +278,6 @@ func (s *OAuthService) getUserInfoFromProvider(ctx context.Context, provider mod
 	switch provider {
 	case model.ProviderGoogle:
 		url = "https://www.googleapis.com/oauth2/v2/userinfo"
-	case model.ProviderGitHub:
-		url = "https://api.github.com/user"
-	case model.ProviderFacebook:
-		url = "https://graph.facebook.com/me?fields=id,name,email,picture"
 	default:
 		return nil, fmt.Errorf("unsupported provider: %s", provider)
 	}
@@ -341,55 +333,6 @@ func (s *OAuthService) parseUserInfo(provider model.OAuthProvider, data []byte) 
 			Username:      googleUser.Email,
 			AvatarURL:     googleUser.Picture,
 			EmailVerified: googleUser.VerifiedEmail,
-		}
-		
-	case model.ProviderGitHub:
-		var githubUser struct {
-			ID        int    `json:"id"`
-			Login     string `json:"login"`
-			Name      string `json:"name"`
-			Email     string `json:"email"`
-			AvatarURL string `json:"avatar_url"`
-		}
-		
-		err := json.Unmarshal(data, &githubUser)
-		if err != nil {
-			return nil, fmt.Errorf("failed to parse GitHub user info: %w", err)
-		}
-		
-		userInfo = model.OAuthUserInfo{
-			ID:            fmt.Sprintf("%d", githubUser.ID),
-			Email:         githubUser.Email,
-			Name:          githubUser.Name,
-			Username:      githubUser.Login,
-			AvatarURL:     githubUser.AvatarURL,
-			EmailVerified: true, // GitHub emails are considered verified
-		}
-		
-	case model.ProviderFacebook:
-		var facebookUser struct {
-			ID      string `json:"id"`
-			Name    string `json:"name"`
-			Email   string `json:"email"`
-			Picture struct {
-				Data struct {
-					URL string `json:"url"`
-				} `json:"data"`
-			} `json:"picture"`
-		}
-		
-		err := json.Unmarshal(data, &facebookUser)
-		if err != nil {
-			return nil, fmt.Errorf("failed to parse Facebook user info: %w", err)
-		}
-		
-		userInfo = model.OAuthUserInfo{
-			ID:            facebookUser.ID,
-			Email:         facebookUser.Email,
-			Name:          facebookUser.Name,
-			Username:      facebookUser.Email,
-			AvatarURL:     facebookUser.Picture.Data.URL,
-			EmailVerified: true, // Facebook emails are considered verified
 		}
 		
 	default:
