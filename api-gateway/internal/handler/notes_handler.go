@@ -28,6 +28,17 @@ func NewNotesHandler(courseServiceURL string, logger logger.Logger) *NotesHandle
 }
 
 // CreateNote creates a new note for a lecture
+// CreateNote godoc
+// @Summary      Create note
+// @Description  Create a note for a lecture
+// @Tags         Notes
+// @Accept       json
+// @Produce      json
+// @Param        course_id path string true "Course ID"
+// @Param        lecture_id path string true "Lecture ID"
+// @Success      201 {object} APIResponse "Note created"
+// @Security     BearerAuth
+// @Router       /notes/courses/{course_id}/lectures/{lecture_id} [post]
 func (h *NotesHandler) CreateNote(w http.ResponseWriter, r *http.Request) {
 	// Get user ID from context
 	userID, ok := r.Context().Value("user_id").(string)
@@ -74,6 +85,16 @@ func (h *NotesHandler) CreateNote(w http.ResponseWriter, r *http.Request) {
 }
 
 // GetNotesByLecture retrieves all notes for a specific lecture
+// GetNotesByLecture godoc
+// @Summary      Get lecture notes
+// @Description  Get all notes for a lecture
+// @Tags         Notes
+// @Produce      json
+// @Param        course_id path string true "Course ID"
+// @Param        lecture_id path string true "Lecture ID"
+// @Success      200 {object} APIResponse "List of notes"
+// @Security     BearerAuth
+// @Router       /notes/courses/{course_id}/lectures/{lecture_id} [get]
 func (h *NotesHandler) GetNotesByLecture(w http.ResponseWriter, r *http.Request) {
 	// Get user ID from context
 	userID, ok := r.Context().Value("user_id").(string)
@@ -149,6 +170,16 @@ func (h *NotesHandler) GetNotesByCourse(w http.ResponseWriter, r *http.Request) 
 }
 
 // UpdateNote updates an existing note
+// UpdateNote godoc
+// @Summary      Update note
+// @Description  Update a note
+// @Tags         Notes
+// @Accept       json
+// @Produce      json
+// @Param        note_id path string true "Note ID"
+// @Success      200 {object} APIResponse "Note updated"
+// @Security     BearerAuth
+// @Router       /notes/{note_id} [put]
 func (h *NotesHandler) UpdateNote(w http.ResponseWriter, r *http.Request) {
 	// Get user ID from context
 	userID, ok := r.Context().Value("user_id").(string)
@@ -194,6 +225,14 @@ func (h *NotesHandler) UpdateNote(w http.ResponseWriter, r *http.Request) {
 }
 
 // DeleteNote deletes a note
+// DeleteNote godoc
+// @Summary      Delete note
+// @Description  Delete a note
+// @Tags         Notes
+// @Param        note_id path string true "Note ID"
+// @Success      200 {object} APIResponse "Note deleted"
+// @Security     BearerAuth
+// @Router       /notes/{note_id} [delete]
 func (h *NotesHandler) DeleteNote(w http.ResponseWriter, r *http.Request) {
 	// Get user ID from context
 	userID, ok := r.Context().Value("user_id").(string)

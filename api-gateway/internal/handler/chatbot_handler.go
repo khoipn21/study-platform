@@ -21,6 +21,15 @@ func NewChatbotHandler(chatbotServiceURL string) *ChatbotHandler {
 	}
 }
 
+// CreateSession godoc
+// @Summary      Create chat session
+// @Description  Create new chatbot session
+// @Tags         Chatbot
+// @Accept       json
+// @Produce      json
+// @Success      201 {object} APIResponse "Session created"
+// @Security     BearerAuth
+// @Router       /chat/sessions [post]
 func (h *ChatbotHandler) CreateSession(w http.ResponseWriter, r *http.Request) {
 	h.proxyRequest(w, r, "/api/v1/sessions", "POST")
 }
@@ -32,6 +41,16 @@ func (h *ChatbotHandler) GetSession(w http.ResponseWriter, r *http.Request) {
 	h.proxyRequest(w, r, path, "GET")
 }
 
+// GetUserSessions godoc
+// @Summary      Get user sessions
+// @Description  Get all chat sessions for user
+// @Tags         Chatbot
+// @Produce      json
+// @Param        page query int false "Page number"
+// @Param        limit query int false "Items per page"
+// @Success      200 {object} APIResponse "List of sessions"
+// @Security     BearerAuth
+// @Router       /chat/sessions [get]
 func (h *ChatbotHandler) GetUserSessions(w http.ResponseWriter, r *http.Request) {
 	// Forward query parameters
 	queryParams := r.URL.Query().Encode()
@@ -56,10 +75,28 @@ func (h *ChatbotHandler) DeleteSession(w http.ResponseWriter, r *http.Request) {
 	h.proxyRequest(w, r, path, "DELETE")
 }
 
+// SendMessage godoc
+// @Summary      Send message
+// @Description  Send message to chatbot
+// @Tags         Chatbot
+// @Accept       json
+// @Produce      json
+// @Success      200 {object} APIResponse "Message sent"
+// @Security     BearerAuth
+// @Router       /chat/message [post]
 func (h *ChatbotHandler) SendMessage(w http.ResponseWriter, r *http.Request) {
 	h.proxyRequest(w, r, "/api/v1/chat", "POST")
 }
 
+// GetMessages godoc
+// @Summary      Get session messages
+// @Description  Get messages for a session
+// @Tags         Chatbot
+// @Produce      json
+// @Param        sessionId path string true "Session ID"
+// @Success      200 {object} APIResponse "List of messages"
+// @Security     BearerAuth
+// @Router       /chat/sessions/{sessionId}/messages [get]
 func (h *ChatbotHandler) GetMessages(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	sessionID := vars["sessionId"]

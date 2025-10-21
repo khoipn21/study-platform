@@ -178,6 +178,84 @@ paths:
       summary: Validate JWT token
       tags:
       - Authentication
+  /chat/message:
+    post:
+      consumes:
+      - application/json
+      description: Send message to chatbot
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Message sent
+          schema:
+            $ref: '#/definitions/internal_handler.APIResponse'
+      security:
+      - BearerAuth: []
+      summary: Send message
+      tags:
+      - Chatbot
+  /chat/sessions:
+    get:
+      description: Get all chat sessions for user
+      parameters:
+      - description: Page number
+        in: query
+        name: page
+        type: integer
+      - description: Items per page
+        in: query
+        name: limit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: List of sessions
+          schema:
+            $ref: '#/definitions/internal_handler.APIResponse'
+      security:
+      - BearerAuth: []
+      summary: Get user sessions
+      tags:
+      - Chatbot
+    post:
+      consumes:
+      - application/json
+      description: Create new chatbot session
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Session created
+          schema:
+            $ref: '#/definitions/internal_handler.APIResponse'
+      security:
+      - BearerAuth: []
+      summary: Create chat session
+      tags:
+      - Chatbot
+  /chat/sessions/{sessionId}/messages:
+    get:
+      description: Get messages for a session
+      parameters:
+      - description: Session ID
+        in: path
+        name: sessionId
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: List of messages
+          schema:
+            $ref: '#/definitions/internal_handler.APIResponse'
+      security:
+      - BearerAuth: []
+      summary: Get session messages
+      tags:
+      - Chatbot
   /courses:
     get:
       consumes:
@@ -578,6 +656,100 @@ paths:
       summary: LemonSqueezy webhook
       tags:
       - Payments
+  /notes/{note_id}:
+    delete:
+      description: Delete a note
+      parameters:
+      - description: Note ID
+        in: path
+        name: note_id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: Note deleted
+          schema:
+            $ref: '#/definitions/internal_handler.APIResponse'
+      security:
+      - BearerAuth: []
+      summary: Delete note
+      tags:
+      - Notes
+    put:
+      consumes:
+      - application/json
+      description: Update a note
+      parameters:
+      - description: Note ID
+        in: path
+        name: note_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Note updated
+          schema:
+            $ref: '#/definitions/internal_handler.APIResponse'
+      security:
+      - BearerAuth: []
+      summary: Update note
+      tags:
+      - Notes
+  /notes/courses/{course_id}/lectures/{lecture_id}:
+    get:
+      description: Get all notes for a lecture
+      parameters:
+      - description: Course ID
+        in: path
+        name: course_id
+        required: true
+        type: string
+      - description: Lecture ID
+        in: path
+        name: lecture_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: List of notes
+          schema:
+            $ref: '#/definitions/internal_handler.APIResponse'
+      security:
+      - BearerAuth: []
+      summary: Get lecture notes
+      tags:
+      - Notes
+    post:
+      consumes:
+      - application/json
+      description: Create a note for a lecture
+      parameters:
+      - description: Course ID
+        in: path
+        name: course_id
+        required: true
+        type: string
+      - description: Lecture ID
+        in: path
+        name: lecture_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Note created
+          schema:
+            $ref: '#/definitions/internal_handler.APIResponse'
+      security:
+      - BearerAuth: []
+      summary: Create note
+      tags:
+      - Notes
   /payments/purchase/course/{course_id}:
     post:
       consumes:
