@@ -1,4 +1,38 @@
 basePath: /api/v1
+definitions:
+  internal_handler.APIResponse:
+    properties:
+      data: {}
+      error:
+        type: string
+      message:
+        type: string
+      success:
+        type: boolean
+    type: object
+  internal_handler.LoginRequest:
+    properties:
+      email:
+        type: string
+      password:
+        type: string
+    type: object
+  internal_handler.RegisterRequest:
+    properties:
+      email:
+        type: string
+      password:
+        type: string
+      role:
+        type: string
+      username:
+        type: string
+    type: object
+  internal_handler.ValidateTokenRequest:
+    properties:
+      token:
+        type: string
+    type: object
 host: study.khoipn.id.vn
 info:
   contact:
@@ -13,7 +47,122 @@ info:
   termsOfService: https://study.khoipn.id.vn/terms
   title: Study Platform API
   version: "1.0"
-paths: {}
+paths:
+  /auth/login:
+    post:
+      consumes:
+      - application/json
+      description: Authenticate user with email and password, returns JWT token
+      parameters:
+      - description: Login credentials
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/internal_handler.LoginRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Login successful
+          schema:
+            $ref: '#/definitions/internal_handler.APIResponse'
+        "400":
+          description: Invalid request
+          schema:
+            $ref: '#/definitions/internal_handler.APIResponse'
+        "401":
+          description: Invalid credentials
+          schema:
+            $ref: '#/definitions/internal_handler.APIResponse'
+      summary: User login
+      tags:
+      - Authentication
+  /auth/profile:
+    get:
+      consumes:
+      - application/json
+      description: Get the authenticated user's profile information
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: User profile
+          schema:
+            $ref: '#/definitions/internal_handler.APIResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/internal_handler.APIResponse'
+        "404":
+          description: User not found
+          schema:
+            $ref: '#/definitions/internal_handler.APIResponse'
+      security:
+      - BearerAuth: []
+      summary: Get user profile
+      tags:
+      - Authentication
+  /auth/register:
+    post:
+      consumes:
+      - application/json
+      description: Create a new user account with username, email, and password
+      parameters:
+      - description: Registration details
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/internal_handler.RegisterRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: User registered successfully
+          schema:
+            $ref: '#/definitions/internal_handler.APIResponse'
+        "400":
+          description: Invalid request
+          schema:
+            $ref: '#/definitions/internal_handler.APIResponse'
+        "409":
+          description: User already exists
+          schema:
+            $ref: '#/definitions/internal_handler.APIResponse'
+      summary: Register a new user
+      tags:
+      - Authentication
+  /auth/validate:
+    post:
+      consumes:
+      - application/json
+      description: Validate a JWT token and return user information
+      parameters:
+      - description: Token to validate
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/internal_handler.ValidateTokenRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Token is valid
+          schema:
+            $ref: '#/definitions/internal_handler.APIResponse'
+        "400":
+          description: Invalid request
+          schema:
+            $ref: '#/definitions/internal_handler.APIResponse'
+        "401":
+          description: Invalid or expired token
+          schema:
+            $ref: '#/definitions/internal_handler.APIResponse'
+      summary: Validate JWT token
+      tags:
+      - Authentication
 produces:
 - application/json
 schemes:

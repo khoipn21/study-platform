@@ -49,6 +49,17 @@ type APIResponse struct {
 	Error   string      `json:"error,omitempty"`
 }
 
+// Register godoc
+// @Summary      Register a new user
+// @Description  Create a new user account with username, email, and password
+// @Tags         Authentication
+// @Accept       json
+// @Produce      json
+// @Param        request body RegisterRequest true "Registration details"
+// @Success      201 {object} APIResponse "User registered successfully"
+// @Failure      400 {object} APIResponse "Invalid request"
+// @Failure      409 {object} APIResponse "User already exists"
+// @Router       /auth/register [post]
 func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 	var req RegisterRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -98,6 +109,17 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 	h.sendSuccess(w, resp.Message, data)
 }
 
+// Login godoc
+// @Summary      User login
+// @Description  Authenticate user with email and password, returns JWT token
+// @Tags         Authentication
+// @Accept       json
+// @Produce      json
+// @Param        request body LoginRequest true "Login credentials"
+// @Success      200 {object} APIResponse "Login successful"
+// @Failure      400 {object} APIResponse "Invalid request"
+// @Failure      401 {object} APIResponse "Invalid credentials"
+// @Router       /auth/login [post]
 func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 	var req LoginRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -140,6 +162,17 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 	h.sendSuccess(w, resp.Message, data)
 }
 
+// ValidateToken godoc
+// @Summary      Validate JWT token
+// @Description  Validate a JWT token and return user information
+// @Tags         Authentication
+// @Accept       json
+// @Produce      json
+// @Param        request body ValidateTokenRequest true "Token to validate"
+// @Success      200 {object} APIResponse "Token is valid"
+// @Failure      400 {object} APIResponse "Invalid request"
+// @Failure      401 {object} APIResponse "Invalid or expired token"
+// @Router       /auth/validate [post]
 func (h *AuthHandler) ValidateToken(w http.ResponseWriter, r *http.Request) {
 	var req ValidateTokenRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -185,6 +218,17 @@ func (h *AuthHandler) ValidateToken(w http.ResponseWriter, r *http.Request) {
 	h.sendSuccess(w, resp.Message, data)
 }
 
+// GetProfile godoc
+// @Summary      Get user profile
+// @Description  Get the authenticated user's profile information
+// @Tags         Authentication
+// @Accept       json
+// @Produce      json
+// @Success      200 {object} APIResponse "User profile"
+// @Failure      401 {object} APIResponse "Unauthorized"
+// @Failure      404 {object} APIResponse "User not found"
+// @Security     BearerAuth
+// @Router       /auth/profile [get]
 func (h *AuthHandler) GetProfile(w http.ResponseWriter, r *http.Request) {
 	// Get user ID from context (set by auth middleware)
 	userID, ok := r.Context().Value("user_id").(string)
