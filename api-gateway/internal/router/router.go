@@ -88,6 +88,14 @@ func (rt *Router) SetupRoutes() *mux.Router {
 	r.Use(rt.rateLimitMiddleware.RateLimit)
 	r.Use(rt.loggingMiddleware.LogRequest)
 
+	// Global OPTIONS handler to catch all preflight requests
+	// This must come before route definitions for gorilla/mux
+	r.Methods("OPTIONS").HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// CORS headers are already set by CORSMiddleware
+		// Just return 204 No Content for preflight
+		w.WriteHeader(http.StatusNoContent)
+	})
+
 	// API version prefix
 	api := r.PathPrefix("/api/v1").Subrouter()
 
