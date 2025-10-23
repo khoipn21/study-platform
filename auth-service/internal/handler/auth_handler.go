@@ -17,16 +17,18 @@ import (
 
 type AuthHandler struct {
 	pb.UnimplementedAuthServiceServer
-	authService  *service.AuthService
-	oauthService *service.OAuthService
-	logger       logger.Logger
+	authService         *service.AuthService
+	oauthService        *service.OAuthService
+	verificationService *service.VerificationService
+	logger              logger.Logger
 }
 
-func NewAuthHandler(authService *service.AuthService, oauthService *service.OAuthService, logger logger.Logger) *AuthHandler {
+func NewAuthHandler(authService *service.AuthService, oauthService *service.OAuthService, verificationService *service.VerificationService, logger logger.Logger) *AuthHandler {
 	return &AuthHandler{
-		authService:  authService,
-		oauthService: oauthService,
-		logger:       logger,
+		authService:         authService,
+		oauthService:        oauthService,
+		verificationService: verificationService,
+		logger:              logger,
 	}
 }
 
@@ -453,5 +455,90 @@ func (h *AuthHandler) ChangePassword(ctx context.Context, req *pb.ChangePassword
 	return &pb.ChangePasswordResponse{
 		Success: true,
 		Message: "Password changed successfully",
+	}, nil
+}
+
+func (h *AuthHandler) VerifyEmail(ctx context.Context, req *pb.VerifyEmailRequest) (*pb.VerifyEmailResponse, error) {
+	if req.UserId == "" || req.Otp == "" {
+		return nil, status.Error(codes.InvalidArgument, "user_id and otp are required")
+	}
+
+	userID, err := uuid.Parse(req.UserId)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid user_id format")
+	}
+
+	err = h.verificationService.VerifyOTP(ctx, userID, req.Otp)
+	if err != nil {
+		h.logger.Error(fmt.Errorf("verify email error: %w", err))
+		
+		// Handle specific error messages
+		errMsg := err.Error()
+		if errMsg == "too_many_attempts" {
+			return nil, status.Error(codes.PermissionDenied, "Too many verification attempts")
+		} else if errMsg == "otp_expired" {
+			return nil, status.Error(codes.DeadlineExceeded, "Verification code expired")
+		} else if errMsg == "invalid_otp" {
+			return nil, status.Error(codes.InvalidArgument, "Invalid verification code")
+		}
+		
+		return nil, status.Error(codes.Internal, "Failed to verify email")
+	}
+
+	return &pb.VerifyEmailResponse{
+		Success: true,
+		Message: "Email verified successfully",
+	}, nil
+}
+
+func (h *AuthHandler) ResendVerification(ctx context.Context, req *pb.ResendVerificationRequest) (*pb.ResendVerificationResponse, error) {
+	if req.Email == "" {
+		return nil, status.Error(codes.InvalidArgument, "email is required")
+	}
+
+	err := h.verificationService.ResendVerification(ctx, req.Email)
+	if err != nil {
+		h.logger.Error(fmt.Errorf("resend verification error: %w", err))
+		
+		// Handle specific error messages
+		errMsg := err.Error()
+		if errMsg == "rate_limit" {
+			return nil, status.Error(codes.ResourceExhausted, "Too many resend requests. Please try again later")
+		} else if errMsg == "already_verified" {
+			return nil, status.Error(codes.AlreadyExists, "Email already verified")
+		} else if errMsg == "user not found" {
+			return nil, status.Error(codes.NotFound, "User not found")
+		}
+		
+		return nil, status.Error(codes.Internal, "Failed to resend verification email")
+	}
+
+	return &pb.ResendVerificationResponse{
+		Success: true,
+		Message: "Verification email sent successfully",
+	}, nil
+}
+
+func (h *AuthHandler) VerifyEmailToken(ctx context.Context, req *pb.VerifyTokenRequest) (*pb.VerifyEmailResponse, error) {
+	if req.Token == "" {
+		return nil, status.Error(codes.InvalidArgument, "token is required")
+	}
+
+	userID, err := h.verificationService.VerifyToken(ctx, req.Token)
+	if err != nil {
+		h.logger.Error(fmt.Errorf("verify token error: %w", err))
+		
+		if err.Error() == "token_invalid" {
+			return nil, status.Error(codes.InvalidArgument, "Invalid or expired verification link")
+		}
+		
+		return nil, status.Error(codes.Internal, "Failed to verify email")
+	}
+
+	h.logger.Infof("Email verified via token for user: %s", userID.String())
+
+	return &pb.VerifyEmailResponse{
+		Success: true,
+		Message: "Email verified successfully",
 	}, nil
 }

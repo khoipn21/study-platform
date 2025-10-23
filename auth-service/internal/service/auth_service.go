@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"fmt"
 	"time"
 
@@ -14,9 +15,10 @@ import (
 )
 
 type AuthService struct {
-	userRepo  *repository.UserRepository
-	jwtSecret string
-	logger    logger.Logger
+	userRepo            *repository.UserRepository
+	jwtSecret           string
+	logger              logger.Logger
+	verificationService *VerificationService
 }
 
 type Claims struct {
@@ -31,6 +33,11 @@ func NewAuthService(userRepo *repository.UserRepository, jwtSecret string, logge
 		jwtSecret: jwtSecret,
 		logger:    logger,
 	}
+}
+
+// SetVerificationService sets the verification service (called after construction to avoid circular dependency)
+func (s *AuthService) SetVerificationService(verificationService *VerificationService) {
+	s.verificationService = verificationService
 }
 
 func (s *AuthService) Register(req *model.CreateUserRequest) (*model.User, string, error) {
@@ -73,6 +80,15 @@ func (s *AuthService) Register(req *model.CreateUserRequest) (*model.User, strin
 		return nil, "", fmt.Errorf("failed to create user: %w", err)
 	}
 
+	// Send verification email
+	if s.verificationService != nil {
+		ctx := context.Background()
+		if err := s.verificationService.SendVerification(ctx, user.ID); err != nil {
+			s.logger.Errorf("Failed to send verification email: %v", err)
+			// Don't fail registration if email fails
+		}
+	}
+
 	token, err := s.generateToken(user)
 	if err != nil {
 		return nil, "", fmt.Errorf("failed to generate token: %w", err)
@@ -86,6 +102,11 @@ func (s *AuthService) Login(req *model.LoginRequest) (*model.User, string, error
 	user, err := s.userRepo.GetByEmail(req.Email)
 	if err != nil {
 		return nil, "", fmt.Errorf("invalid credentials")
+	}
+
+	// Check email verification
+	if !user.IsEmailVerified {
+		return nil, "", fmt.Errorf("email_not_verified")
 	}
 
 	if user.PasswordHash == nil {

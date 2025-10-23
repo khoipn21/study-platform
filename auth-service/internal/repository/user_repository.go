@@ -362,3 +362,28 @@ func (r *UserRepository) UpdatePassword(userID uuid.UUID, newPasswordHash string
 	
 	return nil
 }
+
+// MarkEmailAsVerified marks user's email as verified
+func (r *UserRepository) MarkEmailAsVerified(userID uuid.UUID) error {
+	query := `
+		UPDATE users
+		SET is_email_verified = true, updated_at = NOW()
+		WHERE id = $1
+	`
+	
+	result, err := r.db.Exec(query, userID)
+	if err != nil {
+		return fmt.Errorf("failed to mark email as verified: %w", err)
+	}
+	
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("failed to get rows affected: %w", err)
+	}
+	
+	if rowsAffected == 0 {
+		return fmt.Errorf("user not found")
+	}
+	
+	return nil
+}

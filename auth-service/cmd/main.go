@@ -1,12 +1,14 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"net"
 	"os"
 	"os/signal"
 	"syscall"
 
+	"github.com/redis/go-redis/v9"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/health"
 	"google.golang.org/grpc/health/grpc_health_v1"
@@ -43,9 +45,42 @@ func main() {
 	}
 	defer db.Close()
 
+	// Initialize Redis client
+	redisClient := redis.NewClient(&redis.Options{
+		Addr:     getEnv("REDIS_URL", "redis:6379"),
+		Password: getEnv("REDIS_PASSWORD", ""),
+		DB:       0,
+	})
+	
+	// Test Redis connection
+	ctx := context.Background()
+	if err := redisClient.Ping(ctx).Err(); err != nil {
+		log.Fatal(fmt.Errorf("failed to connect to Redis: %w", err))
+	}
+	defer redisClient.Close()
+	log.Info("Connected to Redis successfully")
+
 	userRepo := repository.NewUserRepository(db)
 	oauthRepo := repository.NewOAuthRepository(db)
+	verificationRedisRepo := repository.NewVerificationRedisRepository(redisClient)
+	
+	// Initialize email service
+	emailService := service.NewEmailService(
+		getEnv("RESEND_API_KEY", ""),
+		getEnv("VERIFICATION_EMAIL_FROM", "noreply@study.khoipn.id.vn"),
+		getEnv("BASE_URL", "https://study.khoipn.id.vn"),
+	)
+	
+	// Initialize verification service
+	verificationService := service.NewVerificationService(
+		verificationRedisRepo,
+		userRepo,
+		emailService,
+		log,
+	)
+	
 	authService := service.NewAuthService(userRepo, jwtSecret, log)
+	authService.SetVerificationService(verificationService)
 	
 	// OAuth configurations - Google only
 	oauthConfigs := map[model.OAuthProvider]model.OAuthConfig{
@@ -58,7 +93,7 @@ func main() {
 	}
 	
 	oauthService := service.NewOAuthService(userRepo, oauthRepo, authService, log, oauthConfigs, "http://localhost:3000")
-	authHandler := handler.NewAuthHandler(authService, oauthService, log)
+	authHandler := handler.NewAuthHandler(authService, oauthService, verificationService, log)
 
 	lis, err := net.Listen("tcp", ":"+grpcPort)
 	if err != nil {

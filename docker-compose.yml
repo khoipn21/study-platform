@@ -57,6 +57,8 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      redis:
+        condition: service_healthy
     environment:
       DATABASE_URL: ${DATABASE_URL}
       JWT_SECRET: ${JWT_SECRET}
@@ -71,6 +73,13 @@ services:
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
       GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET}
       GOOGLE_REDIRECT_URL: ${GOOGLE_REDIRECT_URL}
+      # Redis Configuration
+      REDIS_URL: redis:6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-}
+      # Email Verification Configuration
+      RESEND_API_KEY: ${RESEND_API_KEY}
+      VERIFICATION_EMAIL_FROM: ${VERIFICATION_EMAIL_FROM}
+      BASE_URL: ${BASE_URL}
     volumes:
       - ./auth-service:/app
     healthcheck:

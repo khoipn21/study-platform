@@ -786,3 +786,157 @@ func (h *AuthHandler) UploadAvatar(w http.ResponseWriter, r *http.Request) {
 
 	h.sendSuccess(w, "Avatar uploaded successfully", data)
 }
+
+// VerifyEmail godoc
+// @Summary      Verify email with OTP
+// @Description  Verify user's email address using OTP code
+// @Tags         Authentication
+// @Accept       json
+// @Produce      json
+// @Param        request body object{user_id=string,otp=string} true "Verification details"
+// @Success      200 {object} APIResponse "Email verified successfully"
+// @Failure      400 {object} APIResponse "Invalid request"
+// @Failure      401 {object} APIResponse "Invalid OTP"
+// @Router       /auth/verify-email [post]
+func (h *AuthHandler) VerifyEmail(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		UserID string `json:"user_id"`
+		OTP    string `json:"otp"`
+	}
+	
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		h.sendError(w, http.StatusBadRequest, "Invalid request body")
+		return
+	}
+	
+	if req.UserID == "" || req.OTP == "" {
+		h.sendError(w, http.StatusBadRequest, "user_id and otp are required")
+		return
+	}
+	
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	
+	grpcReq := &authpb.VerifyEmailRequest{
+		UserId: req.UserID,
+		Otp:    req.OTP,
+	}
+	
+	resp, err := h.authClient.VerifyEmail(ctx, grpcReq)
+	if err != nil {
+		st, ok := status.FromError(err)
+		if ok {
+			switch st.Code() {
+			case codes.InvalidArgument:
+				h.sendError(w, http.StatusBadRequest, st.Message())
+			case codes.PermissionDenied:
+				h.sendError(w, http.StatusTooManyRequests, st.Message())
+			case codes.DeadlineExceeded:
+				h.sendError(w, http.StatusGone, st.Message())
+			default:
+				h.sendError(w, http.StatusInternalServerError, "Failed to verify email")
+			}
+		} else {
+			h.sendError(w, http.StatusInternalServerError, "Failed to verify email")
+		}
+		return
+	}
+	
+	h.sendSuccess(w, resp.Message, nil)
+}
+
+// ResendVerification godoc
+// @Summary      Resend verification email
+// @Description  Resend verification email with new OTP
+// @Tags         Authentication
+// @Accept       json
+// @Produce      json
+// @Param        request body object{email=string} true "Email address"
+// @Success      200 {object} APIResponse "Verification email sent"
+// @Failure      400 {object} APIResponse "Invalid request"
+// @Failure      429 {object} APIResponse "Too many requests"
+// @Router       /auth/resend-verification [post]
+func (h *AuthHandler) ResendVerification(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		Email string `json:"email"`
+	}
+	
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		h.sendError(w, http.StatusBadRequest, "Invalid request body")
+		return
+	}
+	
+	if req.Email == "" {
+		h.sendError(w, http.StatusBadRequest, "email is required")
+		return
+	}
+	
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	
+	grpcReq := &authpb.ResendVerificationRequest{
+		Email: req.Email,
+	}
+	
+	resp, err := h.authClient.ResendVerification(ctx, grpcReq)
+	if err != nil {
+		st, ok := status.FromError(err)
+		if ok {
+			switch st.Code() {
+			case codes.ResourceExhausted:
+				h.sendError(w, http.StatusTooManyRequests, st.Message())
+			case codes.AlreadyExists:
+				h.sendError(w, http.StatusConflict, st.Message())
+			case codes.NotFound:
+				h.sendError(w, http.StatusNotFound, st.Message())
+			default:
+				h.sendError(w, http.StatusInternalServerError, "Failed to resend verification email")
+			}
+		} else {
+			h.sendError(w, http.StatusInternalServerError, "Failed to resend verification email")
+		}
+		return
+	}
+	
+	h.sendSuccess(w, resp.Message, nil)
+}
+
+// VerifyEmailToken godoc
+// @Summary      Verify email via link
+// @Description  Verify user's email address using token from email link
+// @Tags         Authentication
+// @Accept       json
+// @Produce      json
+// @Param        token path string true "Verification token"
+// @Success      200 {object} APIResponse "Email verified successfully"
+// @Failure      400 {object} APIResponse "Invalid token"
+// @Router       /auth/verify/{token} [get]
+func (h *AuthHandler) VerifyEmailToken(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	token := vars["token"]
+	
+	if token == "" {
+		h.sendError(w, http.StatusBadRequest, "token is required")
+		return
+	}
+	
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	
+	grpcReq := &authpb.VerifyTokenRequest{
+		Token: token,
+	}
+	
+	resp, err := h.authClient.VerifyEmailToken(ctx, grpcReq)
+	if err != nil {
+		st, ok := status.FromError(err)
+		if ok && st.Code() == codes.InvalidArgument {
+			h.sendError(w, http.StatusBadRequest, st.Message())
+		} else {
+			h.sendError(w, http.StatusInternalServerError, "Failed to verify email")
+		}
+		return
+	}
+	
+	h.sendSuccess(w, resp.Message, nil)
+}

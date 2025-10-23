@@ -22,6 +22,9 @@ service AuthService {
     rpc GetCurrentUser(GetCurrentUserRequest) returns (GetCurrentUserResponse);
     rpc UpdateProfile(UpdateProfileRequest) returns (UpdateProfileResponse);
     rpc ChangePassword(ChangePasswordRequest) returns (ChangePasswordResponse);
+    rpc VerifyEmail(VerifyEmailRequest) returns (VerifyEmailResponse);
+    rpc ResendVerification(ResendVerificationRequest) returns (ResendVerificationResponse);
+    rpc VerifyEmailToken(VerifyTokenRequest) returns (VerifyEmailResponse);
 }
 
 message User {
@@ -194,4 +197,27 @@ message ChangePasswordRequest {
 message ChangePasswordResponse {
     bool success = 1;
     string message = 2;
+}
+
+message VerifyEmailRequest {
+    string user_id = 1;
+    string otp = 2;
+}
+
+message VerifyEmailResponse {
+    bool success = 1;
+    string message = 2;
+}
+
+message ResendVerificationRequest {
+    string email = 1;
+}
+
+message ResendVerificationResponse {
+    bool success = 1;
+    string message = 2;
+}
+
+message VerifyTokenRequest {
+    string token = 1;
 }
