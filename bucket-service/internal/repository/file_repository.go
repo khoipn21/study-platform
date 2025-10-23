@@ -43,6 +43,20 @@ func (r *FileRepository) GetFileByObjectKey(ctx context.Context, bucketName, obj
 	return &file, nil
 }
 
+func (r *FileRepository) GetFileByKey(ctx context.Context, bucketType, objectKey string) (*model.File, error) {
+	var file model.File
+	// For avatars bucket, we store in the avatars bucket
+	bucketName := fmt.Sprintf("study-platform-%s", bucketType)
+	err := r.db.WithContext(ctx).First(&file, "bucket_name = ? AND object_key = ?", bucketName, objectKey).Error
+	if err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return nil, nil // Return nil if not found (not an error for our use case)
+		}
+		return nil, err
+	}
+	return &file, nil
+}
+
 func (r *FileRepository) UpdateFile(ctx context.Context, file *model.File) error {
 	file.UpdatedAt = time.Now()
 	return r.db.WithContext(ctx).Save(file).Error

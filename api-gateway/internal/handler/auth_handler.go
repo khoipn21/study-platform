@@ -1,8 +1,13 @@
 package handler
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
+	"io"
+	"io/ioutil"
+	"mime/multipart"
 	"net/http"
 	"os"
 	"strconv"
@@ -441,4 +446,343 @@ func (h *AuthHandler) ListUsers(w http.ResponseWriter, r *http.Request) {
 	}
 
 	h.sendSuccess(w, "Users retrieved successfully", data)
+}
+
+// GetCurrentUser godoc
+// @Summary      Get current user details
+// @Description  Get the authenticated user's full profile information
+// @Tags         Authentication
+// @Accept       json
+// @Produce      json
+// @Success      200 {object} APIResponse "User retrieved successfully"
+// @Failure      401 {object} APIResponse "Unauthorized"
+// @Failure      404 {object} APIResponse "User not found"
+// @Security     BearerAuth
+// @Router       /auth/me [get]
+func (h *AuthHandler) GetCurrentUser(w http.ResponseWriter, r *http.Request) {
+	// Get user ID from context (set by auth middleware)
+	userID, ok := r.Context().Value("user_id").(string)
+	if !ok {
+		h.sendError(w, http.StatusUnauthorized, "User not authenticated")
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	// Call auth service
+	grpcReq := &authpb.GetCurrentUserRequest{
+		UserId: userID,
+	}
+
+	resp, err := h.authClient.GetCurrentUser(ctx, grpcReq)
+	if err != nil {
+		h.handleGRPCError(w, err, "Failed to get user")
+		return
+	}
+
+	// Format response
+	data := map[string]interface{}{
+		"id":         resp.User.Id,
+		"username":   resp.User.Username,
+		"email":      resp.User.Email,
+		"role":       resp.User.Role,
+		"created_at": resp.User.CreatedAt,
+		"updated_at": resp.User.UpdatedAt,
+		"avatar_url": resp.User.AvatarUrl,
+	}
+
+	h.sendSuccess(w, resp.Message, data)
+}
+
+type UpdateProfileRequest struct {
+	Username  string `json:"username,omitempty"`
+	Email     string `json:"email,omitempty"`
+	AvatarURL string `json:"avatar_url,omitempty"`
+}
+
+// UpdateProfile godoc
+// @Summary      Update user profile
+// @Description  Update the authenticated user's profile information
+// @Tags         Authentication
+// @Accept       json
+// @Produce      json
+// @Param        request body UpdateProfileRequest true "Profile update details"
+// @Success      200 {object} APIResponse "Profile updated successfully"
+// @Failure      400 {object} APIResponse "Invalid request"
+// @Failure      401 {object} APIResponse "Unauthorized"
+// @Failure      409 {object} APIResponse "Username or email already exists"
+// @Security     BearerAuth
+// @Router       /auth/profile [put]
+func (h *AuthHandler) UpdateProfile(w http.ResponseWriter, r *http.Request) {
+	// Get user ID from context (set by auth middleware)
+	userID, ok := r.Context().Value("user_id").(string)
+	if !ok {
+		h.sendError(w, http.StatusUnauthorized, "User not authenticated")
+		return
+	}
+
+	var req UpdateProfileRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		h.sendError(w, http.StatusBadRequest, "Invalid request body")
+		return
+	}
+
+	// At least one field must be provided
+	if req.Username == "" && req.Email == "" && req.AvatarURL == "" {
+		h.sendError(w, http.StatusBadRequest, "At least one field must be provided")
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	// Call auth service
+	grpcReq := &authpb.UpdateProfileRequest{
+		UserId:    userID,
+		Username:  req.Username,
+		Email:     req.Email,
+		AvatarUrl: req.AvatarURL,
+	}
+
+	resp, err := h.authClient.UpdateProfile(ctx, grpcReq)
+	if err != nil {
+		h.handleGRPCError(w, err, "Failed to update profile")
+		return
+	}
+
+	// Format response
+	data := map[string]interface{}{
+		"id":         resp.User.Id,
+		"username":   resp.User.Username,
+		"email":      resp.User.Email,
+		"role":       resp.User.Role,
+		"created_at": resp.User.CreatedAt,
+		"updated_at": resp.User.UpdatedAt,
+	}
+
+	h.sendSuccess(w, resp.Message, data)
+}
+
+type ChangePasswordRequest struct {
+	CurrentPassword string `json:"current_password"`
+	NewPassword     string `json:"new_password"`
+}
+
+// ChangePassword godoc
+// @Summary      Change user password
+// @Description  Change the authenticated user's password
+// @Tags         Authentication
+// @Accept       json
+// @Produce      json
+// @Param        request body ChangePasswordRequest true "Password change details"
+// @Success      200 {object} APIResponse "Password changed successfully"
+// @Failure      400 {object} APIResponse "Invalid request"
+// @Failure      401 {object} APIResponse "Unauthorized"
+// @Failure      403 {object} APIResponse "Current password is incorrect"
+// @Security     BearerAuth
+// @Router       /auth/password [put]
+func (h *AuthHandler) ChangePassword(w http.ResponseWriter, r *http.Request) {
+	// Get user ID from context (set by auth middleware)
+	userID, ok := r.Context().Value("user_id").(string)
+	if !ok {
+		h.sendError(w, http.StatusUnauthorized, "User not authenticated")
+		return
+	}
+
+	var req ChangePasswordRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		h.sendError(w, http.StatusBadRequest, "Invalid request body")
+		return
+	}
+
+	// Validate required fields
+	if req.CurrentPassword == "" || req.NewPassword == "" {
+		h.sendError(w, http.StatusBadRequest, "Current password and new password are required")
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	// Call auth service
+	grpcReq := &authpb.ChangePasswordRequest{
+		UserId:          userID,
+		CurrentPassword: req.CurrentPassword,
+		NewPassword:     req.NewPassword,
+	}
+
+	resp, err := h.authClient.ChangePassword(ctx, grpcReq)
+	if err != nil {
+		h.handleGRPCError(w, err, "Failed to change password")
+		return
+	}
+
+	// Format response
+	data := map[string]interface{}{
+		"success": resp.Success,
+	}
+
+	h.sendSuccess(w, resp.Message, data)
+}
+
+// UploadAvatar godoc
+// @Summary      Upload user avatar
+// @Description  Upload a new avatar image for the authenticated user. Replaces existing avatar at {userId}/avatar path.
+// @Tags         Authentication
+// @Accept       multipart/form-data
+// @Produce      json
+// @Param        file formData file true "Avatar image file (max 5MB, jpg/png/webp)"
+// @Success      200 {object} APIResponse "Avatar uploaded successfully"
+// @Failure      400 {object} APIResponse "Invalid file"
+// @Failure      401 {object} APIResponse "Unauthorized"
+// @Security     BearerAuth
+// @Router       /auth/avatar [post]
+func (h *AuthHandler) UploadAvatar(w http.ResponseWriter, r *http.Request) {
+	// Get user ID from context (set by auth middleware)
+	userID, ok := r.Context().Value("user_id").(string)
+	if !ok {
+		h.sendError(w, http.StatusUnauthorized, "User not authenticated")
+		return
+	}
+
+	// Parse multipart form (max 10MB)
+	if err := r.ParseMultipartForm(10 << 20); err != nil {
+		h.sendError(w, http.StatusBadRequest, "Failed to parse form data")
+		return
+	}
+
+	file, header, err := r.FormFile("file")
+	if err != nil {
+		h.sendError(w, http.StatusBadRequest, "File is required")
+		return
+	}
+	defer file.Close()
+
+	// Validate file size (5MB max)
+	if header.Size > 5<<20 {
+		h.sendError(w, http.StatusBadRequest, "File size must be less than 5MB")
+		return
+	}
+
+	// Validate file type
+	contentType := header.Header.Get("Content-Type")
+	if contentType == "" {
+		// Detect from filename extension
+		ext := header.Filename[len(header.Filename)-4:]
+		switch ext {
+		case ".jpg", "jpeg":
+			contentType = "image/jpeg"
+		case ".png":
+			contentType = "image/png"
+		case "webp":
+			contentType = "image/webp"
+		default:
+			h.sendError(w, http.StatusBadRequest, "Invalid file type. Only jpg, png, webp allowed")
+			return
+		}
+	}
+
+	if contentType != "image/jpeg" && contentType != "image/png" && contentType != "image/webp" {
+		h.sendError(w, http.StatusBadRequest, "Invalid file type. Only jpg, png, webp allowed")
+		return
+	}
+
+	// Create multipart form for bucket service
+	body := &bytes.Buffer{}
+	writer := multipart.NewWriter(body)
+
+	// Add file
+	part, err := writer.CreateFormFile("file", header.Filename)
+	if err != nil {
+		h.sendError(w, http.StatusInternalServerError, "Failed to create form file")
+		return
+	}
+
+	if _, err := io.Copy(part, file); err != nil {
+		h.sendError(w, http.StatusInternalServerError, "Failed to copy file")
+		return
+	}
+
+	// Add metadata
+	writer.WriteField("bucket", "avatars")
+	writer.WriteField("is_public", "true")
+	writer.WriteField("key", userID+"/avatar") // Custom key for avatar path
+	writer.Close()
+
+	// Forward to bucket service
+	bucketServiceURL := getEnv("BUCKET_SERVICE_URL", "bucket-service:8088")
+	uploadURL := fmt.Sprintf("http://%s/api/files/upload", bucketServiceURL)
+
+	req, err := http.NewRequest("POST", uploadURL, body)
+	if err != nil {
+		h.sendError(w, http.StatusInternalServerError, "Failed to create request")
+		return
+	}
+
+	req.Header.Set("Content-Type", writer.FormDataContentType())
+	req.Header.Set("Authorization", r.Header.Get("Authorization"))
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	req = req.WithContext(ctx)
+
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		h.logger.Errorf("Failed to upload to bucket service: %v", err)
+		h.sendError(w, http.StatusInternalServerError, "Failed to upload avatar")
+		return
+	}
+	defer resp.Body.Close()
+
+	// Read response
+	respBody, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		h.sendError(w, http.StatusInternalServerError, "Failed to read response")
+		return
+	}
+
+	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusCreated {
+		h.logger.Errorf("Bucket service error: %s", string(respBody))
+		h.sendError(w, resp.StatusCode, "Failed to upload avatar")
+		return
+	}
+
+	// Parse bucket service response
+	var bucketResp struct {
+		FileID      string `json:"file_id"`
+		Filename    string `json:"filename"`
+		URL         string `json:"url"`
+		ContentType string `json:"content_type"`
+	}
+
+	if err := json.Unmarshal(respBody, &bucketResp); err != nil {
+		h.logger.Errorf("Failed to parse bucket response: %v", err)
+		h.sendError(w, http.StatusInternalServerError, "Failed to parse response")
+		return
+	}
+
+	// Update user profile with new avatar URL
+	ctx2, cancel2 := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel2()
+
+	grpcReq := &authpb.UpdateProfileRequest{
+		UserId:    userID,
+		AvatarUrl: bucketResp.URL,
+	}
+
+	_, err = h.authClient.UpdateProfile(ctx2, grpcReq)
+	if err != nil {
+		h.logger.Errorf("Failed to update profile with avatar: %v", err)
+		// Avatar uploaded but profile update failed - not critical
+	}
+
+	// Return success with avatar URL
+	data := map[string]interface{}{
+		"avatar_url": bucketResp.URL,
+		"message":    "Avatar uploaded successfully",
+	}
+
+	h.sendSuccess(w, "Avatar uploaded successfully", data)
 }

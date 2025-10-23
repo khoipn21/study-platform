@@ -159,6 +159,10 @@ func (rt *Router) SetupRoutes() *mux.Router {
 	protectedAuthRoutes := api.PathPrefix("/auth").Subrouter()
 	protectedAuthRoutes.Use(rt.authMiddleware.RequireAuth)
 	protectedAuthRoutes.HandleFunc("/profile", rt.authHandler.GetProfile).Methods("GET")
+	protectedAuthRoutes.HandleFunc("/me", rt.authHandler.GetCurrentUser).Methods("GET")
+	protectedAuthRoutes.HandleFunc("/profile", rt.authHandler.UpdateProfile).Methods("PUT")
+	protectedAuthRoutes.HandleFunc("/password", rt.authHandler.ChangePassword).Methods("PUT")
+	protectedAuthRoutes.HandleFunc("/avatar", rt.authHandler.UploadAvatar).Methods("POST")
 
 	// Course routes (some public, some protected)
 	courseRoutes := api.PathPrefix("/courses").Subrouter()

@@ -185,3 +185,84 @@ func (s *AuthService) ListUsers(query string, limit int32) ([]*model.User, error
 
 	return users, nil
 }
+
+func (s *AuthService) GetCurrentUser(userID uuid.UUID) (*model.User, error) {
+	user, err := s.userRepo.GetByID(userID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get user: %w", err)
+	}
+
+	return user, nil
+}
+
+func (s *AuthService) UpdateProfile(userID uuid.UUID, username, email, avatarURL *string) (*model.User, error) {
+	// Check if username is already taken (if updating username)
+	if username != nil && *username != "" {
+		existingUser, _ := s.userRepo.GetByUsername(*username)
+		if existingUser != nil && existingUser.ID != userID {
+			return nil, fmt.Errorf("username already exists")
+		}
+	}
+
+	// Check if email is already taken (if updating email)
+	if email != nil && *email != "" {
+		existingUser, _ := s.userRepo.GetByEmail(*email)
+		if existingUser != nil && existingUser.ID != userID {
+			return nil, fmt.Errorf("email already exists")
+		}
+	}
+
+	// Update profile
+	err := s.userRepo.UpdateProfile(userID, username, email, avatarURL)
+	if err != nil {
+		return nil, fmt.Errorf("failed to update profile: %w", err)
+	}
+
+	// Fetch updated user
+	user, err := s.userRepo.GetByID(userID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get updated user: %w", err)
+	}
+
+	s.logger.Infof("Profile updated successfully for user: %s", userID)
+	return user, nil
+}
+
+func (s *AuthService) ChangePassword(userID uuid.UUID, currentPassword, newPassword string) error {
+	// Validate new password strength
+	if len(newPassword) < 8 {
+		return fmt.Errorf("password must be at least 8 characters long")
+	}
+
+	// Get user to verify current password
+	user, err := s.userRepo.GetByID(userID)
+	if err != nil {
+		return fmt.Errorf("user not found")
+	}
+
+	// Check if user has a password (not OAuth-only account)
+	if user.PasswordHash == nil {
+		return fmt.Errorf("cannot change password for OAuth-only account")
+	}
+
+	// Verify current password
+	err = bcrypt.CompareHashAndPassword([]byte(*user.PasswordHash), []byte(currentPassword))
+	if err != nil {
+		return fmt.Errorf("current password is incorrect")
+	}
+
+	// Hash new password
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(newPassword), bcrypt.DefaultCost)
+	if err != nil {
+		return fmt.Errorf("failed to hash password: %w", err)
+	}
+
+	// Update password
+	err = s.userRepo.UpdatePassword(userID, string(hashedPassword))
+	if err != nil {
+		return fmt.Errorf("failed to update password: %w", err)
+	}
+
+	s.logger.Infof("Password changed successfully for user: %s", userID)
+	return nil
+}

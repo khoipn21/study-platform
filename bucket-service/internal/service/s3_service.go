@@ -82,6 +82,7 @@ type UploadInput struct {
 	FileType    model.FileType
 	UserID      uuid.UUID
 	IsPublic    bool
+	CustomKey   string            // Optional custom key for specific paths like {userId}/avatar
 	Metadata    map[string]string
 }
 
@@ -96,9 +97,17 @@ type UploadResult struct {
 }
 
 func (s *S3Service) UploadFile(ctx context.Context, input *UploadInput) (*UploadResult, error) {
-	// Generate unique object key
+	// Generate unique object key or use custom key if provided
 	fileID := uuid.New()
-	objectKey := s.generateObjectKey(fileID, input.Filename, input.FileType)
+	var objectKey string
+	if input.CustomKey != "" {
+		// Use custom key for specific paths like {userId}/avatar
+		objectKey = input.CustomKey
+		fmt.Printf("DEBUG: Using custom object key: %s\n", objectKey)
+	} else {
+		// Generate standard object key
+		objectKey = s.generateObjectKey(fileID, input.Filename, input.FileType)
+	}
 	bucketName := s.GetBucketName(input.FileType)
 
 	// Create metadata

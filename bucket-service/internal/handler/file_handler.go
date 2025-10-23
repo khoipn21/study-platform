@@ -73,6 +73,7 @@ func (h *FileHandler) UploadFile(c *gin.Context) {
 	}
 	isPublic := c.PostForm("is_public") == "true"
 	metadata := c.PostForm("metadata")
+	customKey := c.PostForm("key") // Custom key for specific file paths like {userId}/avatar
 
 	// Validate file
 	if err := h.validateFile(header, file); err != nil {
@@ -165,6 +166,22 @@ func (h *FileHandler) UploadFile(c *gin.Context) {
 		file.Read(processedData)
 	}
 
+	// If custom key provided, check if file exists and delete it first
+	if customKey != "" {
+		fmt.Printf("DEBUG: Using custom key: %s\n", customKey)
+		// Get the actual bucket name used by S3Service
+		actualBucketName := h.s3Service.GetBucketName(fileType)
+		// Try to find and delete existing file at this key
+		existingFile, err := h.fileRepo.GetFileByObjectKey(c.Request.Context(), actualBucketName, customKey)
+		if err == nil && existingFile != nil {
+			fmt.Printf("DEBUG: Found existing file at key %s, deleting...\n", customKey)
+			// Delete from S3
+			h.s3Service.DeleteFile(c.Request.Context(), existingFile.BucketName, existingFile.ObjectKey)
+			// Delete from database
+			h.fileRepo.DeleteFile(c.Request.Context(), existingFile.ID)
+		}
+	}
+
 	// Upload to S3
 	uploadInput := &service.UploadInput{
 		Reader:      bytes.NewReader(processedData),
@@ -173,6 +190,7 @@ func (h *FileHandler) UploadFile(c *gin.Context) {
 		FileType:    fileType,
 		UserID:      userID,
 		IsPublic:    isPublic,
+		CustomKey:   customKey, // Pass custom key to S3 service
 		Metadata: map[string]string{
 			"original_filename": header.Filename,
 			"bucket_type":       bucketType,

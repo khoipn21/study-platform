@@ -311,7 +311,7 @@ func (h *AuthHandler) GetLinkedAccounts(ctx context.Context, req *pb.GetLinkedAc
 }
 
 func (h *AuthHandler) userToProto(user *model.User) *pb.User {
-	return &pb.User{
+	pbUser := &pb.User{
 		Id:        user.ID.String(),
 		Username:  user.Username,
 		Email:     user.Email,
@@ -319,6 +319,13 @@ func (h *AuthHandler) userToProto(user *model.User) *pb.User {
 		CreatedAt: timestamppb.New(user.CreatedAt),
 		UpdatedAt: timestamppb.New(user.UpdatedAt),
 	}
+	
+	// Handle optional avatar_url
+	if user.AvatarURL != nil {
+		pbUser.AvatarUrl = *user.AvatarURL
+	}
+	
+	return pbUser
 }
 func (h *AuthHandler) ListUsers(ctx context.Context, req *pb.ListUsersRequest) (*pb.ListUsersResponse, error) {
 	// Default limit if not specified
@@ -354,5 +361,97 @@ func (h *AuthHandler) ListUsers(ctx context.Context, req *pb.ListUsersRequest) (
 
 	return &pb.ListUsersResponse{
 		Users: pbUsers,
+	}, nil
+}
+
+func (h *AuthHandler) GetCurrentUser(ctx context.Context, req *pb.GetCurrentUserRequest) (*pb.GetCurrentUserResponse, error) {
+	if req.UserId == "" {
+		return nil, status.Error(codes.InvalidArgument, "user_id is required")
+	}
+
+	userID, err := uuid.Parse(req.UserId)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid user_id format")
+	}
+
+	user, err := h.authService.GetCurrentUser(userID)
+	if err != nil {
+		h.logger.Error(fmt.Errorf("get current user error: %w", err))
+		return nil, status.Error(codes.NotFound, "user not found")
+	}
+
+	return &pb.GetCurrentUserResponse{
+		User:    h.userToProto(user),
+		Message: "User retrieved successfully",
+	}, nil
+}
+
+func (h *AuthHandler) UpdateProfile(ctx context.Context, req *pb.UpdateProfileRequest) (*pb.UpdateProfileResponse, error) {
+	if req.UserId == "" {
+		return nil, status.Error(codes.InvalidArgument, "user_id is required")
+	}
+
+	userID, err := uuid.Parse(req.UserId)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid user_id format")
+	}
+
+	// Prepare optional fields
+	var username, email, avatarURL *string
+	if req.Username != "" {
+		username = &req.Username
+	}
+	if req.Email != "" {
+		email = &req.Email
+	}
+	if req.AvatarUrl != "" {
+		avatarURL = &req.AvatarUrl
+	}
+
+	// Check if at least one field is provided
+	if username == nil && email == nil && avatarURL == nil {
+		return nil, status.Error(codes.InvalidArgument, "at least one field must be provided")
+	}
+
+	user, err := h.authService.UpdateProfile(userID, username, email, avatarURL)
+	if err != nil {
+		h.logger.Error(fmt.Errorf("update profile error: %w", err))
+		if err.Error() == "username already exists" || err.Error() == "email already exists" {
+			return nil, status.Error(codes.AlreadyExists, err.Error())
+		}
+		return nil, status.Error(codes.Internal, "failed to update profile")
+	}
+
+	return &pb.UpdateProfileResponse{
+		User:    h.userToProto(user),
+		Message: "Profile updated successfully",
+	}, nil
+}
+
+func (h *AuthHandler) ChangePassword(ctx context.Context, req *pb.ChangePasswordRequest) (*pb.ChangePasswordResponse, error) {
+	if req.UserId == "" || req.CurrentPassword == "" || req.NewPassword == "" {
+		return nil, status.Error(codes.InvalidArgument, "user_id, current_password, and new_password are required")
+	}
+
+	userID, err := uuid.Parse(req.UserId)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid user_id format")
+	}
+
+	err = h.authService.ChangePassword(userID, req.CurrentPassword, req.NewPassword)
+	if err != nil {
+		h.logger.Error(fmt.Errorf("change password error: %w", err))
+		if err.Error() == "current password is incorrect" {
+			return nil, status.Error(codes.PermissionDenied, "current password is incorrect")
+		}
+		if err.Error() == "password must be at least 8 characters long" {
+			return nil, status.Error(codes.InvalidArgument, "password must be at least 8 characters long")
+		}
+		return nil, status.Error(codes.Internal, "failed to change password")
+	}
+
+	return &pb.ChangePasswordResponse{
+		Success: true,
+		Message: "Password changed successfully",
 	}, nil
 }

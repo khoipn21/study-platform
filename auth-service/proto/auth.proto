@@ -19,6 +19,9 @@ service AuthService {
     rpc UnlinkOAuthAccount(UnlinkOAuthAccountRequest) returns (UnlinkOAuthAccountResponse);
     rpc GetLinkedAccounts(GetLinkedAccountsRequest) returns (GetLinkedAccountsResponse);
     rpc ListUsers(ListUsersRequest) returns (ListUsersResponse);
+    rpc GetCurrentUser(GetCurrentUserRequest) returns (GetCurrentUserResponse);
+    rpc UpdateProfile(UpdateProfileRequest) returns (UpdateProfileResponse);
+    rpc ChangePassword(ChangePasswordRequest) returns (ChangePasswordResponse);
 }
 
 message User {
@@ -28,6 +31,7 @@ message User {
     string role = 4;
     google.protobuf.Timestamp created_at = 5;
     google.protobuf.Timestamp updated_at = 6;
+    string avatar_url = 7;
 }
 
 message RegisterRequest {
@@ -158,4 +162,36 @@ message ListUsersRequest {
 
 message ListUsersResponse {
     repeated UserInfo users = 1;
+}
+
+message GetCurrentUserRequest {
+    string user_id = 1;
+}
+
+message GetCurrentUserResponse {
+    User user = 1;
+    string message = 2;
+}
+
+message UpdateProfileRequest {
+    string user_id = 1;
+    string username = 2;
+    string email = 3;
+    string avatar_url = 4;
+}
+
+message UpdateProfileResponse {
+    User user = 1;
+    string message = 2;
+}
+
+message ChangePasswordRequest {
+    string user_id = 1;
+    string current_password = 2;
+    string new_password = 3;
+}
+
+message ChangePasswordResponse {
+    bool success = 1;
+    string message = 2;
 }

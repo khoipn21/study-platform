@@ -39,8 +39,12 @@ func (r *UserRepository) GetByID(id uuid.UUID) (*model.User, error) {
 	`
 	
 	user := &model.User{}
+	var avatarURL sql.NullString
+	var providerID sql.NullString
+	var passwordHash sql.NullString
+	
 	err := r.db.QueryRow(query, id).Scan(
-		&user.ID, &user.Username, &user.Email, &user.PasswordHash, &user.Role, &user.Provider, &user.ProviderID, &user.AvatarURL, &user.IsEmailVerified, &user.CreatedAt, &user.UpdatedAt,
+		&user.ID, &user.Username, &user.Email, &passwordHash, &user.Role, &user.Provider, &providerID, &avatarURL, &user.IsEmailVerified, &user.CreatedAt, &user.UpdatedAt,
 	)
 	
 	if err != nil {
@@ -48,6 +52,17 @@ func (r *UserRepository) GetByID(id uuid.UUID) (*model.User, error) {
 			return nil, fmt.Errorf("user not found")
 		}
 		return nil, fmt.Errorf("failed to get user: %w", err)
+	}
+	
+	// Handle nullable fields
+	if passwordHash.Valid {
+		user.PasswordHash = &passwordHash.String
+	}
+	if providerID.Valid {
+		user.ProviderID = &providerID.String
+	}
+	if avatarURL.Valid {
+		user.AvatarURL = &avatarURL.String
 	}
 	
 	return user, nil
@@ -61,8 +76,12 @@ func (r *UserRepository) GetByEmail(email string) (*model.User, error) {
 	`
 	
 	user := &model.User{}
+	var avatarURL sql.NullString
+	var providerID sql.NullString
+	var passwordHash sql.NullString
+	
 	err := r.db.QueryRow(query, email).Scan(
-		&user.ID, &user.Username, &user.Email, &user.PasswordHash, &user.Role, &user.Provider, &user.ProviderID, &user.AvatarURL, &user.IsEmailVerified, &user.CreatedAt, &user.UpdatedAt,
+		&user.ID, &user.Username, &user.Email, &passwordHash, &user.Role, &user.Provider, &providerID, &avatarURL, &user.IsEmailVerified, &user.CreatedAt, &user.UpdatedAt,
 	)
 	
 	if err != nil {
@@ -72,19 +91,34 @@ func (r *UserRepository) GetByEmail(email string) (*model.User, error) {
 		return nil, fmt.Errorf("failed to get user: %w", err)
 	}
 	
+	// Handle nullable fields
+	if passwordHash.Valid {
+		user.PasswordHash = &passwordHash.String
+	}
+	if providerID.Valid {
+		user.ProviderID = &providerID.String
+	}
+	if avatarURL.Valid {
+		user.AvatarURL = &avatarURL.String
+	}
+	
 	return user, nil
 }
 
 func (r *UserRepository) GetByUsername(username string) (*model.User, error) {
 	query := `
-		SELECT id, username, email, password_hash, role, created_at, updated_at
+		SELECT id, username, email, password_hash, role, provider, provider_id, avatar_url, is_email_verified, created_at, updated_at
 		FROM users
 		WHERE username = $1
 	`
 	
 	user := &model.User{}
+	var avatarURL sql.NullString
+	var providerID sql.NullString
+	var passwordHash sql.NullString
+	
 	err := r.db.QueryRow(query, username).Scan(
-		&user.ID, &user.Username, &user.Email, &user.PasswordHash, &user.Role, &user.CreatedAt, &user.UpdatedAt,
+		&user.ID, &user.Username, &user.Email, &passwordHash, &user.Role, &user.Provider, &providerID, &avatarURL, &user.IsEmailVerified, &user.CreatedAt, &user.UpdatedAt,
 	)
 	
 	if err != nil {
@@ -92,6 +126,17 @@ func (r *UserRepository) GetByUsername(username string) (*model.User, error) {
 			return nil, fmt.Errorf("user not found")
 		}
 		return nil, fmt.Errorf("failed to get user: %w", err)
+	}
+	
+	// Handle nullable fields
+	if passwordHash.Valid {
+		user.PasswordHash = &passwordHash.String
+	}
+	if providerID.Valid {
+		user.ProviderID = &providerID.String
+	}
+	if avatarURL.Valid {
+		user.AvatarURL = &avatarURL.String
 	}
 	
 	return user, nil
@@ -229,4 +274,91 @@ func (r *UserRepository) SearchUsers(query string, limit int) ([]*model.User, er
 	}
 	
 	return users, nil
+}
+
+func (r *UserRepository) UpdateProfile(userID uuid.UUID, username, email, avatarURL *string) error {
+	// Build dynamic query based on which fields are provided
+	updates := []string{}
+	args := []interface{}{}
+	argPos := 1
+	
+	if username != nil {
+		updates = append(updates, fmt.Sprintf("username = $%d", argPos))
+		args = append(args, *username)
+		argPos++
+	}
+	
+	if email != nil {
+		updates = append(updates, fmt.Sprintf("email = $%d", argPos))
+		args = append(args, *email)
+		argPos++
+	}
+	
+	if avatarURL != nil {
+		updates = append(updates, fmt.Sprintf("avatar_url = $%d", argPos))
+		args = append(args, *avatarURL)
+		argPos++
+	}
+	
+	if len(updates) == 0 {
+		return fmt.Errorf("no fields to update")
+	}
+	
+	updates = append(updates, "updated_at = NOW()")
+	args = append(args, userID)
+	
+	// Build the SET clause
+	setClause := ""
+	for i, update := range updates {
+		if i > 0 {
+			setClause += ", "
+		}
+		setClause += update
+	}
+	
+	query := fmt.Sprintf(`
+		UPDATE users
+		SET %s
+		WHERE id = $%d
+	`, setClause, argPos)
+	
+	result, err := r.db.Exec(query, args...)
+	if err != nil {
+		return fmt.Errorf("failed to update user profile: %w", err)
+	}
+	
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("failed to get rows affected: %w", err)
+	}
+	
+	if rowsAffected == 0 {
+		return fmt.Errorf("user not found")
+	}
+	
+	return nil
+}
+
+func (r *UserRepository) UpdatePassword(userID uuid.UUID, newPasswordHash string) error {
+	query := `
+		UPDATE users
+		SET password_hash = $1, updated_at = NOW()
+		WHERE id = $2
+	`
+	
+	result, err := r.db.Exec(query, newPasswordHash, userID)
+	if err != nil {
+		return fmt.Errorf("failed to update password: %w", err)
+	}
+	
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("failed to get rows affected: %w", err)
+	}
+	
+	if rowsAffected == 0 {
+		return fmt.Errorf("user not found")
+	}
+	
+	return nil
 }
